@@ -274,7 +274,7 @@
 
     .day-cell {
       background: var(--card);
-      min-height: 68px;
+      min-height: 64px;
       padding: 2px 1px;
       display: flex;
       flex-direction: column;
@@ -354,7 +354,7 @@
     .btn-good { background: var(--good); color: white; }
     .btn-outline { background: transparent; border: 1.5px solid var(--line); color: var(--ink); }
     .btn-sm { padding: 3px 6px; font-size: 10.5px; border-radius: 5px; width: auto; }
-    .btn-nudge { background: var(--bg); border: 1px solid var(--line); color: var(--ink); border-radius: 6px; padding: 3px 5px; font-size: 10px; font-weight: bold; cursor: pointer; flex-shrink: 0; }
+    .btn-nudge { background: var(--bg); border: 1.5px solid var(--line); color: var(--ink); border-radius: 6px; padding: 3px 5px; font-size: 10px; font-weight: bold; cursor: pointer; flex-shrink: 0; }
 
     .form-group { margin-bottom: 8px; width: 100%; }
     .form-group label { display: block; font-size: 10.5px; font-weight: 600; color: var(--muted); margin-bottom: 2px; }
@@ -947,7 +947,7 @@
         </div>
 
         <div style="margin-bottom: 6px; text-align: right;">
-          <button type="button" class="btn btn-outline btn-sm" id="save-as-pin-btn">＋ この入力内容をテンプレ保存</button>
+          <button type="button" class="btn btn-outline btn-sm" id="save-as-pin-btn">＋ この内容をテンプレ保存</button>
         </div>
 
         <div class="form-row">
@@ -1011,7 +1011,7 @@
         </div>
       </form>
 
-      <!-- 支出フォーム -->
+      <!-- 支出フォーム (メモ欄を任意に変更) -->
       <form id="expense-form" style="display: none;">
         <input type="hidden" id="expense-id">
         <div class="form-row">
@@ -1035,8 +1035,8 @@
           </div>
         </div>
         <div class="form-group">
-          <label>メモ</label>
-          <input type="text" id="expense-memo" class="form-control" placeholder="例: ラーメン" required>
+          <label>メモ (任意)</label>
+          <input type="text" id="expense-memo" class="form-control" placeholder="例: ラーメン (空欄でもOK)">
         </div>
         <div class="form-group">
           <label>金額 (計算式可 例: 500+300)</label>
@@ -1068,8 +1068,8 @@
           </div>
         </div>
         <div class="form-group">
-          <label>メモ</label>
-          <input type="text" id="income-memo" class="form-control" placeholder="例: メルカリ売上" required>
+          <label>メモ (任意)</label>
+          <input type="text" id="income-memo" class="form-control" placeholder="例: メルカリ (空欄でもOK)">
         </div>
         <div class="form-group">
           <label>金額 (計算式可)</label>
@@ -2064,7 +2064,7 @@
           DB.pins.map(p => `<option value="${p.id}">${p.label}</option>`).join("");
       });
 
-      const jobSelects = [document.getElementById("shift-job-id"), document.getElementById("override-job-id")];
+      const jobSelects = [document.getElementById("shift-job-id"), document.getElementById("override-job-id"), document.getElementById("edit-pin-job")];
       jobSelects.forEach(sel => {
         if (!sel) return;
         sel.innerHTML = DB.jobs.map(j => `<option value="${j.id}">${j.name}</option>`).join("");
@@ -2209,7 +2209,7 @@
         document.getElementById("expense-id").value = e.id;
         document.getElementById("expense-date").value = e.date;
         document.getElementById("expense-category").value = e.category || "食費";
-        document.getElementById("expense-memo").value = e.memo;
+        document.getElementById("expense-memo").value = e.memo || "";
         document.getElementById("expense-amount").value = e.amount;
 
         document.getElementById("delete-expense-form-btn").style.display = "inline-flex";
@@ -2220,7 +2220,7 @@
         document.getElementById("income-id").value = i.id;
         document.getElementById("income-date").value = i.date;
         document.getElementById("income-category").value = i.category || "その他収入";
-        document.getElementById("income-memo").value = i.memo;
+        document.getElementById("income-memo").value = i.memo || "";
         document.getElementById("income-amount").value = i.amount;
 
         document.getElementById("delete-income-form-btn").style.display = "inline-flex";
@@ -2242,6 +2242,9 @@
         forms[k].style.display = k === type ? "block" : "none";
         btns[k].className = k === type ? "btn btn-sm" : "btn btn-outline btn-sm";
       });
+
+      // 支出や収入フォームに切り替えたときはシフト重複警告を確実に非表示にする
+      document.getElementById("shift-overlap-alert").style.display = "none";
     }
 
     function renderDayItemsList(dateStr) {
@@ -2261,14 +2264,14 @@
       DB.expenses.filter(e => e.date === dateStr).forEach(e => {
         html += `
           <div class="list-item" onclick="openEditModalById('expense', ${e.id})">
-            <div><span class="badge" style="background:var(--danger);">支出</span> <strong>${e.memo}</strong></div>
+            <div><span class="badge" style="background:var(--danger);">支出</span> <strong>${e.memo || e.category}</strong></div>
             <div><span style="color:var(--danger)">¥${e.amount.toLocaleString()}</span> <button class="btn btn-danger btn-sm" onclick="event.stopPropagation(); deleteExpense(${e.id})">削除</button></div>
           </div>`;
       });
       DB.otherIncomes.filter(i => i.date === dateStr).forEach(i => {
         html += `
           <div class="list-item" onclick="openEditModalById('income', ${i.id})">
-            <div><span class="badge" style="background:var(--good);">収入</span> <strong>${i.memo}</strong></div>
+            <div><span class="badge" style="background:var(--good);">収入</span> <strong>${i.memo || i.category}</strong></div>
             <div><span style="color:var(--good)">¥${i.amount.toLocaleString()}</span> <button class="btn btn-danger btn-sm" onclick="event.stopPropagation(); deleteIncome(${i.id})">削除</button></div>
           </div>`;
       });
@@ -2374,6 +2377,12 @@
     }
 
     function updateShiftPreview() {
+      const shiftForm = document.getElementById("shift-form");
+      if (!shiftForm || shiftForm.style.display === "none") {
+        document.getElementById("shift-overlap-alert").style.display = "none";
+        return;
+      }
+
       const jobId = document.getElementById("shift-job-id").value;
       const job = DB.jobs.find(j => String(j.id) === String(jobId));
       const sH = document.getElementById("shift-start-hour").value;
@@ -2588,7 +2597,6 @@
       document.getElementById("shift-break-min").addEventListener("change", updateShiftPreview);
       document.getElementById("shift-transport").addEventListener("change", updateShiftPreview);
 
-      // シフト入力画面からテンプレ保存ボタン
       document.getElementById("save-as-pin-btn").addEventListener("click", () => {
         const jobId = document.getElementById("shift-job-id").value;
         const job = DB.jobs.find(j => String(j.id) === String(jobId));
@@ -2651,10 +2659,12 @@
       document.getElementById("expense-form").addEventListener("submit", e => {
         e.preventDefault();
         const editId = document.getElementById("expense-id").value;
+        const category = document.getElementById("expense-category").value;
+        const memoInput = document.getElementById("expense-memo").value.trim();
         const payload = {
           date: document.getElementById("expense-date").value,
-          category: document.getElementById("expense-category").value,
-          memo: document.getElementById("expense-memo").value,
+          category: category,
+          memo: memoInput || category, // メモが空ならカテゴリ名を代入
           amount: evaluateMath(document.getElementById("expense-amount").value)
         };
 
@@ -2672,10 +2682,12 @@
       document.getElementById("income-form").addEventListener("submit", e => {
         e.preventDefault();
         const editId = document.getElementById("income-id").value;
+        const category = document.getElementById("income-category").value;
+        const memoInput = document.getElementById("income-memo").value.trim();
         const payload = {
           date: document.getElementById("income-date").value,
-          category: document.getElementById("income-category").value,
-          memo: document.getElementById("income-memo").value,
+          category: category,
+          memo: memoInput || category,
           amount: evaluateMath(document.getElementById("income-amount").value)
         };
 
