@@ -354,7 +354,7 @@
     .btn-good { background: var(--good); color: white; }
     .btn-outline { background: transparent; border: 1.5px solid var(--line); color: var(--ink); }
     .btn-sm { padding: 3px 6px; font-size: 10.5px; border-radius: 5px; width: auto; }
-    .btn-nudge { background: var(--bg); border: 1.5px solid var(--line); color: var(--ink); border-radius: 6px; padding: 3px 5px; font-size: 10px; font-weight: bold; cursor: pointer; flex-shrink: 0; }
+    .btn-nudge { background: var(--bg); border: 1px solid var(--line); color: var(--ink); border-radius: 6px; padding: 3px 5px; font-size: 10px; font-weight: bold; cursor: pointer; flex-shrink: 0; }
 
     .form-group { margin-bottom: 8px; width: 100%; }
     .form-group label { display: block; font-size: 10.5px; font-weight: 600; color: var(--muted); margin-bottom: 2px; }
@@ -750,6 +750,24 @@
 
     <!-- 3. 統計タブ -->
     <div id="tab-stats" class="tab-content">
+      <!-- 統計専用の月切り替えバー -->
+      <div class="card" style="background: var(--bg);">
+        <div class="calendar-header" style="margin-bottom: 0;">
+          <div class="cal-nav-btns">
+            <button class="cal-nav-btn" id="stats-prev-month-btn">◀</button>
+            <button class="cal-nav-btn cal-today-btn" id="stats-today-btn">今月</button>
+            <button class="cal-nav-btn" id="stats-next-month-btn">▶</button>
+          </div>
+          <input type="month" id="stats-month-picker" class="form-control" style="width: auto; padding: 2px 4px;">
+        </div>
+      </div>
+
+      <!-- 総予算の変化グラフ（折れ線グラフ） -->
+      <div class="card">
+        <div class="card-title">📈 総予算の変化と累計支出推移</div>
+        <canvas id="chart-budget-line" style="max-height: 150px !important;"></canvas>
+      </div>
+
       <div class="card">
         <div class="card-title">今月の予算状況</div>
         <div style="display: flex; justify-content: space-between; font-size: 11px; margin-bottom: 2px;">
@@ -1011,7 +1029,7 @@
         </div>
       </form>
 
-      <!-- 支出フォーム (メモ欄を任意に変更) -->
+      <!-- 支出フォーム -->
       <form id="expense-form" style="display: none;">
         <input type="hidden" id="expense-id">
         <div class="form-row">
@@ -1447,6 +1465,7 @@
     }
 
     let currentDate = new Date();
+    let statsDate = new Date(); // 統計タブ専用の月
     let multiSelectMode = false;
     let selectedDates = new Set();
     let historyLimit = 10;
@@ -1616,11 +1635,11 @@
         const dayIncomes = DB.otherIncomes.filter(i => i.date === dateStr);
         const otherIncSum = dayIncomes.reduce((acc, i) => acc + i.amount, 0);
         dayIncTotal += otherIncSum;
-        if (otherIncSum > 0) badgesHtml += `<div class="cal-badge other-income">他 +${formatBadgeAmount(otherIncSum)}</div>`;
+        if (otherIncSum > 0) badgesHtml += `<div class="cal-badge other-income">💰 収入 +${formatBadgeAmount(otherIncSum)}</div>`;
 
         const dayExpenses = DB.expenses.filter(e => e.date === dateStr);
         const dayExpSum = dayExpenses.reduce((acc, e) => acc + e.amount, 0);
-        if (dayExpSum > 0) badgesHtml += `<div class="cal-badge expense">支 -${formatBadgeAmount(dayExpSum)}</div>`;
+        if (dayExpSum > 0) badgesHtml += `<div class="cal-badge expense">💸 支出 -${formatBadgeAmount(dayExpSum)}</div>`;
 
         badgesHtml += '</div>';
 
@@ -1837,11 +1856,14 @@
       `;
     }
 
-    let chartJobs = null, chartTrend = null, chartDaily = null, chartPie = null;
+    let chartJobs = null, chartTrend = null, chartDaily = null, chartPie = null, chartBudgetLine = null;
 
     function renderStatsTab() {
-      const monthStr = `${currentDate.getFullYear()}-${String(currentDate.getMonth() + 1).padStart(2, "0")}`;
-      const expTotal = DB.expenses.filter(e => e.date.startsWith(monthStr)).reduce((acc, e) => acc + e.amount, 0);
+      const statsPicker = document.getElementById("stats-month-picker");
+      const statsMonthStr = `${statsDate.getFullYear()}-${String(statsDate.getMonth() + 1).padStart(2, "0")}`;
+      if (statsPicker) statsPicker.value = statsMonthStr;
+
+      const expTotal = DB.expenses.filter(e => e.date.startsWith(statsMonthStr)).reduce((acc, e) => acc + e.amount, 0);
       const budgetTotal = DB.budgets.monthly || 50000;
 
       document.getElementById("stats-budget-used").textContent = `¥${expTotal.toLocaleString()}`;
@@ -1858,26 +1880,61 @@
 
     function renderCharts() {
       const currentYear = currentDate.getFullYear();
-      const labels = ["1月","2月","3月","4月","5月","6月","7月","8月","9月","10月","11月","12月"];
+      const statsYear = statsDate.getFullYear();
+      const statsMonth = statsDate.getMonth();
+      const statsMonthStr = `${statsYear}-${String(statsMonth + 1).padStart(2, "0")}`;
+      const labels12 = ["1月","2月","3月","4月","5月","6月","7月","8月","9月","10月","11月","12月"];
+
+      // 1. 総予算の変化グラフ（折れ線グラフ：累計支出 vs 予算ライン）
+      const ctxBudgetLine = document.getElementById("chart-budget-line");
+      if (ctxBudgetLine) {
+        if (chartBudgetLine) chartBudgetLine.destroy();
+        const daysInMonth = new Date(statsYear, statsMonth + 1, 0).getDate();
+        const dLabels = Array.from({ length: daysInMonth }, (_, i) => `${i + 1}日`);
+        let runningTotal = 0;
+        const cumulativeData = [];
+        const budgetLineData = [];
+        const monthlyBudget = DB.budgets.monthly || 50000;
+
+        for (let i = 1; i <= daysInMonth; i++) {
+          const dateStr = `${statsMonthStr}-${String(i).padStart(2, "0")}`;
+          const dayExp = DB.expenses.filter(e => e.date === dateStr).reduce((acc, e) => acc + e.amount, 0);
+          runningTotal += dayExp;
+          cumulativeData.push(runningTotal);
+          budgetLineData.push(monthlyBudget);
+        }
+
+        chartBudgetLine = new Chart(ctxBudgetLine, {
+          type: 'line',
+          data: {
+            labels: dLabels,
+            datasets: [
+              { label: '累計支出', data: cumulativeData, borderColor: '#ef4444', backgroundColor: 'rgba(239, 68, 68, 0.1)', fill: true, tension: 0.1 },
+              { label: '月間予算', data: budgetLineData, borderColor: '#10b981', borderDash: [5, 5], pointRadius: 0, fill: false }
+            ]
+          },
+          options: { responsive: true, maintainAspectRatio: false }
+        });
+      }
 
       const ctxJobs = document.getElementById("chart-jobs");
       if (ctxJobs) {
         if (chartJobs) chartJobs.destroy();
         const datasets = DB.jobs.map(job => {
-          const data = labels.map((_, idx) => {
+          const data = labels12.map((_, idx) => {
             const mStr = `${currentYear}-${String(idx + 1).padStart(2, "0")}`;
             return getJobPeriodIncomeList(job, mStr).reduce((acc, p) => acc + p.income, 0);
           });
           return { label: job.name, data, backgroundColor: job.color || '#f97316' };
         });
-        chartJobs = new Chart(ctxJobs, { type: 'bar', data: { labels, datasets }, options: { responsive: true, maintainAspectRatio: false } });
+        chartJobs = new Chart(ctxJobs, { type: 'bar', data: { labels: labels12, datasets }, options: { responsive: true, maintainAspectRatio: false } });
       }
 
       const ctxTrend = document.getElementById("chart-trend");
       if (ctxTrend) {
         if (chartTrend) chartTrend.destroy();
         const incData = [], expData = [];
-        labels.forEach((_, idx) => {
+        labels12.forEach((_, idx) => {
           const mStr = `${currentYear}-${String(idx + 1).padStart(2, "0")}`;
           let inc = 0;
           DB.jobs.forEach(j => getJobPeriodIncomeList(j, mStr).forEach(p => inc += p.income));
@@ -1888,7 +1945,7 @@
         chartTrend = new Chart(ctxTrend, {
           type: 'line',
           data: {
-            labels,
+            labels: labels12,
             datasets: [
               { label: '収入', data: incData, borderColor: '#10b981', tension: 0.2 },
               { label: '支出', data: expData, borderColor: '#ef4444', tension: 0.2 }
@@ -1901,11 +1958,10 @@
       const ctxDaily = document.getElementById("chart-daily-expense");
       if (ctxDaily) {
         if (chartDaily) chartDaily.destroy();
-        const monthStr = `${currentDate.getFullYear()}-${String(currentDate.getMonth() + 1).padStart(2, "0")}`;
-        const daysInMonth = new Date(currentDate.getFullYear(), currentDate.getMonth() + 1, 0).getDate();
+        const daysInMonth = new Date(statsYear, statsMonth + 1, 0).getDate();
         const dLabels = Array.from({ length: daysInMonth }, (_, i) => `${i + 1}日`);
         const dData = dLabels.map((_, i) => {
-          const dateStr = `${monthStr}-${String(i + 1).padStart(2, "0")}`;
+          const dateStr = `${statsMonthStr}-${String(i + 1).padStart(2, "0")}`;
           return DB.expenses.filter(e => e.date === dateStr).reduce((acc, e) => acc + e.amount, 0);
         });
         chartDaily = new Chart(ctxDaily, {
@@ -1918,9 +1974,8 @@
       const ctxPie = document.getElementById("chart-expense-pie");
       if (ctxPie) {
         if (chartPie) chartPie.destroy();
-        const monthStr = `${currentDate.getFullYear()}-${String(currentDate.getMonth() + 1).padStart(2, "0")}`;
         const catMap = {};
-        DB.expenses.filter(e => e.date.startsWith(monthStr)).forEach(e => {
+        DB.expenses.filter(e => e.date.startsWith(statsMonthStr)).forEach(e => {
           catMap[e.category] = (catMap[e.category] || 0) + e.amount;
         });
         chartPie = new Chart(ctxPie, {
@@ -1934,7 +1989,6 @@
       }
     }
 
-    // テンプレート編集モーダルを開く
     window.openPinEditModal = function(pinId) {
       const pin = DB.pins.find(p => String(p.id) === String(pinId));
       if (!pin) return;
@@ -2243,7 +2297,6 @@
         btns[k].className = k === type ? "btn btn-sm" : "btn btn-outline btn-sm";
       });
 
-      // 支出や収入フォームに切り替えたときはシフト重複警告を確実に非表示にする
       document.getElementById("shift-overlap-alert").style.display = "none";
     }
 
@@ -2362,7 +2415,7 @@
 
       const hintEl = document.getElementById("legal-break-hint");
       if (hintEl) {
-        hintEl.textContent = isKyoei ? `(協栄:${autoBreak}分自動)` : (grossMins === 360 ? `(6h特例:45分)` : `(自動:${autoBreak}分)`);
+        hintEl.textContent = isKyoei ? `(協栄:${autoBreak}분自動)` : (grossMins === 360 ? `(6h特例:45分)` : `(自動:${autoBreak}分)`);
       }
     }
 
@@ -2522,6 +2575,7 @@
         document.getElementById("coin-gacha-status").textContent = "今日の貯金を完了しました🎉";
       });
 
+      // ホームカレンダー月切り替え
       document.getElementById("prev-month-btn").addEventListener("click", () => { currentDate.setMonth(currentDate.getMonth() - 1); renderAll(); });
       document.getElementById("next-month-btn").addEventListener("click", () => { currentDate.setMonth(currentDate.getMonth() + 1); renderAll(); });
       document.getElementById("today-btn").addEventListener("click", () => { currentDate = new Date(); renderAll(); });
@@ -2529,6 +2583,16 @@
         const [y, m] = e.target.value.split("-").map(Number);
         currentDate = new Date(y, m - 1, 1);
         renderAll();
+      });
+
+      // 統計タブ専用月切り替え
+      document.getElementById("stats-prev-month-btn").addEventListener("click", () => { statsDate.setMonth(statsDate.getMonth() - 1); renderStatsTab(); });
+      document.getElementById("stats-next-month-btn").addEventListener("click", () => { statsDate.setMonth(statsDate.getMonth() + 1); renderStatsTab(); });
+      document.getElementById("stats-today-btn").addEventListener("click", () => { statsDate = new Date(); renderStatsTab(); });
+      document.getElementById("stats-month-picker").addEventListener("change", (e) => {
+        const [y, m] = e.target.value.split("-").map(Number);
+        statsDate = new Date(y, m - 1, 1);
+        renderStatsTab();
       });
 
       document.getElementById("multi-select-toggle-btn").addEventListener("click", () => {
@@ -2664,7 +2728,7 @@
         const payload = {
           date: document.getElementById("expense-date").value,
           category: category,
-          memo: memoInput || category, // メモが空ならカテゴリ名を代入
+          memo: memoInput || category,
           amount: evaluateMath(document.getElementById("expense-amount").value)
         };
 
