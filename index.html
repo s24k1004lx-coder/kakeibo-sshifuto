@@ -4,6 +4,10 @@
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover">
   <title>シフト給料＆家計簿 PRO</title>
+
+  <!-- 📱 スマホホーム画面用アイコン -->
+  <link rel="apple-touch-icon" href="https://img.icons8.com/color/192/calculator--v1.png">
+
   <!-- Chart.js CDN -->
   <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
   <style>
@@ -1527,7 +1531,6 @@
       document.getElementById("total-asset-val").textContent = `¥${assetVal.toLocaleString()}`;
     }
 
-    // カレンダー描画（給料日マーク付与）
     function renderCalendar() {
       const year = currentDate.getFullYear();
       const month = currentDate.getMonth();
@@ -1543,7 +1546,6 @@
       const firstDay = new Date(year, month, 1).getDay();
       const lastDate = new Date(year, month + 1, 0).getDate();
 
-      // 当月の給料日マップを作成
       let paydayMap = {};
       DB.jobs.forEach(job => {
         getJobPeriodIncomeList(job, monthStr).forEach(p => {
@@ -1599,7 +1601,6 @@
         let dayIncTotal = 0;
         let badgesHtml = '<div class="cal-badge-container">';
 
-        // 給料日マーク
         if (paydayMap[dateStr]) {
           badgesHtml += `<div class="cal-badge payday">💴 給料日</div>`;
         }
