@@ -4,9 +4,6 @@
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover">
   <title>シフト給料＆家計簿 PRO</title>
-  <!-- 📱 スマホホーム画面用アイコン -->
-  <link rel="apple-touch-icon" href="https://img.icons8.com/color/192/calculator--v1.png">
-
   <!-- Chart.js CDN -->
   <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
   <style>
@@ -273,7 +270,7 @@
 
     .day-cell {
       background: var(--card);
-      min-height: 64px;
+      min-height: 68px;
       padding: 2px 1px;
       display: flex;
       flex-direction: column;
@@ -320,6 +317,7 @@
     }
     .cal-badge.expense { background: var(--danger) !important; }
     .cal-badge.other-income { background: var(--good) !important; }
+    .cal-badge.payday { background: #8b5cf6 !important; }
 
     .cal-week-summary {
       grid-column: 1 / -1;
@@ -944,6 +942,10 @@
           <div class="pin-container" id="form-history-shortcuts"></div>
         </div>
 
+        <div style="margin-bottom: 6px; text-align: right;">
+          <button type="button" class="btn btn-outline btn-sm" id="save-as-pin-btn">＋ この入力内容をテンプレ保存</button>
+        </div>
+
         <div class="form-row">
           <div class="form-group" style="flex:1.2; min-width:0;">
             <label>勤務先</label>
@@ -995,10 +997,6 @@
             <label>交通費 (円)</label>
             <input type="text" id="shift-transport" class="form-control" value="0">
           </div>
-        </div>
-
-        <div style="margin-bottom: 6px; text-align: right;">
-          <button type="button" class="btn btn-outline btn-sm" id="save-as-pin-btn">＋ この内容をテンプレ保存</button>
         </div>
 
         <div id="shift-pay-preview" style="font-size:10.5px; color:var(--muted); margin-bottom:6px;"></div>
@@ -1082,6 +1080,43 @@
       <div id="day-items-container" style="margin-top: 10px; border-top: 1px solid var(--line); padding-top: 6px;">
         <div style="font-size: 10.5px; font-weight: 700; color: var(--muted); margin-bottom: 4px;">この日の登録データ</div>
         <div id="day-items-list"></div>
+      </div>
+    </div>
+  </div>
+
+  <!-- モーダル: テンプレート編集用 -->
+  <div class="modal-overlay" id="pin-edit-modal">
+    <div class="modal-content" style="max-width:380px;">
+      <div class="modal-header">
+        <div class="modal-title">✏️ テンプレートの編集</div>
+        <button class="icon-btn" onclick="closePinEditModal()" style="color:var(--ink);">✕</button>
+      </div>
+      <input type="hidden" id="edit-pin-id">
+      <div class="form-group">
+        <label>テンプレート名</label>
+        <input type="text" id="edit-pin-label" class="form-control">
+      </div>
+      <div class="form-group">
+        <label>勤務先</label>
+        <select id="edit-pin-job" class="form-control"></select>
+      </div>
+      <div class="form-row">
+        <div class="form-group"><label>開始時間</label><input type="time" id="edit-pin-start" class="form-control"></div>
+        <div class="form-group"><label>終了時間</label><input type="time" id="edit-pin-end" class="form-control"></div>
+      </div>
+      <div class="form-row">
+        <div class="form-group">
+          <label>休憩 (分)</label>
+          <select id="edit-pin-break" class="form-control">
+            <option value="0">0分</option><option value="15">15分</option><option value="30">30分</option>
+            <option value="45">45分</option><option value="60">60分</option><option value="75">75分</option><option value="90">90分</option>
+          </select>
+        </div>
+        <div class="form-group"><label>交通費 (円)</label><input type="text" id="edit-pin-transport" class="form-control"></div>
+      </div>
+      <div style="display:flex; gap:8px; margin-top:10px;">
+        <button class="btn" style="flex:1;" onclick="saveEditedPin()">保存する</button>
+        <button class="btn btn-danger" onclick="deletePinFromModal()">削除</button>
       </div>
     </div>
   </div>
@@ -1230,7 +1265,7 @@
           });
         }
       }
-      setTimeout(() => { if (toast.parentNode) toast.remove(); }, 4000);
+      setTimeout(() => { if (toast.parentNode) toast.remove(); }, 3000);
     }
 
     function evaluateMath(expr) {
@@ -1492,6 +1527,7 @@
       document.getElementById("total-asset-val").textContent = `¥${assetVal.toLocaleString()}`;
     }
 
+    // カレンダー描画（給料日マーク付与）
     function renderCalendar() {
       const year = currentDate.getFullYear();
       const month = currentDate.getMonth();
@@ -1506,6 +1542,17 @@
 
       const firstDay = new Date(year, month, 1).getDay();
       const lastDate = new Date(year, month + 1, 0).getDate();
+
+      // 当月の給料日マップを作成
+      let paydayMap = {};
+      DB.jobs.forEach(job => {
+        getJobPeriodIncomeList(job, monthStr).forEach(p => {
+          if (p.payDateStr) {
+            if (!paydayMap[p.payDateStr]) paydayMap[p.payDateStr] = [];
+            paydayMap[p.payDateStr].push(job.name);
+          }
+        });
+      });
 
       let weekInc = 0, weekExp = 0, cellCount = 0;
 
@@ -1551,6 +1598,11 @@
 
         let dayIncTotal = 0;
         let badgesHtml = '<div class="cal-badge-container">';
+
+        // 給料日マーク
+        if (paydayMap[dateStr]) {
+          badgesHtml += `<div class="cal-badge payday">💴 給料日</div>`;
+        }
 
         const dayShifts = DB.shifts.filter(s => s.date === dateStr);
         dayShifts.forEach(s => {
@@ -1881,6 +1933,60 @@
       }
     }
 
+    // テンプレート編集モーダルを開く
+    window.openPinEditModal = function(pinId) {
+      const pin = DB.pins.find(p => String(p.id) === String(pinId));
+      if (!pin) return;
+      document.getElementById("edit-pin-id").value = pin.id;
+      document.getElementById("edit-pin-label").value = pin.label;
+      
+      const jobSelect = document.getElementById("edit-pin-job");
+      jobSelect.innerHTML = DB.jobs.map(j => `<option value="${j.id}">${j.name}</option>`).join("");
+      jobSelect.value = pin.jobId;
+
+      document.getElementById("edit-pin-start").value = pin.start;
+      document.getElementById("edit-pin-end").value = pin.end;
+      document.getElementById("edit-pin-break").value = pin.breakMin || 0;
+      document.getElementById("edit-pin-transport").value = pin.transport || 0;
+
+      openModalWithLock("pin-edit-modal");
+    };
+
+    function closePinEditModal() {
+      closeModalWithLock("pin-edit-modal");
+    }
+
+    function saveEditedPin() {
+      const pinId = document.getElementById("edit-pin-id").value;
+      const idx = DB.pins.findIndex(p => String(p.id) === String(pinId));
+      if (idx !== -1) {
+        DB.pins[idx] = {
+          id: Number(pinId) || pinId,
+          label: document.getElementById("edit-pin-label").value.trim() || "テンプレート",
+          jobId: document.getElementById("edit-pin-job").value,
+          start: document.getElementById("edit-pin-start").value,
+          end: document.getElementById("edit-pin-end").value,
+          breakMin: Number(document.getElementById("edit-pin-break").value) || 0,
+          transport: evaluateMath(document.getElementById("edit-pin-transport").value)
+        };
+        saveDB();
+        renderAll();
+        closePinEditModal();
+        showToast("テンプレートを更新しました", false);
+      }
+    }
+
+    function deletePinFromModal() {
+      const pinId = document.getElementById("edit-pin-id").value;
+      if (confirm("このテンプレートを削除してもよろしいですか？")) {
+        DB.pins = DB.pins.filter(p => String(p.id) !== String(pinId));
+        saveDB();
+        renderAll();
+        closePinEditModal();
+        showToast("テンプレートを削除しました", false);
+      }
+    }
+
     function renderSettingsTab() {
       const jobsConfig = document.getElementById("jobs-config-list");
       if (jobsConfig) {
@@ -1902,13 +2008,13 @@
 
       const pinsConfig = document.getElementById("pins-config-list");
       if (pinsConfig) {
-        pinsConfig.innerHTML = DB.pins.map((p, idx) => `
-          <div class="list-item">
+        pinsConfig.innerHTML = DB.pins.map(p => `
+          <div class="list-item" onclick="openPinEditModal(${p.id})">
             <div>
-              <strong>${p.label}</strong>
-              <div style="font-size:11px; color:var(--muted);">${p.start} ~ ${p.end}</div>
+              <strong>📌 ${p.label}</strong>
+              <div style="font-size:11px; color:var(--muted);">${p.start} ~ ${p.end} (タップして編集)</div>
             </div>
-            <button class="btn btn-danger btn-sm" onclick="deletePin(${p.id})">削除</button>
+            <button class="btn btn-outline btn-sm" onclick="event.stopPropagation(); openPinEditModal(${p.id})">✏️ 編集</button>
           </div>
         `).join("");
       }
@@ -1982,7 +2088,7 @@
       const pinContainer = document.getElementById("form-pin-shortcuts");
       if (pinContainer) {
         pinContainer.innerHTML = DB.pins.map(p => `
-          <button type="button" class="pin-chip" onclick="applyShortcutData({jobId:${p.jobId}, start:'${p.start}', end:'${p.end}', breakMin:${p.breakMin}, transport:${p.transport||0}})">📌 ${p.label}</button>
+          <button type="button" class="pin-chip" onclick="applyShortcutData({jobId:${p.jobId}, start:'${p.start}', end:'${p.end}', breakMin:${p.breakMin}, transport:${p.transport||0}}, 'テンプレート「${p.label}」を反映しました')">📌 ${p.label}</button>
         `).join("") || '<span style="font-size:10px; color:var(--muted);">テンプレートなし</span>';
       }
 
@@ -1998,12 +2104,12 @@
         });
         const recentShortcuts = Array.from(historyMap.values()).slice(0, 4);
         histContainer.innerHTML = recentShortcuts.map(s => `
-          <button type="button" class="pin-chip" style="border-color:var(--muted); color:var(--ink);" onclick="applyShortcutData({jobId:${s.jobId}, start:'${s.start}', end:'${s.end}', breakMin:${s.breakMin}, transport:${s.transport||0}})">↩️ ${s.jobName} ${s.start}~${s.end}</button>
+          <button type="button" class="pin-chip" style="border-color:var(--muted); color:var(--ink);" onclick="applyShortcutData({jobId:${s.jobId}, start:'${s.start}', end:'${s.end}', breakMin:${s.breakMin}, transport:${s.transport||0}}, '過去のシフトを反映しました')">↩️ ${s.jobName} ${s.start}~${s.end}</button>
         `).join("") || '<span style="font-size:10px; color:var(--muted);">過去履歴なし</span>';
       }
     }
 
-    window.applyShortcutData = (data) => {
+    window.applyShortcutData = (data, toastMsg = "データを反映しました") => {
       document.getElementById("shift-job-id").value = data.jobId;
       const [sH, sM] = data.start.split(":");
       const [eH, eM] = data.end.split(":");
@@ -2012,8 +2118,9 @@
       document.getElementById("shift-end-hour").value = eH;
       document.getElementById("shift-end-min").value = eM;
       document.getElementById("shift-break-min").value = data.breakMin;
-      document.getElementById("shift-transport").value = data.transport || 0;
+      document.getElementById("shift-transport").value = (data.transport !== undefined && data.transport !== null) ? data.transport : 0;
       updateShiftPreview();
+      showToast(toastMsg, false);
     };
 
     function switchTab(tabId) {
@@ -2068,8 +2175,6 @@
       renderDayItemsList(dateStr);
       openModalWithLock("entry-modal");
       switchEntryForm("shift");
-
-      // 勤務先交通費初期化・反映
       onJobChangeSync();
       autoSelectBreakMin();
       updateShiftPreview();
@@ -2257,7 +2362,6 @@
       }
     }
 
-    // 勤務先変更時にその勤務先設定の交通費を同期セット（他勤務先への交通費引き継ぎを防止）
     function onJobChangeSync() {
       const jobId = document.getElementById("shift-job-id").value;
       const job = DB.jobs.find(j => String(j.id) === String(jobId));
@@ -2308,7 +2412,6 @@
       document.getElementById("shift-overlap-alert").style.display = hasOverlap ? "block" : "none";
     }
 
-    // 削除時の確認ダイアログメッセージ適用
     window.deleteShift = id => {
       if (confirm("このシフトを削除してもよろしいですか？")) {
         pushUndoState("シフトを削除しました");
@@ -2327,7 +2430,7 @@
       if (confirm("この収入を削除してもよろしいですか？")) {
         pushUndoState("収入を削除しました");
         DB.otherIncomes = DB.otherIncomes.filter(i => String(i.id) !== String(id));
-        saveDB(); renderAll(); closeEntryModal();
+        saveDB(); renderAll();
       }
     };
     window.deleteJob = id => {
@@ -2484,6 +2587,38 @@
       document.getElementById("shift-break-min").addEventListener("change", updateShiftPreview);
       document.getElementById("shift-transport").addEventListener("change", updateShiftPreview);
 
+      // シフト入力画面からテンプレ保存ボタン
+      document.getElementById("save-as-pin-btn").addEventListener("click", () => {
+        const jobId = document.getElementById("shift-job-id").value;
+        const job = DB.jobs.find(j => String(j.id) === String(jobId));
+        const sH = document.getElementById("shift-start-hour").value;
+        const sM = document.getElementById("shift-start-min").value;
+        const eH = document.getElementById("shift-end-hour").value;
+        const eM = document.getElementById("shift-end-min").value;
+        const breakMin = Number(document.getElementById("shift-break-min").value) || 0;
+        const transport = evaluateMath(document.getElementById("shift-transport").value);
+
+        const defaultLabel = `${job ? job.name : 'シフト'} ${sH}:${sM}〜${eH}:${eM}`;
+        const label = prompt("テンプレート名を入力してください:", defaultLabel);
+
+        if (label && label.trim()) {
+          pushUndoState("テンプレートを追加しました");
+          DB.pins.push({
+            id: Date.now(),
+            label: label.trim(),
+            jobId: jobId,
+            start: `${sH}:${sM}`,
+            end: `${eH}:${eM}`,
+            breakMin: breakMin,
+            transport: transport
+          });
+          saveDB();
+          renderPinSelects();
+          renderSettingsTab();
+          showToast("テンプレートとして保存しました！", false);
+        }
+      });
+
       document.getElementById("shift-form").addEventListener("submit", e => {
         e.preventDefault();
         const editId = document.getElementById("shift-id").value;
@@ -2566,37 +2701,6 @@
         const id = document.getElementById("income-id").value;
         if (id) deleteIncome(id);
       });
-
-        // シフト入力フォームからのテンプレ保存処理
-document.getElementById("save-as-pin-btn").addEventListener("click", () => {
-  const jobId = document.getElementById("shift-job-id").value;
-  const job = DB.jobs.find(j => String(j.id) === String(jobId));
-  const sH = document.getElementById("shift-start-hour").value;
-  const sM = document.getElementById("shift-start-min").value;
-  const eH = document.getElementById("shift-end-hour").value;
-  const eM = document.getElementById("shift-end-min").value;
-  const breakMin = Number(document.getElementById("shift-break-min").value) || 0;
-  const transport = evaluateMath(document.getElementById("shift-transport").value);
-
-  const defaultLabel = `${job ? job.name : 'シフト'} ${sH}:${sM}〜${eH}:${eM}`;
-  const label = prompt("テンプレート名を入力してください:", defaultLabel);
-
-  if (label && label.trim()) {
-    pushUndoState("テンプレートを追加しました");
-    DB.pins.push({
-      id: Date.now(),
-      label: label.trim(),
-      jobId: jobId,
-      start: `${sH}:${sM}`,
-      end: `${eH}:${eM}`,
-      breakMin: breakMin,
-      transport: transport
-    });
-    saveDB();
-    renderPinSelects();
-    renderSettingsTab();
-  }
-});
 
       document.getElementById("open-cc-modal-btn").addEventListener("click", () => {
         document.getElementById("cc-date-input").value = new Date().toISOString().slice(0, 10);
