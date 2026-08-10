@@ -321,7 +321,7 @@
     }
     .cal-badge.expense { background: var(--danger) !important; }
     .cal-badge.other-income { background: var(--good) !important; }
-    .cal-badge.overnight { background: #4b5563 !important; } /* 徹夜・日付跨ぎバッジ */
+    .cal-badge.overnight { background: #4b5563 !important; }
 
     .cal-week-summary {
       grid-column: 1 / -1;
@@ -520,13 +520,13 @@
       width: 100% !important;
     }
 
-    /* ⌨️ 専用電卓キーボード（スライドイン） */
+    /* ⌨️ 専用電卓キーボード（スライドイン & 液晶表示窓付き） */
     .calc-keyboard-drawer {
       position: fixed;
       bottom: 0; left: 0; right: 0;
       background: var(--card);
       border-top: 2px solid var(--brand);
-      box-shadow: 0 -4px 20px rgba(0,0,0,0.15);
+      box-shadow: 0 -6px 25px rgba(0,0,0,0.2);
       z-index: 500;
       display: none;
       flex-direction: column;
@@ -539,7 +539,19 @@
     .calc-keyboard-header {
       display: flex; justify-content: space-between; align-items: center;
       font-size: 11px; font-weight: bold; color: var(--muted);
-      border-bottom: 1px solid var(--line); padding-bottom: 4px;
+    }
+    .calc-keyboard-display {
+      background: var(--bg);
+      border: 1.5px solid var(--brand);
+      border-radius: 8px;
+      padding: 6px 12px;
+      font-size: 20px;
+      font-weight: bold;
+      text-align: right;
+      color: var(--brand-dark);
+      min-height: 42px;
+      word-break: break-all;
+      display: flex; align-items: center; justify-content: flex-end;
     }
     .calc-keyboard-grid {
       display: grid;
@@ -1266,12 +1278,14 @@
     </div>
   </div>
 
-  <!-- ⌨️ 専用電卓キーボード -->
+  <!-- ⌨️ 専用電卓キーボード（液晶表示窓付き） -->
   <div class="calc-keyboard-drawer" id="calc-keyboard-drawer">
     <div class="calc-keyboard-header">
       <span>🔢 計算・入力キーボード</span>
       <button type="button" class="btn btn-sm btn-good" id="calc-done-btn">完了</button>
     </div>
+    <!-- 📺 現在の入力値を表示するディスプレイ領域 -->
+    <div class="calc-keyboard-display" id="calc-display-val">0</div>
     <div class="calc-keyboard-grid">
       <button type="button" class="calc-btn clear" data-val="AC">AC</button>
       <button type="button" class="calc-btn op" data-val="⌫">⌫</button>
@@ -1329,7 +1343,6 @@
       if (undoStack.length > 5) undoStack.shift();
     }
 
-    // 計算評価（エラー時はnullを返し、0に強制変換しない）
     function evaluateMath(expr) {
       if (typeof expr === 'number') return isNaN(expr) ? null : expr;
       if (!expr && expr !== 0) return 0;
@@ -1544,7 +1557,7 @@
     let quickTemplateId = null;
     let selectedShortcutKey = null;
     let currentGachaVal = null;
-    let activeCalcInput = null; // 現在電卓で入力中のインプット要素
+    let activeCalcInput = null;
 
     function renderAll() {
       applyTheme();
@@ -1687,7 +1700,6 @@
         let dayIncTotal = 0;
         let badgesHtml = '<div class="cal-badge-container">';
 
-        // 🌙 前日からの徹夜・日またぎシフトの判定
         const prevDateObj = new Date(year, month, d - 1);
         const prevDateStr = prevDateObj.toISOString().slice(0, 10);
         const prevShifts = DB.shifts.filter(s => s.date === prevDateStr);
@@ -1840,6 +1852,7 @@
       }
     }
 
+    // 明細リストの表示（重複表示を解消した以前のスッキリした表示）
     function renderHistory() {
       const container = document.getElementById("recent-history-list");
       if (!container) return;
@@ -1855,10 +1868,12 @@
         items.push({ id: s.id, type: "shift", date: s.date, title: `${job ? job.name : 'シフト'} (${s.startTime}~${s.endTime})`, amount: pay, color: job ? job.color : 'var(--brand)' });
       });
       DB.otherIncomes.filter(i => i.date.startsWith(monthStr)).forEach(i => {
-        items.push({ id: i.id, type: "income", date: i.date, title: `[${i.category}] ${i.memo}`, amount: i.amount, color: 'var(--good)' });
+        const displayTitle = (i.memo && i.memo !== i.category) ? `[${i.category}] ${i.memo}` : `[${i.category}]`;
+        items.push({ id: i.id, type: "income", date: i.date, title: displayTitle, amount: i.amount, color: 'var(--good)' });
       });
       DB.expenses.filter(e => e.date.startsWith(monthStr)).forEach(e => {
-        items.push({ id: e.id, type: "expense", date: e.date, title: `[${e.category}] ${e.memo}`, amount: -e.amount, color: 'var(--danger)' });
+        const displayTitle = (e.memo && e.memo !== e.category) ? `[${e.category}] ${e.memo}` : `[${e.category}]`;
+        items.push({ id: e.id, type: "expense", date: e.date, title: displayTitle, amount: -e.amount, color: 'var(--danger)' });
       });
 
       items.sort((a, b) => b.date.localeCompare(a.date));
@@ -2410,10 +2425,21 @@
       if (errText) errText.style.display = "block";
     }
 
-    // ⌨️ 専用電卓キーボードの制御
+    // ⌨️ 専用電卓キーボードの制御（ディスプレイリアルタイム更新対応）
+    function updateCalcDisplay() {
+      const displayEl = document.getElementById("calc-display-val");
+      if (!displayEl) return;
+      if (activeCalcInput && activeCalcInput.value) {
+        displayEl.textContent = activeCalcInput.value;
+      } else {
+        displayEl.textContent = "0";
+      }
+    }
+
     function openCalcKeyboard(inputEl) {
       activeCalcInput = inputEl;
       clearFormErrors();
+      updateCalcDisplay();
       document.getElementById("calc-keyboard-drawer").classList.add("active");
     }
 
@@ -2435,12 +2461,14 @@
       }
       activeCalcInput.value = curr;
 
-      // シフトフォームの交通費入力時は見込み額プレビューをリアルタイム更新
+      updateCalcDisplay();
+
       if (activeCalcInput.id === "shift-transport") {
         updateShiftPreview();
       }
     }
 
+    // 当日の登録データ一覧表示（シンプルな表記に修正）
     function renderDayItemsList(dateStr) {
       const container = document.getElementById("day-items-list");
       if (!container) return;
@@ -2913,7 +2941,7 @@
         const payload = {
           date: document.getElementById("expense-date").value,
           category: category,
-          memo: memoInput || category,
+          memo: memoInput,
           amount: evalAmount
         };
 
@@ -2945,7 +2973,7 @@
         const payload = {
           date: document.getElementById("income-date").value,
           category: category,
-          memo: memoInput || category,
+          memo: memoInput,
           amount: evalAmount
         };
 
