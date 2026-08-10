@@ -762,7 +762,7 @@
         </div>
       </div>
 
-      <!-- 総予算の変化グラフ（折れ線グラフ：今日まで表示） -->
+      <!-- 総予算の変化グラフ（折れ線グラフ） -->
       <div class="card">
         <div class="card-title">📈 総予算の変化と累計支出推移</div>
         <canvas id="chart-budget-line" style="max-height: 150px !important;"></canvas>
@@ -1465,7 +1465,7 @@
     }
 
     let currentDate = new Date();
-    let statsDate = new Date();
+    let statsDate = new Date(); // 統計タブ専用の月
     let multiSelectMode = false;
     let selectedDates = new Set();
     let historyLimit = 10;
@@ -1885,35 +1885,33 @@
       const statsMonthStr = `${statsYear}-${String(statsMonth + 1).padStart(2, "0")}`;
       const labels12 = ["1月","2月","3月","4月","5月","6月","7月","8月","9月","10月","11月","12月"];
 
-      // 1. 総予算の変化グラフ（折れ線グラフ：未来の日は表示せず今日まで）
+      // 1. 総予算の変化グラフ（折れ線グラフ：累計支出 vs 予算ライン）
+      // 1. 総予算の変化グラフ（折れ線グラフ：累計支出 vs 予算ライン）
       const ctxBudgetLine = document.getElementById("chart-budget-line");
       if (ctxBudgetLine) {
         if (chartBudgetLine) chartBudgetLine.destroy();
         const daysInMonth = new Date(statsYear, statsMonth + 1, 0).getDate();
-        const now = new Date();
-        const isCurrentMonth = (statsYear === now.getFullYear() && statsMonth === now.getMonth());
-        
-        let maxDay = daysInMonth;
-        if (isCurrentMonth) {
-          maxDay = Math.min(daysInMonth, now.getDate());
-        } else if (statsDate > now) {
-          maxDay = 0; // 未来の月はデータなし
-        }
-
-        const dLabels = [];
+        const dLabels = Array.from({ length: daysInMonth }, (_, i) => `${i + 1}日`);
+        let runningTotal = 0;
         const cumulativeData = [];
         const budgetLineData = [];
         const monthlyBudget = DB.budgets.monthly || 50000;
-        let runningTotal = 0;
+        const todayStr = new Date().toISOString().slice(0, 10);
 
-        for (let i = 1; i <= maxDay; i++) {
+        for (let i = 1; i <= daysInMonth; i++) {
           const dateStr = `${statsMonthStr}-${String(i).padStart(2, "0")}`;
           const dayExp = DB.expenses.filter(e => e.date === dateStr).reduce((acc, e) => acc + e.amount, 0);
           runningTotal += dayExp;
-          dLabels.push(`${i}日`);
-          cumulativeData.push(runningTotal);
+
+          // 今日以前の日付のみ累計を表示し、明日以降（未来）はnullをセットして描画を止める
+          if (dateStr <= todayStr) {
+            cumulativeData.push(runningTotal);
+          } else {
+            cumulativeData.push(null);
+          }
           budgetLineData.push(monthlyBudget);
         }
+        
 
         chartBudgetLine = new Chart(ctxBudgetLine, {
           type: 'line',
@@ -1951,7 +1949,7 @@
           DB.jobs.forEach(j => getJobPeriodIncomeList(j, mStr).forEach(p => inc += p.income));
           inc += DB.otherIncomes.filter(i => i.date.startsWith(mStr)).reduce((acc, i) => acc + i.amount, 0);
           incData.push(inc);
-          expData.push(DB.expenses.filter(e => e.date.startsWith(mStr)).reduce((acc, e) => acc + e.amount, 0);
+          expData.push(DB.expenses.filter(e => e.date.startsWith(mStr)).reduce((acc, e) => acc + e.amount, 0));
         });
         chartTrend = new Chart(ctxTrend, {
           type: 'line',
@@ -2426,7 +2424,7 @@
 
       const hintEl = document.getElementById("legal-break-hint");
       if (hintEl) {
-        hintEl.textContent = isKyoei ? `(協栄:${autoBreak}分自動)` : (grossMins === 360 ? `(6h特例:45分)` : `(自動:${autoBreak}分)`);
+        hintEl.textContent = isKyoei ? `(協栄:${autoBreak}분自動)` : (grossMins === 360 ? `(6h特例:45分)` : `(自動:${autoBreak}分)`);
       }
     }
 
