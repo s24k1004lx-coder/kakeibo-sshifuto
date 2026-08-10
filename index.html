@@ -491,37 +491,11 @@
     .modal-header { display: flex; justify-content: space-between; align-items: center; margin-bottom: 8px; }
     .modal-title { font-size: 14px; font-weight: 700; }
 
-    .toast-container {
-      position: fixed; top: 14px; left: 50%;
-      transform: translateX(-50%);
-      z-index: 400; display: flex; flex-direction: column; gap: 6px;
-      width: 90%; max-width: 380px; pointer-events: none;
-    }
-    .toast {
-      background: var(--ink); color: white;
-      padding: 8px 12px; border-radius: 8px; font-size: 11px;
-      display: flex; justify-content: space-between; align-items: center;
-      box-shadow: var(--shadow); pointer-events: auto;
-    }
-    .toast-undo { color: #fbbf24; font-weight: 700; background: none; border: none; cursor: pointer; margin-left: 8px; }
-
-    .list-item {
-      display: flex; justify-content: space-between; align-items: center;
-      padding: 6px 0; border-bottom: 1px solid var(--line); font-size: 11px;
-      cursor: pointer;
-    }
-    .list-item:hover { background: var(--bg); }
-    .list-item:last-child { border-bottom: none; }
-    .data-table { width: 100%; border-collapse: collapse; font-size: 10.5px; }
-    .data-table th, .data-table td { padding: 4px 2px; text-align: left; border-bottom: 1px solid var(--line); }
-    .data-table th { color: var(--muted); font-weight: 600; background: var(--bg); }
-
-    .hidden-file-input { position: fixed; top: -9999px; left: -9999px; opacity: 0; width: 1px; height: 1px; }
-    .badge { display: inline-block; padding: 1px 4px; border-radius: 3px; font-size: 9.5px; font-weight: bold; color: #fff; }
     .pin-chip {
       background: var(--card); border: 1px solid var(--brand); color: var(--brand-dark);
       border-radius: 16px; padding: 3px 8px; font-size: 10.5px; font-weight: 600;
       white-space: nowrap; cursor: pointer; display: inline-flex; align-items: center; gap: 3px;
+      transition: all 0.15s ease;
     }
     .pin-chip.active {
       background: var(--brand);
@@ -557,8 +531,6 @@
       <button class="icon-btn" id="theme-toggle-btn">🌙</button>
     </div>
   </header>
-
-  <div class="toast-container" id="toast-container"></div>
 
   <!-- メインコンテンツ -->
   <main>
@@ -1264,38 +1236,9 @@
     }
 
     let undoStack = [];
-    function pushUndoState(msg) {
-      undoStack.push({ message: msg, dbState: JSON.stringify(DB) });
+    function pushUndoState() {
+      undoStack.push({ dbState: JSON.stringify(DB) });
       if (undoStack.length > 5) undoStack.shift();
-      showToast(msg, true);
-    }
-
-    function undoLastAction() {
-      if (undoStack.length === 0) return;
-      const last = undoStack.pop();
-      DB = JSON.parse(last.dbState);
-      saveDB();
-      renderAll();
-      showToast("操作を取り消しました", false);
-    }
-
-    function showToast(msg, showUndo = false) {
-      const container = document.getElementById("toast-container");
-      const toast = document.createElement("div");
-      toast.className = "toast";
-      toast.innerHTML = `<span>${msg}</span>` + (showUndo ? `<button class="toast-undo" id="toast-undo-btn">元に戻す</button>` : "");
-      container.appendChild(toast);
-
-      if (showUndo) {
-        const undoBtn = toast.querySelector("#toast-undo-btn");
-        if (undoBtn) {
-          undoBtn.addEventListener("click", () => {
-            undoLastAction();
-            toast.remove();
-          });
-        }
-      }
-      setTimeout(() => { if (toast.parentNode) toast.remove(); }, 3000);
     }
 
     function evaluateMath(expr) {
@@ -1504,6 +1447,7 @@
     let historyLimit = 10;
     let quickMode = false;
     let quickTemplateId = null;
+    let selectedShortcutKey = null; // ワンタップ用カラーハイライト選択中の保持キー
     let currentGachaVal = null;
 
     function renderAll() {
@@ -1593,7 +1537,6 @@
       const firstDay = new Date(year, month, 1).getDay();
       const lastDate = new Date(year, month + 1, 0).getDate();
 
-      // 当月の給料日マップを作成（実際の支給見込み額が1円以上の対象日のみ）
       let paydayMap = {};
       DB.jobs.forEach(job => {
         getJobPeriodIncomeList(job, monthStr).forEach(p => {
@@ -1911,7 +1854,6 @@
       const statsMonthStr = `${statsYear}-${String(statsMonth + 1).padStart(2, "0")}`;
       const labels12 = ["1月","2月","3月","4月","5月","6月","7月","8月","9月","10月","11月","12月"];
 
-      // 1. 総資産の推移グラフ（折れ線グラフ：8/7のベースから過去は逆算、未来は今日まで表示）
       const ctxBudgetLine = document.getElementById("chart-budget-line");
       if (ctxBudgetLine) {
         if (chartBudgetLine) chartBudgetLine.destroy();
@@ -2062,7 +2004,6 @@
         saveDB();
         renderAll();
         closePinEditModal();
-        showToast("テンプレートを更新しました", false);
       }
     }
 
@@ -2073,7 +2014,6 @@
         saveDB();
         renderAll();
         closePinEditModal();
-        showToast("テンプレートを削除しました", false);
       }
     }
 
@@ -2177,9 +2117,10 @@
     function renderFormShortcuts() {
       const pinContainer = document.getElementById("form-pin-shortcuts");
       if (pinContainer) {
-        pinContainer.innerHTML = DB.pins.map(p => `
-          <button type="button" class="pin-chip" onclick="applyShortcutData({jobId:${p.jobId}, start:'${p.start}', end:'${p.end}', breakMin:${p.breakMin}, transport:${p.transport||0}}, 'テンプレート「${p.label}」を反映しました')">📌 ${p.label}</button>
-        `).join("") || '<span style="font-size:10px; color:var(--muted);">テンプレートなし</span>';
+        pinContainer.innerHTML = DB.pins.map(p => {
+          const key = `pin_${p.id}`;
+          return `<button type="button" class="pin-chip ${selectedShortcutKey === key ? 'active' : ''}" onclick="applyShortcutData({jobId:${p.jobId}, start:'${p.start}', end:'${p.end}', breakMin:${p.breakMin}, transport:${p.transport||0}}, '${key}')">📌 ${p.label}</button>`;
+        }).join("") || '<span style="font-size:10px; color:var(--muted);">テンプレートなし</span>';
       }
 
       const histContainer = document.getElementById("form-history-shortcuts");
@@ -2193,13 +2134,15 @@
           }
         });
         const recentShortcuts = Array.from(historyMap.values()).slice(0, 4);
-        histContainer.innerHTML = recentShortcuts.map(s => `
-          <button type="button" class="pin-chip" style="border-color:var(--muted); color:var(--ink);" onclick="applyShortcutData({jobId:${s.jobId}, start:'${s.start}', end:'${s.end}', breakMin:${s.breakMin}, transport:${s.transport||0}}, '過去のシフトを反映しました')">↩️ ${s.jobName} ${s.start}~${s.end}</button>
-        `).join("") || '<span style="font-size:10px; color:var(--muted);">過去履歴なし</span>';
+        histContainer.innerHTML = recentShortcuts.map((s, idx) => {
+          const key = `hist_${idx}_${s.jobId}`;
+          return `<button type="button" class="pin-chip ${selectedShortcutKey === key ? 'active' : ''}" style="${selectedShortcutKey !== key ? 'border-color:var(--muted); color:var(--ink);' : ''}" onclick="applyShortcutData({jobId:${s.jobId}, start:'${s.start}', end:'${s.end}', breakMin:${s.breakMin}, transport:${s.transport||0}}, '${key}')">↩️ ${s.jobName} ${s.start}~${s.end}</button>`;
+        }).join("") || '<span style="font-size:10px; color:var(--muted);">過去履歴なし</span>';
       }
     }
 
-    window.applyShortcutData = (data, toastMsg = "データを反映しました") => {
+    window.applyShortcutData = (data, key) => {
+      selectedShortcutKey = key;
       document.getElementById("shift-job-id").value = data.jobId;
       const [sH, sM] = data.start.split(":");
       const [eH, eM] = data.end.split(":");
@@ -2210,7 +2153,7 @@
       document.getElementById("shift-break-min").value = data.breakMin;
       document.getElementById("shift-transport").value = (data.transport !== undefined && data.transport !== null) ? data.transport : 0;
       updateShiftPreview();
-      showToast(toastMsg, false);
+      renderFormShortcuts();
     };
 
     function switchTab(tabId) {
@@ -2244,6 +2187,7 @@
     }
 
     function openEntryModal(dateStr) {
+      selectedShortcutKey = null;
       document.getElementById("shift-id").value = "";
       document.getElementById("expense-id").value = "";
       document.getElementById("income-id").value = "";
@@ -2271,6 +2215,7 @@
     }
 
     window.openEditModalById = (type, id) => {
+      selectedShortcutKey = null;
       openModalWithLock("entry-modal");
 
       if (type === "shift") {
@@ -2512,49 +2457,49 @@
 
     window.deleteShift = id => {
       if (confirm("このシフトを削除してもよろしいですか？")) {
-        pushUndoState("シフトを削除しました");
+        pushUndoState();
         DB.shifts = DB.shifts.filter(s => String(s.id) !== String(id));
         saveDB(); renderAll(); closeEntryModal();
       }
     };
     window.deleteExpense = id => {
       if (confirm("この支出を削除してもよろしいですか？")) {
-        pushUndoState("支出を削除しました");
+        pushUndoState();
         DB.expenses = DB.expenses.filter(e => String(e.id) !== String(id));
         saveDB(); renderAll(); closeEntryModal();
       }
     };
     window.deleteIncome = id => {
       if (confirm("この収入を削除してもよろしいですか？")) {
-        pushUndoState("収入を削除しました");
+        pushUndoState();
         DB.otherIncomes = DB.otherIncomes.filter(i => String(i.id) !== String(id));
         saveDB(); renderAll();
       }
     };
     window.deleteJob = id => {
       if (confirm("この勤務先を削除しますか？")) {
-        pushUndoState("勤務先を削除しました");
+        pushUndoState();
         DB.jobs = DB.jobs.filter(j => j.id !== id);
         saveDB(); renderAll();
       }
     };
     window.deletePin = id => {
       if (confirm("このテンプレートを削除しますか？")) {
-        pushUndoState("テンプレートを削除しました");
+        pushUndoState();
         DB.pins = DB.pins.filter(p => p.id !== id);
         saveDB(); renderAll();
       }
     };
     window.deleteFixedConfig = id => {
       if (confirm("この固定費設定を削除しますか？")) {
-        pushUndoState("固定費を削除しました");
+        pushUndoState();
         DB.fixedExpenses = DB.fixedExpenses.filter(f => f.id !== id);
         saveDB(); renderAll();
       }
     };
     window.deleteCardCompany = idx => {
       if (confirm("このカード会社テンプレートを削除しますか？")) {
-        pushUndoState("カード会社を削除しました");
+        pushUndoState();
         DB.creditCompanies.splice(idx, 1);
         saveDB(); renderAll();
       }
@@ -2568,7 +2513,7 @@
     function applyQuickTemplateToDate(dateStr) {
       const pin = DB.pins.find(p => p.id === quickTemplateId);
       if (!pin) return;
-      pushUndoState(`「${pin.label}」を登録しました`);
+      pushUndoState();
       DB.shifts.push({
         id: Date.now() + Math.random(),
         jobId: pin.jobId,
@@ -2580,7 +2525,6 @@
       });
       saveDB();
       renderAll();
-      showToast(`${dateStr.slice(5)}に「${pin.label}」を登録しました`, true);
     }
 
     function bindEvents() {
@@ -2603,7 +2547,7 @@
 
       document.getElementById("save-gacha-btn").addEventListener("click", () => {
         if (!currentGachaVal) return;
-        pushUndoState("小銭貯金を記録しました");
+        pushUndoState();
         const todayStr = new Date().toISOString().slice(0, 10);
         DB.expenses.push({ id: Date.now(), date: todayStr, category: "貯金", memo: "🎲 小銭貯金ガチャ", amount: currentGachaVal });
         saveDB(); renderAll();
@@ -2657,7 +2601,7 @@
         const pin = DB.pins.find(p => p.id === pinId);
         if (!pin || selectedDates.size === 0) return;
 
-        pushUndoState("一括シフト登録を完了しました");
+        pushUndoState();
         selectedDates.forEach(dateStr => {
           DB.shifts.push({ id: Date.now() + Math.random(), jobId: pin.jobId, date: dateStr, startTime: pin.start, endTime: pin.end, breakMin: pin.breakMin, transport: pin.transport });
         });
@@ -2669,7 +2613,7 @@
       document.getElementById("delete-bulk-btn").addEventListener("click", () => {
         if (selectedDates.size === 0) return;
         if (confirm("選択した日付のデータを一括削除しますか？")) {
-          pushUndoState("一括削除を実行しました");
+          pushUndoState();
           selectedDates.forEach(dStr => {
             DB.shifts = DB.shifts.filter(s => s.date !== dStr);
             DB.expenses = DB.expenses.filter(e => e.date !== dStr);
@@ -2720,7 +2664,7 @@
         const label = prompt("テンプレート名を入力してください:", defaultLabel);
 
         if (label && label.trim()) {
-          pushUndoState("テンプレートを追加しました");
+          pushUndoState();
           DB.pins.push({
             id: Date.now(),
             label: label.trim(),
@@ -2733,7 +2677,6 @@
           saveDB();
           renderPinSelects();
           renderSettingsTab();
-          showToast("テンプレートとして保存しました！", false);
         }
       });
 
@@ -2755,11 +2698,11 @@
         };
 
         if (editId) {
-          pushUndoState("シフトを更新しました");
+          pushUndoState();
           const idx = DB.shifts.findIndex(s => String(s.id) === String(editId));
           if (idx !== -1) DB.shifts[idx] = { id: Number(editId) || editId, ...payload };
         } else {
-          pushUndoState("シフトを保存しました");
+          pushUndoState();
           DB.shifts.push({ id: Date.now(), ...payload });
         }
         saveDB(); closeEntryModal(); renderAll();
@@ -2778,11 +2721,11 @@
         };
 
         if (editId) {
-          pushUndoState("支出を更新しました");
+          pushUndoState();
           const idx = DB.expenses.findIndex(e => String(e.id) === String(editId));
           if (idx !== -1) DB.expenses[idx] = { id: Number(editId) || editId, ...payload };
         } else {
-          pushUndoState("支出を保存しました");
+          pushUndoState();
           DB.expenses.push({ id: Date.now(), ...payload });
         }
         saveDB(); closeEntryModal(); renderAll();
@@ -2801,11 +2744,11 @@
         };
 
         if (editId) {
-          pushUndoState("収入を更新しました");
+          pushUndoState();
           const idx = DB.otherIncomes.findIndex(i => String(i.id) === String(editId));
           if (idx !== -1) DB.otherIncomes[idx] = { id: Number(editId) || editId, ...payload };
         } else {
-          pushUndoState("収入を保存しました");
+          pushUndoState();
           DB.otherIncomes.push({ id: Date.now(), ...payload });
         }
         saveDB(); closeEntryModal(); renderAll();
@@ -2832,7 +2775,7 @@
 
       document.getElementById("cc-form").addEventListener("submit", e => {
         e.preventDefault();
-        pushUndoState("クレカ引き落としを記録しました");
+        pushUndoState();
         DB.expenses.push({
           id: Date.now(),
           date: document.getElementById("cc-date-input").value,
@@ -2874,7 +2817,7 @@
         const raw = document.getElementById("override-amount").value;
         const key = `${jId}_${m}`;
 
-        pushUndoState("手取り補正を保存しました");
+        pushUndoState();
         if (raw === "") delete DB.actualPay[key];
         else DB.actualPay[key] = evaluateMath(raw);
 
@@ -2894,7 +2837,7 @@
         const end = new Date(document.getElementById("repeat-end-date").value);
         const dows = Array.from(document.querySelectorAll(".repeat-dow:checked")).map(cb => Number(cb.value));
 
-        pushUndoState("リピート一括登録を実行しました");
+        pushUndoState();
         let curr = new Date(start);
         while (curr <= end) {
           if (dows.includes(curr.getDay())) {
@@ -2920,14 +2863,14 @@
 
       document.getElementById("add-job-btn").addEventListener("click", () => {
         const name = prompt("勤務先名を入力:"); if (!name) return;
-        pushUndoState("勤務先を追加しました");
+        pushUndoState();
         DB.jobs.push({ id: Date.now(), name, hourlyWage: 1200, nightWage: 1500, transport: 0, type: "monthly", cutoffDay: 31, payMonthOffset: 1, payDay: 15, color: "#f97316" });
         saveDB(); renderAll();
       });
 
       document.getElementById("add-pin-btn").addEventListener("click", () => {
         const label = prompt("テンプレート名:"); if (!label) return;
-        pushUndoState("テンプレートを追加しました");
+        pushUndoState();
         DB.pins.push({ id: Date.now(), label, jobId: DB.jobs[0]?.id || 1, start: "17:00", end: "22:00", breakMin: 0, transport: 0 });
         saveDB(); renderAll();
       });
@@ -2935,7 +2878,7 @@
       document.getElementById("add-fixed-btn").addEventListener("click", () => {
         const memo = prompt("固定費の項目名:"); if (!memo) return;
         const amount = Number(prompt("金額 (円):", "50000")) || 0;
-        pushUndoState("固定費を追加しました");
+        pushUndoState();
         DB.fixedExpenses.push({ id: Date.now(), memo, amount, autoApply: true });
         saveDB(); renderAll();
       });
@@ -2943,14 +2886,14 @@
       document.getElementById("add-card-btn").addEventListener("click", () => {
         const input = document.getElementById("new-card-name");
         if (input.value.trim()) {
-          pushUndoState("カード会社を追加しました");
+          pushUndoState();
           DB.creditCompanies.push(input.value.trim());
           input.value = ""; saveDB(); renderAll();
         }
       });
 
       document.getElementById("save-asset-settings-btn").addEventListener("click", () => {
-        pushUndoState("資産・目標設定を保存しました");
+        pushUndoState();
         DB.baseAsset = evaluateMath(document.getElementById("setting-base-asset").value);
         const wallVal = document.getElementById("setting-wall-target").value;
         DB.wallTarget = wallVal === "custom" ? evaluateMath(document.getElementById("setting-wall-custom").value) : Number(wallVal);
@@ -2960,7 +2903,7 @@
       });
 
       document.getElementById("save-reminder-btn").addEventListener("click", () => {
-        pushUndoState("リマインダー設定を保存しました");
+        pushUndoState();
         DB.reminder.enabled = document.getElementById("setting-reminder-enable").checked;
         DB.reminder.time = document.getElementById("setting-reminder-time").value;
         saveDB(); renderAll();
@@ -2991,7 +2934,7 @@
           try {
             const data = JSON.parse(evt.target.result);
             if (confirm("既存データが上書きされます。復元しますか？")) {
-              pushUndoState("データ復元を行いました");
+              pushUndoState();
               DB = Object.assign({}, DEFAULT_DB, data);
               saveDB(); renderAll();
             }
