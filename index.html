@@ -1573,29 +1573,29 @@
     }
 
     function renderCalendar() {
-      const year = currentDate.getFullYear();
-      const month = currentDate.getMonth();
-      const monthStr = `${year}-${String(month + 1).padStart(2, "0")}`;
+ 　　 const year = currentDate.getFullYear();
+ 　　 const month = currentDate.getMonth();
+ 　　 const monthStr = `${year}-${String(month + 1).padStart(2, "0")}`;
 
-      const picker = document.getElementById("calendar-month-picker");
-      if (picker) picker.value = monthStr;
+　　  const picker = document.getElementById("calendar-month-picker");
+　　  if (picker) picker.value = monthStr;
 
-      const container = document.getElementById("calendar-days-container");
-      if (!container) return;
-      container.innerHTML = "";
+　　  const container = document.getElementById("calendar-days-container");
+　　  if (!container) return;
+　　  container.innerHTML = "";
 
-      const firstDay = new Date(year, month, 1).getDay();
-      const lastDate = new Date(year, month + 1, 0).getDate();
+　　  const firstDay = new Date(year, month, 1).getDay();
+　　  const lastDate = new Date(year, month + 1, 0).getDate();
 
-      let paydayMap = {};
-      DB.jobs.forEach(job => {
-        getJobPeriodIncomeList(job, monthStr).forEach(p => {
-          if (p.payDateStr) {
-            if (!paydayMap[p.payDateStr]) paydayMap[p.payDateStr] = [];
-            paydayMap[p.payDateStr].push(job.name);
-          }
-        });
-      });
+　　  // 👇 ここに書いてください（インデントは他の行と同じ位置に揃えればOKです）
+　　  let paydayMap = {};
+　　  DB.jobs.forEach(job => {
+　　    getJobPeriodIncomeList(job, monthStr).forEach(p => {
+　　      if (p.payDateStr && p.income > 0) {
+        paydayMap[p.payDateStr] = true;
+  　    }
+   　 });
+　  });
 
       let weekInc = 0, weekExp = 0, cellCount = 0;
 
