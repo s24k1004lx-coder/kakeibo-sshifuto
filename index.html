@@ -764,7 +764,7 @@
 
       <!-- 総予算の変化グラフ（折れ線グラフ） -->
       <div class="card">
-        <div class="card-title">📈 総予算の変化と累計支出推移</div>
+        <div class="card-title">📈 総資産の推移 (日別)</div>
         <canvas id="chart-budget-line" style="max-height: 150px !important;"></canvas>
       </div>
 
@@ -1878,54 +1878,58 @@
       renderCharts();
     }
 
-    function renderCharts() {
-      const currentYear = currentDate.getFullYear();
-      const statsYear = statsDate.getFullYear();
-      const statsMonth = statsDate.getMonth();
-      const statsMonthStr = `${statsYear}-${String(statsMonth + 1).padStart(2, "0")}`;
-      const labels12 = ["1月","2月","3月","4月","5月","6月","7月","8月","9月","10月","11月","12月"];
-
-      // 1. 総予算の変化グラフ（折れ線グラフ：累計支出 vs 予算ライン）
-      // 1. 総予算の変化グラフ（折れ線グラフ：累計支出 vs 予算ライン）
+    // 1. 総資産の推移グラフ（折れ線グラフ：収入で増え、支出で減る）
       const ctxBudgetLine = document.getElementById("chart-budget-line");
       if (ctxBudgetLine) {
         if (chartBudgetLine) chartBudgetLine.destroy();
         const daysInMonth = new Date(statsYear, statsMonth + 1, 0).getDate();
         const dLabels = Array.from({ length: daysInMonth }, (_, i) => `${i + 1}日`);
-        let runningTotal = 0;
-        const cumulativeData = [];
-        const budgetLineData = [];
-        const monthlyBudget = DB.budgets.monthly || 50000;
+        const assetTrendData = [];
         const todayStr = new Date().toISOString().slice(0, 10);
+        const baseDate = DB.baseAssetDate || "2026-08-07";
 
         for (let i = 1; i <= daysInMonth; i++) {
           const dateStr = `${statsMonthStr}-${String(i).padStart(2, "0")}`;
-          const dayExp = DB.expenses.filter(e => e.date === dateStr).reduce((acc, e) => acc + e.amount, 0);
-          runningTotal += dayExp;
 
-          // 今日以前の日付のみ累計を表示し、明日以降（未来）はnullをセットして描画を止める
           if (dateStr <= todayStr) {
-            cumulativeData.push(runningTotal);
+            // その日時点での総資産を計算（ベース資産 ＋ その日までの全収入 - その日までの全支出）
+            let shiftsPay = DB.shifts.filter(s => s.date > baseDate && s.date <= dateStr)
+                              .reduce((acc, s) => acc + calculateShiftPay(s).totalPay, 0);
+            let otherInc = DB.otherIncomes.filter(inc => inc.date > baseDate && inc.date <= dateStr)
+                              .reduce((acc, inc) => acc + inc.amount, 0);
+            let exp = DB.expenses.filter(e => e.date > baseDate && e.date <= dateStr)
+                        .reduce((acc, e) => acc + e.amount, 0);
+
+            const dayTotalAsset = (DB.baseAsset || 0) + shiftsPay + otherInc - exp;
+            assetTrendData.push(dayTotalAsset);
           } else {
-            cumulativeData.push(null);
+            // 明日以降（未来）はnullをセットして折れ線を表示しない
+            assetTrendData.push(null);
           }
-          budgetLineData.push(monthlyBudget);
         }
-        
 
         chartBudgetLine = new Chart(ctxBudgetLine, {
           type: 'line',
           data: {
             labels: dLabels,
             datasets: [
-              { label: '累計支出', data: cumulativeData, borderColor: '#ef4444', backgroundColor: 'rgba(239, 68, 68, 0.1)', fill: true, tension: 0.1 },
-              { label: '月間予算', data: budgetLineData, borderColor: '#10b981', borderDash: [5, 5], pointRadius: 0, fill: false }
+              {
+                label: '総資産推移 (円)',
+                data: assetTrendData,
+                borderColor: '#f97316',
+                backgroundColor: 'rgba(249, 115, 22, 0.1)',
+                fill: true,
+                tension: 0.2
+              }
             ]
           },
-          options: { responsive: true, maintainAspectRatio: false }
+          options: {
+            responsive: true,
+            maintainAspectRatio: false
+          }
         });
       }
-
+    
       const ctxJobs = document.getElementById("chart-jobs");
       if (ctxJobs) {
         if (chartJobs) chartJobs.destroy();
