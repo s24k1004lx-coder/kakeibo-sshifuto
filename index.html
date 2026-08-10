@@ -321,7 +321,6 @@
     }
     .cal-badge.expense { background: var(--danger) !important; }
     .cal-badge.other-income { background: var(--good) !important; }
-    .cal-badge.payday { background: #8b5cf6 !important; }
 
     .cal-week-summary {
       grid-column: 1 / -1;
@@ -1573,29 +1572,29 @@
     }
 
     function renderCalendar() {
- 　　 const year = currentDate.getFullYear();
- 　　 const month = currentDate.getMonth();
- 　　 const monthStr = `${year}-${String(month + 1).padStart(2, "0")}`;
+      const year = currentDate.getFullYear();
+      const month = currentDate.getMonth();
+      const monthStr = `${year}-${String(month + 1).padStart(2, "0")}`;
 
-　　  const picker = document.getElementById("calendar-month-picker");
-　　  if (picker) picker.value = monthStr;
+      const picker = document.getElementById("calendar-month-picker");
+      if (picker) picker.value = monthStr;
 
-　　  const container = document.getElementById("calendar-days-container");
-　　  if (!container) return;
-　　  container.innerHTML = "";
+      const container = document.getElementById("calendar-days-container");
+      if (!container) return;
+      container.innerHTML = "";
 
-　　  const firstDay = new Date(year, month, 1).getDay();
-　　  const lastDate = new Date(year, month + 1, 0).getDate();
+      const firstDay = new Date(year, month, 1).getDay();
+      const lastDate = new Date(year, month + 1, 0).getDate();
 
-　　  // 👇 ここに書いてください（インデントは他の行と同じ位置に揃えればOKです）
-　　  let paydayMap = {};
-　　  DB.jobs.forEach(job => {
-　　    getJobPeriodIncomeList(job, monthStr).forEach(p => {
-　　      if (p.payDateStr && p.income > 0) {
-        paydayMap[p.payDateStr] = true;
-  　    }
-   　 });
-　  });
+      // 当月の給料日マップを作成（実際の支給見込み額が1円以上の対象日のみ）
+      let paydayMap = {};
+      DB.jobs.forEach(job => {
+        getJobPeriodIncomeList(job, monthStr).forEach(p => {
+          if (p.payDateStr && p.income > 0) {
+            paydayMap[p.payDateStr] = true;
+          }
+        });
+      });
 
       let weekInc = 0, weekExp = 0, cellCount = 0;
 
@@ -1642,10 +1641,6 @@
         let dayIncTotal = 0;
         let badgesHtml = '<div class="cal-badge-container">';
 
-        const paydayLabel = paydayMap[dateStr] ? `<span style="font-size:9px; color:#8b5cf6; font-weight:normal; margin-left:2px;">💴給料日</span>` : '';
-
-　　　　 cell.innerHTML = `<div class="day-number ${dayClass}"><div><span>${d}</span>${paydayLabel}</div>${selectedDates.has(dateStr) ? '☑' : ''}</div>${badgesHtml}`;
-
         const dayShifts = DB.shifts.filter(s => s.date === dateStr);
         dayShifts.forEach(s => {
           const job = DB.jobs.find(j => String(j.id) === String(s.jobId));
@@ -1668,7 +1663,10 @@
         weekInc += dayIncTotal;
         weekExp += dayExpSum;
 
-        cell.innerHTML = `<div class="day-number ${dayClass}"><span>${d}</span>${selectedDates.has(dateStr) ? '☑' : ''}</div>${badgesHtml}`;
+        // 日付ヘッダー部分（給料日の場合は日付の横に小さく目立ちすぎないマークを表示）
+        const paydayLabel = paydayMap[dateStr] ? `<span style="font-size:9px; color:#8b5cf6; font-weight:normal; margin-left:2px;">💴給料日</span>` : '';
+
+        cell.innerHTML = `<div class="day-number ${dayClass}"><div><span>${d}</span>${paydayLabel}</div>${selectedDates.has(dateStr) ? '☑' : ''}</div>${badgesHtml}`;
 
         cell.addEventListener("click", () => {
           if (multiSelectMode) {
