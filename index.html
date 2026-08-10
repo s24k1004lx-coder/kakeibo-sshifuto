@@ -1406,6 +1406,33 @@
       };
     }
 
+    // 任意の日付における総資産を計算（8/7のベース資産から過去なら逆算、未来なら加減算）
+    function calculateTotalAssetOnDate(targetDateStr) {
+      const baseDate = DB.baseAssetDate || "2026-08-07";
+      const baseAsset = Number(DB.baseAsset) || 0;
+
+      if (targetDateStr === baseDate) {
+        return baseAsset;
+      } else if (targetDateStr > baseDate) {
+        let shiftsPay = DB.shifts.filter(s => s.date > baseDate && s.date <= targetDateStr)
+                          .reduce((acc, s) => acc + calculateShiftPay(s).totalPay, 0);
+        let otherInc = DB.otherIncomes.filter(inc => inc.date > baseDate && inc.date <= targetDateStr)
+                          .reduce((acc, inc) => acc + inc.amount, 0);
+        let exp = DB.expenses.filter(e => e.date > baseDate && e.date <= targetDateStr)
+                    .reduce((acc, e) => acc + e.amount, 0);
+        return baseAsset + shiftsPay + otherInc - exp;
+      } else {
+        // 基準日より前（過去）へ遡る場合：収入を引いて支出を足す（逆算）
+        let shiftsPay = DB.shifts.filter(s => s.date > targetDateStr && s.date <= baseDate)
+                          .reduce((acc, s) => acc + calculateShiftPay(s).totalPay, 0);
+        let otherInc = DB.otherIncomes.filter(inc => inc.date > targetDateStr && inc.date <= baseDate)
+                          .reduce((acc, inc) => acc + inc.amount, 0);
+        let exp = DB.expenses.filter(e => e.date > targetDateStr && e.date <= baseDate)
+                    .reduce((acc, e) => acc + e.amount, 0);
+        return baseAsset - shiftsPay - otherInc + exp;
+      }
+    }
+
     function getJobPeriodIncomeList(job, targetMonthStr) {
       const [year, month] = targetMonthStr.split("-").map(Number);
 
@@ -1539,13 +1566,8 @@
     }
 
     function renderHeaderAsset() {
-      const baseDate = DB.baseAssetDate || "2026-08-07";
-
-      let afterShift = DB.shifts.filter(s => s.date > baseDate).reduce((acc, s) => acc + calculateShiftPay(s).totalPay, 0);
-      let afterOther = DB.otherIncomes.filter(i => i.date > baseDate).reduce((acc, i) => acc + i.amount, 0);
-      let afterExp = DB.expenses.filter(e => e.date > baseDate).reduce((acc, e) => acc + e.amount, 0);
-
-      const assetVal = (DB.baseAsset || 0) + afterShift + afterOther - afterExp;
+      const todayStr = new Date().toISOString().slice(0, 10);
+      const assetVal = calculateTotalAssetOnDate(todayStr);
       document.getElementById("header-base-asset").textContent = `¥${assetVal.toLocaleString()}`;
       document.getElementById("total-asset-val").textContent = `¥${assetVal.toLocaleString()}`;
     }
@@ -1885,7 +1907,7 @@
       const statsMonthStr = `${statsYear}-${String(statsMonth + 1).padStart(2, "0")}`;
       const labels12 = ["1月","2月","3月","4月","5月","6月","7月","8月","9月","10月","11月","12月"];
 
-      // 1. 総資産の推移グラフ（折れ線グラフ：収入で増え、支出で減る / 今日まで表示）
+      // 1. 総資産の推移グラフ（折れ線グラフ：8/7のベースから過去は逆算、未来は今日まで表示）
       const ctxBudgetLine = document.getElementById("chart-budget-line");
       if (ctxBudgetLine) {
         if (chartBudgetLine) chartBudgetLine.destroy();
@@ -1893,21 +1915,12 @@
         const dLabels = Array.from({ length: daysInMonth }, (_, i) => `${i + 1}日`);
         const assetTrendData = [];
         const todayStr = new Date().toISOString().slice(0, 10);
-        const baseDate = DB.baseAssetDate || "2026-08-07";
 
         for (let i = 1; i <= daysInMonth; i++) {
           const dateStr = `${statsMonthStr}-${String(i).padStart(2, "0")}`;
 
           if (dateStr <= todayStr) {
-            let shiftsPay = DB.shifts.filter(s => s.date > baseDate && s.date <= dateStr)
-                              .reduce((acc, s) => acc + calculateShiftPay(s).totalPay, 0);
-            let otherInc = DB.otherIncomes.filter(inc => inc.date > baseDate && inc.date <= dateStr)
-                              .reduce((acc, inc) => acc + inc.amount, 0);
-            let exp = DB.expenses.filter(e => e.date > baseDate && e.date <= dateStr)
-                        .reduce((acc, e) => acc + e.amount, 0);
-
-            const dayTotalAsset = (DB.baseAsset || 0) + shiftsPay + otherInc - exp;
-            assetTrendData.push(dayTotalAsset);
+            assetTrendData.push(calculateTotalAssetOnDate(dateStr));
           } else {
             assetTrendData.push(null);
           }
@@ -2951,7 +2964,7 @@
 
       document.getElementById("export-json-btn").addEventListener("click", () => {
         const blob = new Blob([JSON.stringify(DB, null, 2)], { type: "application/json" });
-        const a = document.createElement("a"); a.href = URL.center || URL.createObjectURL(blob);
+        const a = document.createElement("a"); a.href = URL.createObjectURL(blob);
         a.download = `shift_pro_backup_${new Date().toISOString().slice(0, 10)}.json`; a.click();
       });
 
