@@ -321,6 +321,7 @@
     }
     .cal-badge.expense { background: var(--danger) !important; }
     .cal-badge.other-income { background: var(--good) !important; }
+    .cal-badge.overnight { background: #4b5563 !important; } /* 徹夜・日付跨ぎバッジ */
 
     .cal-week-summary {
       grid-column: 1 / -1;
@@ -366,7 +367,14 @@
       color: var(--ink);
       outline: none;
       min-width: 0;
+      transition: border-color 0.2s, box-shadow 0.2s;
     }
+    .form-control.input-error {
+      border-color: var(--danger) !important;
+      background-color: var(--danger-light) !important;
+      box-shadow: 0 0 0 2px rgba(239, 68, 68, 0.2);
+    }
+
     .form-row { display: flex; gap: 4px; width: 100%; flex-wrap: wrap; }
     .form-row .form-group { flex: 1; min-width: 100px; }
 
@@ -511,6 +519,49 @@
       max-height: 130px !important;
       width: 100% !important;
     }
+
+    /* ⌨️ 専用電卓キーボード（スライドイン） */
+    .calc-keyboard-drawer {
+      position: fixed;
+      bottom: 0; left: 0; right: 0;
+      background: var(--card);
+      border-top: 2px solid var(--brand);
+      box-shadow: 0 -4px 20px rgba(0,0,0,0.15);
+      z-index: 500;
+      display: none;
+      flex-direction: column;
+      padding: 8px;
+      gap: 6px;
+      max-width: 600px;
+      margin: 0 auto;
+    }
+    .calc-keyboard-drawer.active { display: flex; }
+    .calc-keyboard-header {
+      display: flex; justify-content: space-between; align-items: center;
+      font-size: 11px; font-weight: bold; color: var(--muted);
+      border-bottom: 1px solid var(--line); padding-bottom: 4px;
+    }
+    .calc-keyboard-grid {
+      display: grid;
+      grid-template-columns: repeat(4, 1fr);
+      gap: 6px;
+    }
+    .calc-btn {
+      background: var(--bg);
+      border: 1px solid var(--line);
+      color: var(--ink);
+      font-size: 16px;
+      font-weight: bold;
+      padding: 10px 0;
+      border-radius: 8px;
+      cursor: pointer;
+      display: flex; align-items: center; justify-content: center;
+      transition: background 0.1s;
+    }
+    .calc-btn:active { background: var(--line); }
+    .calc-btn.op { background: var(--brand-light); color: var(--brand-dark); border-color: #fed7aa; }
+    .calc-btn.action { background: var(--brand); color: white; border: none; }
+    .calc-btn.clear { background: var(--danger-light); color: var(--danger); border-color: #fca5a5; }
   </style>
 </head>
 <body>
@@ -648,7 +699,7 @@
         <div class="diag-box">
           <div class="form-group">
             <label>今年の年間見込み収入 (給与＋副業合計)</label>
-            <input type="text" id="diag-income-input" class="form-control">
+            <input type="text" id="diag-income-input" class="form-control calc-input" readonly>
           </div>
           <div class="form-row">
             <div class="form-group">
@@ -806,7 +857,7 @@
           <div class="accordion-body" id="acc-wall-body">
             <div class="form-group">
               <label>8月7日時点のベース総資産 (円)</label>
-              <input type="text" id="setting-base-asset" class="form-control">
+              <input type="text" id="setting-base-asset" class="form-control calc-input" readonly>
             </div>
             <div class="form-group">
               <label>年収の壁 ターゲット</label>
@@ -825,11 +876,11 @@
             </div>
             <div class="form-group">
               <label>月間貯金目標額 (円)</label>
-              <input type="text" id="setting-savings-goal" class="form-control">
+              <input type="text" id="setting-savings-goal" class="form-control calc-input" readonly>
             </div>
             <div class="form-group">
               <label>月間支出予算 (円)</label>
-              <input type="text" id="setting-monthly-budget" class="form-control">
+              <input type="text" id="setting-monthly-budget" class="form-control calc-input" readonly>
             </div>
             <button class="btn btn-sm" id="save-asset-settings-btn">設定を保存</button>
           </div>
@@ -997,7 +1048,8 @@
           </div>
           <div class="form-group" style="flex:1; min-width:0;">
             <label>交通費 (円)</label>
-            <input type="text" id="shift-transport" class="form-control" value="0">
+            <input type="text" id="shift-transport" class="form-control calc-input" value="0" readonly>
+            <div class="input-error-text" style="font-size:9.5px; color:var(--danger); display:none; margin-top:2px;">⚠️ 計算式が不完全です</div>
           </div>
         </div>
 
@@ -1038,7 +1090,8 @@
         </div>
         <div class="form-group">
           <label>金額 (計算式可 例: 500+300)</label>
-          <input type="text" id="expense-amount" class="form-control" placeholder="0" required>
+          <input type="text" id="expense-amount" class="form-control calc-input" placeholder="0" readonly required>
+          <div class="input-error-text" style="font-size:9.5px; color:var(--danger); display:none; margin-top:2px;">⚠️ 計算式が不完全です</div>
         </div>
         <div style="display:flex; gap:6px;">
           <button type="submit" class="btn btn-danger" style="flex:1;">支出を記録</button>
@@ -1071,7 +1124,8 @@
         </div>
         <div class="form-group">
           <label>金額 (計算式可)</label>
-          <input type="text" id="income-amount" class="form-control" placeholder="0" required>
+          <input type="text" id="income-amount" class="form-control calc-input" placeholder="0" readonly required>
+          <div class="input-error-text" style="font-size:9.5px; color:var(--danger); display:none; margin-top:2px;">⚠️ 計算式が不完全です</div>
         </div>
         <div style="display:flex; gap:6px;">
           <button type="submit" class="btn btn-good" style="flex:1;">収入を記録</button>
@@ -1114,7 +1168,7 @@
             <option value="45">45分</option><option value="60">60分</option><option value="75">75分</option><option value="90">90分</option>
           </select>
         </div>
-        <div class="form-group"><label>交通費 (円)</label><input type="text" id="edit-pin-transport" class="form-control"></div>
+        <div class="form-group"><label>交通費 (円)</label><input type="text" id="edit-pin-transport" class="form-control calc-input" readonly></div>
       </div>
       <div style="display:flex; gap:8px; margin-top:10px;">
         <button class="btn" style="flex:1;" onclick="saveEditedPin()">保存する</button>
@@ -1141,7 +1195,8 @@
           </div>
           <div class="form-group">
             <label>金額 (円)</label>
-            <input type="text" id="cc-amount-input" class="form-control" placeholder="0" required>
+            <input type="text" id="cc-amount-input" class="form-control calc-input" placeholder="0" readonly required>
+            <div class="input-error-text" style="font-size:9.5px; color:var(--danger); display:none; margin-top:2px;">⚠️ 計算式が不完全です</div>
           </div>
         </div>
         <button type="submit" class="btn" style="width:100%;">支出として保存</button>
@@ -1204,10 +1259,43 @@
         </div>
         <div class="form-group">
           <label>実際の支給・振込額 (円)</label>
-          <input type="text" id="override-amount" class="form-control" placeholder="未入力で計算値に戻す">
+          <input type="text" id="override-amount" class="form-control calc-input" placeholder="未入力で計算値に戻す" readonly>
         </div>
         <button type="submit" class="btn" style="width:100%;">確定保存</button>
       </form>
+    </div>
+  </div>
+
+  <!-- ⌨️ 専用電卓キーボード -->
+  <div class="calc-keyboard-drawer" id="calc-keyboard-drawer">
+    <div class="calc-keyboard-header">
+      <span>🔢 計算・入力キーボード</span>
+      <button type="button" class="btn btn-sm btn-good" id="calc-done-btn">完了</button>
+    </div>
+    <div class="calc-keyboard-grid">
+      <button type="button" class="calc-btn clear" data-val="AC">AC</button>
+      <button type="button" class="calc-btn op" data-val="⌫">⌫</button>
+      <button type="button" class="calc-btn op" data-val="/">÷</button>
+      <button type="button" class="calc-btn op" data-val="*">×</button>
+
+      <button type="button" class="calc-btn" data-val="7">7</button>
+      <button type="button" class="calc-btn" data-val="8">8</button>
+      <button type="button" class="calc-btn" data-val="9">9</button>
+      <button type="button" class="calc-btn op" data-val="-">-</button>
+
+      <button type="button" class="calc-btn" data-val="4">4</button>
+      <button type="button" class="calc-btn" data-val="5">5</button>
+      <button type="button" class="calc-btn" data-val="6">6</button>
+      <button type="button" class="calc-btn op" data-val="+">+</button>
+
+      <button type="button" class="calc-btn" data-val="1">1</button>
+      <button type="button" class="calc-btn" data-val="2">2</button>
+      <button type="button" class="calc-btn" data-val="3">3</button>
+      <button type="button" class="calc-btn" data-val="00">00</button>
+
+      <button type="button" class="calc-btn" data-val="0">0</button>
+      <button type="button" class="calc-btn" data-val=".">.</button>
+      <button type="button" class="calc-btn action" style="grid-column: span 2;" id="calc-enter-btn">確定</button>
     </div>
   </div>
 
@@ -1241,15 +1329,21 @@
       if (undoStack.length > 5) undoStack.shift();
     }
 
+    // 計算評価（エラー時はnullを返し、0に強制変換しない）
     function evaluateMath(expr) {
-      if (typeof expr === 'number') return expr;
-      if (!expr) return 0;
-      const clean = String(expr).replace(/[^0-9+\-*/().]/g, '');
-      if (!clean) return 0;
+      if (typeof expr === 'number') return isNaN(expr) ? null : expr;
+      if (!expr && expr !== 0) return 0;
+      const str = String(expr).trim();
+      if (str === "") return 0;
+
+      if (/[^0-9+\-*/().]/.test(str)) return null;
+
       try {
-        return Math.max(0, Math.round(Function(`"use strict"; return (${clean})`)()));
+        const result = Function(`"use strict"; return (${str})`)();
+        if (typeof result !== 'number' || isNaN(result) || !isFinite(result)) return null;
+        return Math.max(0, Math.round(result));
       } catch (e) {
-        return 0;
+        return null;
       }
     }
 
@@ -1345,8 +1439,9 @@
 
       const dayPay = Math.floor(realDayMins * (hourlyWage / 60));
       const nightPay = Math.floor(realNightMins * (nightWage / 60));
-      const transport = (shift.transport !== undefined && shift.transport !== null && shift.transport !== '')
-        ? Number(shift.transport) : (Number(job.transport) || 0);
+
+      const evalTrans = evaluateMath(shift.transport);
+      const transport = (evalTrans !== null) ? evalTrans : (Number(job.transport) || 0);
 
       return {
         totalPay: dayPay + nightPay + transport,
@@ -1447,8 +1542,9 @@
     let historyLimit = 10;
     let quickMode = false;
     let quickTemplateId = null;
-    let selectedShortcutKey = null; // ワンタップ用カラーハイライト選択中の保持キー
+    let selectedShortcutKey = null;
     let currentGachaVal = null;
+    let activeCalcInput = null; // 現在電卓で入力中のインプット要素
 
     function renderAll() {
       applyTheme();
@@ -1590,6 +1686,23 @@
 
         let dayIncTotal = 0;
         let badgesHtml = '<div class="cal-badge-container">';
+
+        // 🌙 前日からの徹夜・日またぎシフトの判定
+        const prevDateObj = new Date(year, month, d - 1);
+        const prevDateStr = prevDateObj.toISOString().slice(0, 10);
+        const prevShifts = DB.shifts.filter(s => s.date === prevDateStr);
+        prevShifts.forEach(s => {
+          const [sH, sM] = s.startTime.split(":").map(Number);
+          let [eH, eM] = s.endTime.split(":").map(Number);
+          let startMins = sH * 60 + sM;
+          let endMins = eH * 60 + eM;
+          if (endMins <= startMins) endMins += 24 * 60;
+          if (endMins > 24 * 60) {
+            const endH = Math.floor((endMins - 24 * 60) / 60);
+            const endM = (endMins - 24 * 60) % 60;
+            badgesHtml += `<div class="cal-badge overnight">🌙 〜${String(endH).padStart(2,'0')}:${String(endM).padStart(2,'0')} (前日分)</div>`;
+          }
+        });
 
         const dayShifts = DB.shifts.filter(s => s.date === dateStr);
         dayShifts.forEach(s => {
@@ -1999,7 +2112,7 @@
           start: document.getElementById("edit-pin-start").value,
           end: document.getElementById("edit-pin-end").value,
           breakMin: Number(document.getElementById("edit-pin-break").value) || 0,
-          transport: evaluateMath(document.getElementById("edit-pin-transport").value)
+          transport: evaluateMath(document.getElementById("edit-pin-transport").value) || 0
         };
         saveDB();
         renderAll();
@@ -2028,9 +2141,9 @@
               <button class="btn btn-danger btn-sm" onclick="deleteJob(${j.id})">削除</button>
             </div>
             <div class="form-row" style="margin-top:6px;">
-              <div class="form-group"><label>時給</label><input type="text" value="${j.hourlyWage}" class="form-control" onchange="DB.jobs[${idx}].hourlyWage=evaluateMath(this.value); saveDB(); renderAll();"></div>
+              <div class="form-group"><label>時給</label><input type="text" value="${j.hourlyWage}" class="form-control" onchange="DB.jobs[${idx}].hourlyWage=evaluateMath(this.value)||1200; saveDB(); renderAll();"></div>
               <div class="form-group"><label>深夜時給</label><input type="text" value="${j.nightWage || Math.floor(j.hourlyWage*1.25)}" class="form-control" onchange="DB.jobs[${idx}].nightWage=evaluateMath(this.value); saveDB(); renderAll();"></div>
-              <div class="form-group"><label>交通費/日</label><input type="text" value="${j.transport}" class="form-control" onchange="DB.jobs[${idx}].transport=evaluateMath(this.value); saveDB(); renderAll();"></div>
+              <div class="form-group"><label>交通費/日</label><input type="text" value="${j.transport}" class="form-control" onchange="DB.jobs[${idx}].transport=evaluateMath(this.value)||0; saveDB(); renderAll();"></div>
             </div>
           </div>
         `).join("");
@@ -2180,6 +2293,7 @@
 
     function closeModalWithLock(modalId) {
       document.getElementById(modalId).classList.remove("active");
+      closeCalcKeyboard();
       const activeModals = document.querySelectorAll(".modal-overlay.active");
       if (activeModals.length === 0) {
         document.body.classList.remove("modal-open");
@@ -2188,6 +2302,7 @@
 
     function openEntryModal(dateStr) {
       selectedShortcutKey = null;
+      clearFormErrors();
       document.getElementById("shift-id").value = "";
       document.getElementById("expense-id").value = "";
       document.getElementById("income-id").value = "";
@@ -2216,6 +2331,7 @@
 
     window.openEditModalById = (type, id) => {
       selectedShortcutKey = null;
+      clearFormErrors();
       openModalWithLock("entry-modal");
 
       if (type === "shift") {
@@ -2269,6 +2385,8 @@
     }
 
     function switchEntryForm(type) {
+      clearFormErrors();
+      closeCalcKeyboard();
       const forms = { shift: document.getElementById("shift-form"), expense: document.getElementById("expense-form"), income: document.getElementById("income-form") };
       const btns = { shift: document.getElementById("type-shift-btn"), expense: document.getElementById("type-expense-btn"), income: document.getElementById("type-income-btn") };
 
@@ -2278,6 +2396,49 @@
       });
 
       document.getElementById("shift-overlap-alert").style.display = "none";
+    }
+
+    function clearFormErrors() {
+      document.querySelectorAll(".form-control").forEach(el => el.classList.remove("input-error"));
+      document.querySelectorAll(".input-error-text").forEach(el => el.style.display = "none");
+    }
+
+    function showInputError(inputEl) {
+      if (!inputEl) return;
+      inputEl.classList.add("input-error");
+      const errText = inputEl.parentNode.querySelector(".input-error-text");
+      if (errText) errText.style.display = "block";
+    }
+
+    // ⌨️ 専用電卓キーボードの制御
+    function openCalcKeyboard(inputEl) {
+      activeCalcInput = inputEl;
+      clearFormErrors();
+      document.getElementById("calc-keyboard-drawer").classList.add("active");
+    }
+
+    function closeCalcKeyboard() {
+      activeCalcInput = null;
+      document.getElementById("calc-keyboard-drawer").classList.remove("active");
+    }
+
+    function handleCalcKeyPress(val) {
+      if (!activeCalcInput) return;
+      let curr = activeCalcInput.value || "";
+
+      if (val === "AC") {
+        curr = "";
+      } else if (val === "⌫") {
+        curr = curr.slice(0, -1);
+      } else {
+        curr += val;
+      }
+      activeCalcInput.value = curr;
+
+      // シフトフォームの交通費入力時は見込み額プレビューをリアルタイム更新
+      if (activeCalcInput.id === "shift-transport") {
+        updateShiftPreview();
+      }
     }
 
     function renderDayItemsList(dateStr) {
@@ -2423,9 +2584,10 @@
       const eH = document.getElementById("shift-end-hour").value;
       const eM = document.getElementById("shift-end-min").value;
       const breakMin = Number(document.getElementById("shift-break-min").value) || 0;
-      const transport = evaluateMath(document.getElementById("shift-transport").value);
+      const transportInput = document.getElementById("shift-transport");
+      const evalTrans = evaluateMath(transportInput.value);
 
-      const tempShift = { jobId, startTime: `${sH}:${sM}`, endTime: `${eH}:${eM}`, breakMin, transport };
+      const tempShift = { jobId, startTime: `${sH}:${sM}`, endTime: `${eH}:${eM}`, breakMin, transport: evalTrans || 0 };
       const calc = calculateShiftPay(tempShift);
 
       document.getElementById("shift-pay-preview").textContent = `💡 見込み給料: 約 ¥${calc.totalPay.toLocaleString()} (実働 ${calc.totalHours.toFixed(1)}h)`;
@@ -2555,6 +2717,18 @@
         document.getElementById("coin-gacha-status").textContent = "今日の貯金を完了しました🎉";
       });
 
+      // 電卓キーボード入力イベント
+      document.querySelectorAll(".calc-input").forEach(inputEl => {
+        inputEl.addEventListener("click", () => openCalcKeyboard(inputEl));
+      });
+
+      document.querySelectorAll(".calc-btn[data-val]").forEach(btn => {
+        btn.addEventListener("click", () => handleCalcKeyPress(btn.getAttribute("data-val")));
+      });
+
+      document.getElementById("calc-done-btn").addEventListener("click", closeCalcKeyboard);
+      document.getElementById("calc-enter-btn").addEventListener("click", closeCalcKeyboard);
+
       // ホームカレンダー月切り替え
       document.getElementById("prev-month-btn").addEventListener("click", () => { currentDate.setMonth(currentDate.getMonth() - 1); renderAll(); });
       document.getElementById("next-month-btn").addEventListener("click", () => { currentDate.setMonth(currentDate.getMonth() + 1); renderAll(); });
@@ -2648,7 +2822,6 @@
         });
       });
       document.getElementById("shift-break-min").addEventListener("change", updateShiftPreview);
-      document.getElementById("shift-transport").addEventListener("change", updateShiftPreview);
 
       document.getElementById("save-as-pin-btn").addEventListener("click", () => {
         const jobId = document.getElementById("shift-job-id").value;
@@ -2658,7 +2831,13 @@
         const eH = document.getElementById("shift-end-hour").value;
         const eM = document.getElementById("shift-end-min").value;
         const breakMin = Number(document.getElementById("shift-break-min").value) || 0;
-        const transport = evaluateMath(document.getElementById("shift-transport").value);
+        const transportInput = document.getElementById("shift-transport");
+        const evalTrans = evaluateMath(transportInput.value);
+
+        if (evalTrans === null) {
+          showInputError(transportInput);
+          return;
+        }
 
         const defaultLabel = `${job ? job.name : 'シフト'} ${sH}:${sM}〜${eH}:${eM}`;
         const label = prompt("テンプレート名を入力してください:", defaultLabel);
@@ -2672,7 +2851,7 @@
             start: `${sH}:${sM}`,
             end: `${eH}:${eM}`,
             breakMin: breakMin,
-            transport: transport
+            transport: evalTrans
           });
           saveDB();
           renderPinSelects();
@@ -2682,11 +2861,20 @@
 
       document.getElementById("shift-form").addEventListener("submit", e => {
         e.preventDefault();
+        clearFormErrors();
         const editId = document.getElementById("shift-id").value;
         const sH = document.getElementById("shift-start-hour").value;
         const sM = document.getElementById("shift-start-min").value;
         const eH = document.getElementById("shift-end-hour").value;
         const eM = document.getElementById("shift-end-min").value;
+
+        const transInput = document.getElementById("shift-transport");
+        const evalTrans = evaluateMath(transInput.value);
+
+        if (evalTrans === null) {
+          showInputError(transInput);
+          return;
+        }
 
         const payload = {
           jobId: document.getElementById("shift-job-id").value,
@@ -2694,7 +2882,7 @@
           startTime: `${sH}:${sM}`,
           endTime: `${eH}:${eM}`,
           breakMin: Number(document.getElementById("shift-break-min").value) || 0,
-          transport: evaluateMath(document.getElementById("shift-transport").value)
+          transport: evalTrans
         };
 
         if (editId) {
@@ -2710,14 +2898,23 @@
 
       document.getElementById("expense-form").addEventListener("submit", e => {
         e.preventDefault();
+        clearFormErrors();
         const editId = document.getElementById("expense-id").value;
         const category = document.getElementById("expense-category").value;
         const memoInput = document.getElementById("expense-memo").value.trim();
+        const amountInput = document.getElementById("expense-amount");
+        const evalAmount = evaluateMath(amountInput.value);
+
+        if (evalAmount === null) {
+          showInputError(amountInput);
+          return;
+        }
+
         const payload = {
           date: document.getElementById("expense-date").value,
           category: category,
           memo: memoInput || category,
-          amount: evaluateMath(document.getElementById("expense-amount").value)
+          amount: evalAmount
         };
 
         if (editId) {
@@ -2733,14 +2930,23 @@
 
       document.getElementById("income-form").addEventListener("submit", e => {
         e.preventDefault();
+        clearFormErrors();
         const editId = document.getElementById("income-id").value;
         const category = document.getElementById("income-category").value;
         const memoInput = document.getElementById("income-memo").value.trim();
+        const amountInput = document.getElementById("income-amount");
+        const evalAmount = evaluateMath(amountInput.value);
+
+        if (evalAmount === null) {
+          showInputError(amountInput);
+          return;
+        }
+
         const payload = {
           date: document.getElementById("income-date").value,
           category: category,
           memo: memoInput || category,
-          amount: evaluateMath(document.getElementById("income-amount").value)
+          amount: evalAmount
         };
 
         if (editId) {
@@ -2775,13 +2981,22 @@
 
       document.getElementById("cc-form").addEventListener("submit", e => {
         e.preventDefault();
+        clearFormErrors();
+        const amountInput = document.getElementById("cc-amount-input");
+        const evalAmount = evaluateMath(amountInput.value);
+
+        if (evalAmount === null) {
+          showInputError(amountInput);
+          return;
+        }
+
         pushUndoState();
         DB.expenses.push({
           id: Date.now(),
           date: document.getElementById("cc-date-input").value,
           category: "クレカ",
           memo: document.getElementById("cc-company-select").value,
-          amount: evaluateMath(document.getElementById("cc-amount-input").value)
+          amount: evalAmount
         });
         saveDB(); closeModalWithLock("cc-modal"); renderAll();
       });
@@ -2819,7 +3034,11 @@
 
         pushUndoState();
         if (raw === "") delete DB.actualPay[key];
-        else DB.actualPay[key] = evaluateMath(raw);
+        else {
+          const evalPay = evaluateMath(raw);
+          if (evalPay === null) return;
+          DB.actualPay[key] = evalPay;
+        }
 
         saveDB(); closeModalWithLock("override-pay-modal"); renderAll();
       });
@@ -2893,12 +3112,14 @@
       });
 
       document.getElementById("save-asset-settings-btn").addEventListener("click", () => {
+        const baseAssetEval = evaluateMath(document.getElementById("setting-base-asset").value);
+        if (baseAssetEval === null) return;
         pushUndoState();
-        DB.baseAsset = evaluateMath(document.getElementById("setting-base-asset").value);
+        DB.baseAsset = baseAssetEval;
         const wallVal = document.getElementById("setting-wall-target").value;
-        DB.wallTarget = wallVal === "custom" ? evaluateMath(document.getElementById("setting-wall-custom").value) : Number(wallVal);
-        DB.budgets.savingsGoal = evaluateMath(document.getElementById("setting-savings-goal").value);
-        DB.budgets.monthly = evaluateMath(document.getElementById("setting-monthly-budget").value);
+        DB.wallTarget = wallVal === "custom" ? (evaluateMath(document.getElementById("setting-wall-custom").value) || 1780000) : Number(wallVal);
+        DB.budgets.savingsGoal = evaluateMath(document.getElementById("setting-savings-goal").value) || 0;
+        DB.budgets.monthly = evaluateMath(document.getElementById("setting-monthly-budget").value) || 0;
         saveDB(); renderAll();
       });
 
