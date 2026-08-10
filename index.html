@@ -515,12 +515,44 @@
     .mode-bar { display: flex; gap: 4px; margin-bottom: 8px; overflow-x: auto; width: 100%; -webkit-overflow-scrolling: touch; }
     .diag-box { background: var(--bg); border: 1.5px solid var(--line); border-radius: 8px; padding: 8px; font-size: 11px; }
 
+    /* 📋 リストアイテムのコンパクト・1行表示スタイル */
+    .list-item {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      padding: 5px 0;
+      border-bottom: 1px solid var(--line);
+      font-size: 10.5px;
+      cursor: pointer;
+      gap: 6px;
+      width: 100%;
+    }
+    .list-item:hover { background: var(--bg); }
+    .list-item:last-child { border-bottom: none; }
+    .list-item-left {
+      display: flex;
+      align-items: center;
+      gap: 4px;
+      overflow: hidden;
+      white-space: nowrap;
+      text-overflow: ellipsis;
+      flex: 1;
+      min-width: 0;
+    }
+    .list-item-right {
+      display: flex;
+      align-items: center;
+      gap: 6px;
+      flex-shrink: 0;
+      font-weight: 700;
+    }
+
     .card canvas {
       max-height: 130px !important;
       width: 100% !important;
     }
 
-    /* ⌨️ 専用電卓キーボード（スライドイン & 液晶表示窓付き） */
+    /* ⌨️ 専用電卓キーボード */
     .calc-keyboard-drawer {
       position: fixed;
       bottom: 0; left: 0; right: 0;
@@ -691,7 +723,7 @@
           <input type="search" id="history-search-input" class="form-control" placeholder="🔍 メモ・勤務先で検索">
           <select id="history-filter-select" class="form-control" style="width: 80px; flex: none;">
             <option value="all">すべて</option>
-            <option value="shift">給与</option>
+            <option value="shift">給料</option>
             <option value="income">収入</option>
             <option value="expense">支出</option>
           </select>
@@ -1852,7 +1884,7 @@
       }
     }
 
-    // 明細リストの表示（重複表示を解消した以前のスッキリした表示）
+    // 明細リストの表示（コンパクト・1行表示形式）
     function renderHistory() {
       const container = document.getElementById("recent-history-list");
       if (!container) return;
@@ -1889,11 +1921,12 @@
 
       container.innerHTML = sliced.map(item => `
         <div class="list-item" onclick="openEditModalById('${item.type}', ${item.id})">
-          <div>
+          <div class="list-item-left">
             <span class="badge" style="background:${item.color};">${item.type === 'shift' ? '給与' : item.type === 'income' ? '収入' : '支出'}</span>
-            <strong>${item.date.slice(5)}</strong> ${item.title}
+            <strong>${item.date.slice(5)}</strong>
+            <span style="overflow:hidden; text-overflow:ellipsis;">${item.title}</span>
           </div>
-          <div style="font-weight:700; color:${item.color};">
+          <div class="list-item-right" style="color:${item.color};">
             ${item.amount > 0 ? "+" : ""}¥${item.amount.toLocaleString()}
           </div>
         </div>
@@ -2168,11 +2201,13 @@
       if (pinsConfig) {
         pinsConfig.innerHTML = DB.pins.map(p => `
           <div class="list-item" onclick="openPinEditModal(${p.id})">
-            <div>
+            <div class="list-item-left">
               <strong>📌 ${p.label}</strong>
-              <div style="font-size:11px; color:var(--muted);">${p.start} ~ ${p.end} (タップして編集)</div>
+              <span style="font-size:11px; color:var(--muted); margin-left:4px;">(${p.start} ~ ${p.end})</span>
             </div>
-            <button class="btn btn-outline btn-sm" onclick="event.stopPropagation(); openPinEditModal(${p.id})">✏️ 編集</button>
+            <div class="list-item-right">
+              <button class="btn btn-outline btn-sm" onclick="event.stopPropagation(); openPinEditModal(${p.id})">✏️ 編集</button>
+            </div>
           </div>
         `).join("");
       }
@@ -2190,11 +2225,13 @@
       if (fixedConfig) {
         fixedConfig.innerHTML = DB.fixedExpenses.map(f => `
           <div class="list-item">
-            <div>
+            <div class="list-item-left">
               <strong>${f.memo}</strong>
-              <div style="font-size:11px; color:var(--muted);">¥${f.amount.toLocaleString()} / 毎月自動</div>
+              <span style="font-size:11px; color:var(--muted); margin-left:4px;">(¥${f.amount.toLocaleString()}/月)</span>
             </div>
-            <button class="btn btn-danger btn-sm" onclick="deleteFixedConfig(${f.id})">削除</button>
+            <div class="list-item-right">
+              <button class="btn btn-danger btn-sm" onclick="deleteFixedConfig(${f.id})">削除</button>
+            </div>
           </div>
         `).join("");
       }
@@ -2203,8 +2240,10 @@
       if (ccConfig) {
         ccConfig.innerHTML = DB.creditCompanies.map((c, idx) => `
           <div class="list-item">
-            <span>${c}</span>
-            <button class="btn btn-danger btn-sm" onclick="deleteCardCompany(${idx})">削除</button>
+            <div class="list-item-left"><span>${c}</span></div>
+            <div class="list-item-right">
+              <button class="btn btn-danger btn-sm" onclick="deleteCardCompany(${idx})">削除</button>
+            </div>
           </div>
         `).join("");
       }
@@ -2425,7 +2464,7 @@
       if (errText) errText.style.display = "block";
     }
 
-    // ⌨️ 専用電卓キーボードの制御（ディスプレイリアルタイム更新対応）
+    // ⌨️ 専用電卓キーボードの制御（液晶ディスプレイリアルタイム連動）
     function updateCalcDisplay() {
       const displayEl = document.getElementById("calc-display-val");
       if (!displayEl) return;
@@ -2468,7 +2507,7 @@
       }
     }
 
-    // 当日の登録データ一覧表示（シンプルな表記に修正）
+    // 当日の登録データ一覧表示（右側配置のコンパクト表示形式）
     function renderDayItemsList(dateStr) {
       const container = document.getElementById("day-items-list");
       if (!container) return;
@@ -2479,22 +2518,43 @@
         const pay = calculateShiftPay(s).totalPay;
         html += `
           <div class="list-item" onclick="openEditModalById('shift', ${s.id})">
-            <div><span class="badge" style="background:${job ? job.color : 'var(--brand)'};">シフト</span> <strong>${job ? job.name : ''}</strong> (${s.startTime}~${s.endTime})</div>
-            <div><span>¥${pay.toLocaleString()}</span> <button class="btn btn-danger btn-sm" onclick="event.stopPropagation(); deleteShift(${s.id})">削除</button></div>
+            <div class="list-item-left">
+              <span class="badge" style="background:${job ? job.color : 'var(--brand)'};">シフト</span>
+              <strong>${job ? job.name : ''}</strong>
+              <span style="font-size:10px; color:var(--muted); margin-left:2px;">(${s.startTime}~${s.endTime})</span>
+            </div>
+            <div class="list-item-right" style="color:${job ? job.color : 'var(--brand)'};">
+              <span>¥${pay.toLocaleString()}</span>
+              <button class="btn btn-danger btn-sm" onclick="event.stopPropagation(); deleteShift(${s.id})">削除</button>
+            </div>
           </div>`;
       });
       DB.expenses.filter(e => e.date === dateStr).forEach(e => {
+        const displayTitle = (e.memo && e.memo !== e.category) ? `[${e.category}] ${e.memo}` : `[${e.category}]`;
         html += `
           <div class="list-item" onclick="openEditModalById('expense', ${e.id})">
-            <div><span class="badge" style="background:var(--danger);">支出</span> <strong>${e.memo || e.category}</strong></div>
-            <div><span style="color:var(--danger)">¥${e.amount.toLocaleString()}</span> <button class="btn btn-danger btn-sm" onclick="event.stopPropagation(); deleteExpense(${e.id})">削除</button></div>
+            <div class="list-item-left">
+              <span class="badge" style="background:var(--danger);">支出</span>
+              <span style="overflow:hidden; text-overflow:ellipsis;">${displayTitle}</span>
+            </div>
+            <div class="list-item-right" style="color:var(--danger);">
+              <span>-¥${e.amount.toLocaleString()}</span>
+              <button class="btn btn-danger btn-sm" onclick="event.stopPropagation(); deleteExpense(${e.id})">削除</button>
+            </div>
           </div>`;
       });
       DB.otherIncomes.filter(i => i.date === dateStr).forEach(i => {
+        const displayTitle = (i.memo && i.memo !== i.category) ? `[${i.category}] ${i.memo}` : `[${i.category}]`;
         html += `
           <div class="list-item" onclick="openEditModalById('income', ${i.id})">
-            <div><span class="badge" style="background:var(--good);">収入</span> <strong>${i.memo || i.category}</strong></div>
-            <div><span style="color:var(--good)">¥${i.amount.toLocaleString()}</span> <button class="btn btn-danger btn-sm" onclick="event.stopPropagation(); deleteIncome(${i.id})">削除</button></div>
+            <div class="list-item-left">
+              <span class="badge" style="background:var(--good);">収入</span>
+              <span style="overflow:hidden; text-overflow:ellipsis;">${displayTitle}</span>
+            </div>
+            <div class="list-item-right" style="color:var(--good);">
+              <span>+¥${i.amount.toLocaleString()}</span>
+              <button class="btn btn-danger btn-sm" onclick="event.stopPropagation(); deleteIncome(${i.id})">削除</button>
+            </div>
           </div>`;
       });
 
