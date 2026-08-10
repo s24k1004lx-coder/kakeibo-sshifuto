@@ -523,6 +523,12 @@
       border-radius: 16px; padding: 3px 8px; font-size: 10.5px; font-weight: 600;
       white-space: nowrap; cursor: pointer; display: inline-flex; align-items: center; gap: 3px;
     }
+    .pin-chip.active {
+      background: var(--brand);
+      color: #fff;
+      border-color: var(--brand-dark);
+      box-shadow: 0 0 0 2px rgba(249, 115, 22, 0.3);
+    }
     .pin-container { display: flex; flex-wrap: wrap; gap: 4px; width: 100%; }
     .mode-bar { display: flex; gap: 4px; margin-bottom: 8px; overflow-x: auto; width: 100%; -webkit-overflow-scrolling: touch; }
     .diag-box { background: var(--bg); border: 1.5px solid var(--line); border-radius: 8px; padding: 8px; font-size: 11px; }
@@ -601,9 +607,12 @@
         <button class="btn btn-outline btn-sm" id="quick-mode-toggle-btn">⚡ クイック</button>
       </div>
 
-      <div id="quick-pin-section" class="card" style="display: none; background: var(--brand-light);">
-        <div style="font-size: 10.5px; color: var(--brand-dark); font-weight: bold; margin-bottom: 4px;">
-          テンプレを選択 → カレンダーの日付をタップで即登録
+      <div id="quick-pin-section" class="card" style="display: none; background: var(--brand-light); border: 1.5px solid var(--brand);">
+        <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 6px;">
+          <div style="font-size: 10.5px; color: var(--brand-dark); font-weight: bold;">
+            ⚡ テンプレ選択 → 日付タップで即登録
+          </div>
+          <button class="btn btn-danger btn-sm" id="cancel-quick-mode-btn">✕ 終了</button>
         </div>
         <div class="pin-container" id="quick-pin-list"></div>
       </div>
@@ -1405,7 +1414,6 @@
       };
     }
 
-    // 任意の日付における総資産を計算（8/7のベース資産から過去なら逆算、未来なら加減算）
     function calculateTotalAssetOnDate(targetDateStr) {
       const baseDate = DB.baseAssetDate || "2026-08-07";
       const baseAsset = Number(DB.baseAsset) || 0;
@@ -1421,7 +1429,6 @@
                     .reduce((acc, e) => acc + e.amount, 0);
         return baseAsset + shiftsPay + otherInc - exp;
       } else {
-        // 基準日より前（過去）へ遡る場合：収入を引いて支出を足す（逆算）
         let shiftsPay = DB.shifts.filter(s => s.date > targetDateStr && s.date <= baseDate)
                           .reduce((acc, s) => acc + calculateShiftPay(s).totalPay, 0);
         let otherInc = DB.otherIncomes.filter(inc => inc.date > targetDateStr && inc.date <= baseDate)
@@ -1663,7 +1670,6 @@
         weekInc += dayIncTotal;
         weekExp += dayExpSum;
 
-        // 日付ヘッダー部分（給料日の場合は日付の横に小さく目立ちすぎないマークを表示）
         const paydayLabel = paydayMap[dateStr] ? `<span style="font-size:9px; color:#8b5cf6; font-weight:normal; margin-left:2px;">💴給料日</span>` : '';
 
         cell.innerHTML = `<div class="day-number ${dayClass}"><div><span>${d}</span>${paydayLabel}</div>${selectedDates.has(dateStr) ? '☑' : ''}</div>${badgesHtml}`;
@@ -2564,7 +2570,7 @@
       if (!pin) return;
       pushUndoState(`「${pin.label}」を登録しました`);
       DB.shifts.push({
-        id: Date.now(),
+        id: Date.now() + Math.random(),
         jobId: pin.jobId,
         date: dateStr,
         startTime: pin.start,
@@ -2574,6 +2580,7 @@
       });
       saveDB();
       renderAll();
+      showToast(`${dateStr.slice(5)}に「${pin.label}」を登録しました`, true);
     }
 
     function bindEvents() {
@@ -2633,7 +2640,16 @@
 
       document.getElementById("quick-mode-toggle-btn").addEventListener("click", () => {
         quickMode = !quickMode;
+        if (!quickMode) quickTemplateId = null;
         document.getElementById("quick-pin-section").style.display = quickMode ? "block" : "none";
+        renderPinSelects();
+      });
+
+      document.getElementById("cancel-quick-mode-btn").addEventListener("click", () => {
+        quickMode = false;
+        quickTemplateId = null;
+        document.getElementById("quick-pin-section").style.display = "none";
+        renderPinSelects();
       });
 
       document.getElementById("apply-pin-bulk-btn").addEventListener("click", () => {
