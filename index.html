@@ -1642,9 +1642,9 @@
         let dayIncTotal = 0;
         let badgesHtml = '<div class="cal-badge-container">';
 
-        if (paydayMap[dateStr]) {
-          badgesHtml += `<div class="cal-badge payday">💴 給料日</div>`;
-        }
+        const paydayLabel = paydayMap[dateStr] ? `<span style="font-size:9px; color:#8b5cf6; font-weight:normal; margin-left:2px;">💴給料日</span>` : '';
+
+　　　　 cell.innerHTML = `<div class="day-number ${dayClass}"><div><span>${d}</span>${paydayLabel}</div>${selectedDates.has(dateStr) ? '☑' : ''}</div>${badgesHtml}`;
 
         const dayShifts = DB.shifts.filter(s => s.date === dateStr);
         dayShifts.forEach(s => {
