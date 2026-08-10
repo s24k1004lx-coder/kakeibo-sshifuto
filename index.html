@@ -354,7 +354,7 @@
     .btn-good { background: var(--good); color: white; }
     .btn-outline { background: transparent; border: 1.5px solid var(--line); color: var(--ink); }
     .btn-sm { padding: 3px 6px; font-size: 10.5px; border-radius: 5px; width: auto; }
-    .btn-nudge { background: var(--bg); border: 1px solid var(--line); color: var(--ink); border-radius: 6px; padding: 3px 5px; font-size: 10px; font-weight: bold; cursor: pointer; flex-shrink: 0; }
+    .btn-nudge { background: var(--bg); border: 1.5px solid var(--line); color: var(--ink); border-radius: 6px; padding: 3px 5px; font-size: 10px; font-weight: bold; cursor: pointer; flex-shrink: 0; }
 
     .form-group { margin-bottom: 8px; width: 100%; }
     .form-group label { display: block; font-size: 10.5px; font-weight: 600; color: var(--muted); margin-bottom: 2px; }
@@ -762,7 +762,7 @@
         </div>
       </div>
 
-      <!-- 総予算の変化グラフ（折れ線グラフ） -->
+      <!-- 総資産の推移グラフ（折れ線グラフ） -->
       <div class="card">
         <div class="card-title">📈 総資産の推移 (日別)</div>
         <canvas id="chart-budget-line" style="max-height: 150px !important;"></canvas>
@@ -1465,7 +1465,7 @@
     }
 
     let currentDate = new Date();
-    let statsDate = new Date(); // 統計タブ専用の月
+    let statsDate = new Date();
     let multiSelectMode = false;
     let selectedDates = new Set();
     let historyLimit = 10;
@@ -1878,7 +1878,14 @@
       renderCharts();
     }
 
-    // 1. 総資産の推移グラフ（折れ線グラフ：収入で増え、支出で減る）
+    function renderCharts() {
+      const currentYear = currentDate.getFullYear();
+      const statsYear = statsDate.getFullYear();
+      const statsMonth = statsDate.getMonth();
+      const statsMonthStr = `${statsYear}-${String(statsMonth + 1).padStart(2, "0")}`;
+      const labels12 = ["1月","2月","3月","4月","5月","6月","7月","8月","9月","10月","11月","12月"];
+
+      // 1. 総資産の推移グラフ（折れ線グラフ：収入で増え、支出で減る / 今日まで表示）
       const ctxBudgetLine = document.getElementById("chart-budget-line");
       if (ctxBudgetLine) {
         if (chartBudgetLine) chartBudgetLine.destroy();
@@ -1892,7 +1899,6 @@
           const dateStr = `${statsMonthStr}-${String(i).padStart(2, "0")}`;
 
           if (dateStr <= todayStr) {
-            // その日時点での総資産を計算（ベース資産 ＋ その日までの全収入 - その日までの全支出）
             let shiftsPay = DB.shifts.filter(s => s.date > baseDate && s.date <= dateStr)
                               .reduce((acc, s) => acc + calculateShiftPay(s).totalPay, 0);
             let otherInc = DB.otherIncomes.filter(inc => inc.date > baseDate && inc.date <= dateStr)
@@ -1903,7 +1909,6 @@
             const dayTotalAsset = (DB.baseAsset || 0) + shiftsPay + otherInc - exp;
             assetTrendData.push(dayTotalAsset);
           } else {
-            // 明日以降（未来）はnullをセットして折れ線を表示しない
             assetTrendData.push(null);
           }
         }
@@ -1929,7 +1934,7 @@
           }
         });
       }
-    
+
       const ctxJobs = document.getElementById("chart-jobs");
       if (ctxJobs) {
         if (chartJobs) chartJobs.destroy();
@@ -2428,7 +2433,7 @@
 
       const hintEl = document.getElementById("legal-break-hint");
       if (hintEl) {
-        hintEl.textContent = isKyoei ? `(協栄:${autoBreak}분自動)` : (grossMins === 360 ? `(6h特例:45分)` : `(自動:${autoBreak}分)`);
+        hintEl.textContent = isKyoei ? `(協栄:${autoBreak}分自動)` : (grossMins === 360 ? `(6h特例:45分)` : `(自動:${autoBreak}分)`);
       }
     }
 
@@ -2946,7 +2951,7 @@
 
       document.getElementById("export-json-btn").addEventListener("click", () => {
         const blob = new Blob([JSON.stringify(DB, null, 2)], { type: "application/json" });
-        const a = document.createElement("a"); a.href = URL.createObjectURL(blob);
+        const a = document.createElement("a"); a.href = URL.center || URL.createObjectURL(blob);
         a.download = `shift_pro_backup_${new Date().toISOString().slice(0, 10)}.json`; a.click();
       });
 
