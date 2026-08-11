@@ -311,6 +311,35 @@
     <!-- 今日・明日・次回給料日バナー -->
     <div class="card info-banner-card" id="infoBanner"></div>
 
+    <!-- 総資産 ＆ 今日のランダム小銭貯金カード -->
+    <div class="card">
+      <h2>🏦 総資産 ＆ 🎲 今日の小銭貯金</h2>
+      <div class="asset-box">
+        <div class="asset-head">
+          <span>現在の総資産</span>
+          <button class="btn btn-sm btn-outline" onclick="openAssetEditModal()">✏️ 修正</button>
+        </div>
+        <div class="asset-val" id="totalAssetVal">¥0</div>
+      </div>
+
+      <!-- 小銭貯金ガチャ -->
+      <div class="asset-box" style="margin-bottom:0; background:var(--brand-light); border-color:#fed7aa;">
+        <div class="asset-head">
+          <span style="color:var(--brand-dark);">🎰 今日のランダム小銭貯金 (500円未満)</span>
+        </div>
+        <div style="display:flex; justify-content:space-between; align-items:center; margin-top:6px;">
+          <div>
+            <span style="font-size:1.1rem; font-weight:bold;" id="coinGachaVal">--- 円</span>
+            <div class="muted-note" id="coinGachaStatus">「ガチャを引く」を押して決定！</div>
+          </div>
+          <div style="display:flex; gap:6px;">
+            <button class="btn btn-sm btn-outline" onclick="spinCoinGacha()">🎲 ガチャ</button>
+            <button class="btn btn-sm" id="saveCoinGachaBtn" onclick="saveCoinGacha()" style="display:none;">貯金する</button>
+          </div>
+        </div>
+      </div>
+    </div>
+
     <!-- カレンダーカード -->
     <div class="card">
       <div class="calendar-header">
@@ -369,36 +398,6 @@
 
   <!-- ============ 給与・収支 ＆ 税金診断画面 ============ -->
   <div class="view" id="view-pay">
-
-    <!-- 総資産 ＆ 今日のランダム小銭貯金カード（2ページ目へ移動） -->
-    <div class="card">
-      <h2>🏦 総資産 ＆ 🎲 今日の小銭貯金</h2>
-      <div class="asset-box">
-        <div class="asset-head">
-          <span>現在の総資産</span>
-          <button class="btn btn-sm btn-outline" onclick="openAssetEditModal()">✏️ 修正</button>
-        </div>
-        <div class="asset-val" id="totalAssetVal">¥0</div>
-      </div>
-
-      <!-- 小銭貯金ガチャ -->
-      <div class="asset-box" style="margin-bottom:0; background:var(--brand-light); border-color:#fed7aa;">
-        <div class="asset-head">
-          <span style="color:var(--brand-dark);">🎰 今日のランダム小銭貯金 (500円未満)</span>
-        </div>
-        <div style="display:flex; justify-content:space-between; align-items:center; margin-top:6px;">
-          <div>
-            <span style="font-size:1.1rem; font-weight:bold;" id="coinGachaVal">--- 円</span>
-            <div class="muted-note" id="coinGachaStatus">「ガチャを引く」を押して決定！</div>
-          </div>
-          <div style="display:flex; gap:6px;">
-            <button class="btn btn-sm btn-outline" onclick="spinCoinGacha()">🎲 ガチャ</button>
-            <button class="btn btn-sm" id="saveCoinGachaBtn" onclick="saveCoinGacha()" style="display:none;">貯金する</button>
-          </div>
-        </div>
-      </div>
-    </div>
-
     <!-- 🔍 税金・社会保険料の簡易診断機能 -->
     <div class="card">
       <h2>🔍 税金・社会保険料の簡易診断
@@ -611,10 +610,10 @@
           <button class="btn btn-sm btn-outline" onclick="exportCSV()">CSV書き出し</button>
           <button class="btn btn-sm btn-outline" onclick="exportJSON()">JSONバックアップ</button>
           
-          <!-- ブラウザの標準テキストハミ出しを防止したファイル選択要素 -->
-          <label for="jsonFileInput" class="btn btn-sm btn-outline" style="cursor:pointer; margin:0; display:inline-flex; align-items:center; position:relative; overflow:hidden;">
+          <!-- Safari等モバイル環境対応: labelクリックで確実にファイルピッカーを起動 -->
+          <label class="btn btn-sm btn-outline" style="cursor:pointer; margin:0; display:inline-flex; align-items:center;">
             JSON復元
-            <input type="file" id="jsonFileInput" accept="application/json,.json" style="position:absolute; top:-9999px; left:-9999px; opacity:0; width:1px; height:1px;" onchange="importJSON(this)">
+            <input type="file" id="jsonFileInput" accept="application/json,.json" style="opacity:0; position:absolute; width:1px; height:1px; z-index:-1;" onchange="importJSON(this)">
           </label>
           
           <button class="btn btn-sm btn-danger" onclick="clearAllData()">データ初期化</button>
@@ -2137,15 +2136,6 @@ function renderCalendar() {
   var firstDay = new Date(year, month - 1, 1).getDay();
   var lastDate = new Date(year, month, 0).getDate();
 
-  // 前月の年月・最終日
-  var prevY = year, prevM = month - 1;
-  if (prevM < 1) { prevM = 12; prevY -= 1; }
-  var prevLastDate = new Date(prevY, prevM, 0).getDate();
-
-  // 翌月の年月
-  var nextY = year, nextM = month + 1;
-  if (nextM > 12) { nextM = 1; nextY += 1; }
-
   var html = "";
   var cellCount = 0;
   var weekIncome = 0, weekExpense = 0;
@@ -2155,27 +2145,8 @@ function renderCalendar() {
     weekIncome = 0; weekExpense = 0;
   }
 
-  // 前月埋め（空白セル）＆ 前月分の収支も週合計に加算
-  for (var i = 0; i < firstDay; i++) {
-    var pD = prevLastDate - firstDay + 1 + i;
-    var pDateFormatted = `${prevY}-${prevM < 10 ? '0' + prevM : prevM}-${pD < 10 ? '0' + pD : pD}`;
-    
-    var pShifts = DB.shifts.filter(s => s.date === pDateFormatted);
-    var pExpenses = DB.expenses.filter(e => e.date === pDateFormatted);
-    var pIncomes = DB.otherIncomes.filter(inc => inc.date === pDateFormatted);
+  for (var i = 0; i < firstDay; i++) { html += '<div class="cal-cell empty"></div>'; cellCount++; }
 
-    pShifts.forEach(s => {
-      var job = DB.jobs.find(j => j.id === s.jobId) || DB.jobs[0] || { hourlyWage: 1250 };
-      weekIncome += calculateShiftPay(s.startTime, s.endTime, s.breakMin, s.transport, job).pay;
-    });
-    weekIncome += pIncomes.reduce((acc, inc) => acc + inc.amount, 0);
-    weekExpense += pExpenses.reduce((acc, e) => acc + e.amount, 0);
-
-    html += '<div class="cal-cell empty"></div>'; 
-    cellCount++; 
-  }
-
-  // 当月セル
   for (var d = 1; d <= lastDate; d++) {
     var dayTwo = (d < 10 ? "0" : "") + d;
     var dateFormatted = `${monthStr}-${dayTwo}`;
@@ -2230,27 +2201,9 @@ function renderCalendar() {
     cellCount++;
     if (cellCount % 7 === 0) flushWeek();
   }
-
-  // 翌月埋め（空白セル）＆ 翌月分の収支も週合計に加算
   if (cellCount % 7 !== 0) {
     var remain = 7 - (cellCount % 7);
-    for (var e2 = 0; e2 < remain; e2++) {
-      var nD = e2 + 1;
-      var nDateFormatted = `${nextY}-${nextM < 10 ? '0' + nextM : nextM}-${nD < 10 ? '0' + nD : nD}`;
-
-      var nShifts = DB.shifts.filter(s => s.date === nDateFormatted);
-      var nExpenses = DB.expenses.filter(e => e.date === nDateFormatted);
-      var nIncomes = DB.otherIncomes.filter(inc => inc.date === nDateFormatted);
-
-      nShifts.forEach(s => {
-        var job = DB.jobs.find(j => j.id === s.jobId) || DB.jobs[0] || { hourlyWage: 1250 };
-        weekIncome += calculateShiftPay(s.startTime, s.endTime, s.breakMin, s.transport, job).pay;
-      });
-      weekIncome += nIncomes.reduce((acc, inc) => acc + inc.amount, 0);
-      weekExpense += nExpenses.reduce((acc, e) => acc + e.amount, 0);
-
-      html += '<div class="cal-cell empty"></div>';
-    }
+    for (var e2 = 0; e2 < remain; e2++) html += '<div class="cal-cell empty"></div>';
     flushWeek();
   }
 
