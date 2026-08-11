@@ -1105,7 +1105,7 @@
         </div>
       </form>
 
-      <!-- 支出フォーム -->
+      <!-- 支出フォーム (🛫 旅費カテゴリ追加) -->
       <form id="expense-form" style="display: none;">
         <input type="hidden" id="expense-id">
         <div class="form-row">
@@ -1118,6 +1118,7 @@
             <select id="expense-category" class="form-control">
               <option value="食費">🍔 食費</option>
               <option value="交通費">🚃 交通費</option>
+              <option value="旅費">🛫 旅費</option>
               <option value="交際費">🎉 交際費</option>
               <option value="日用品">🛒 日用品</option>
               <option value="趣味">🎮 趣味</option>
@@ -1130,7 +1131,7 @@
         </div>
         <div class="form-group">
           <label>メモ (任意)</label>
-          <input type="text" id="expense-memo" class="form-control" placeholder="例: ラーメン (空欄でもOK)">
+          <input type="text" id="expense-memo" class="form-control" placeholder="例: 新幹線代 (空欄でもOK)">
         </div>
         <div class="form-group">
           <label>金額 (計算式可 例: 500+300)</label>
@@ -1884,7 +1885,7 @@
       }
     }
 
-    // 明細リストの表示（コンパクト・1行表示形式）
+    // 明細リストの表示（右側配置のコンパクト表示形式）
     function renderHistory() {
       const container = document.getElementById("recent-history-list");
       if (!container) return;
@@ -1922,7 +1923,7 @@
       container.innerHTML = sliced.map(item => `
         <div class="list-item" onclick="openEditModalById('${item.type}', ${item.id})">
           <div class="list-item-left">
-            <span class="badge" style="background:${item.color};">${item.type === 'shift' ? '給与' : item.type === 'income' ? '収入' : '支出'}</span>
+            <span class="badge" style="background:${item.color};">${item.type === 'shift' ? '給料' : item.type === 'income' ? '収入' : '支出'}</span>
             <strong>${item.date.slice(5)}</strong>
             <span style="overflow:hidden; text-overflow:ellipsis;">${item.title}</span>
           </div>
