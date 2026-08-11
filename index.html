@@ -869,7 +869,7 @@
         </div>
       </div>
 
-      <!-- 🎯 支出カテゴリ選択 予算状況カード (別枠で新設) -->
+      <!-- 🎯 支出カテゴリ選択 予算状況カード (進捗バーのみに適用) -->
       <div class="card">
         <div class="card-title">🎯 カテゴリ選択 予算状況</div>
         <div style="font-size: 10px; color: var(--muted); margin-bottom: 6px;">対象のカテゴリをタップして選択：</div>
@@ -1134,7 +1134,7 @@
         </div>
       </form>
 
-      <!-- 支出フォーム -->
+      <!-- 支出フォーム (🛫 旅費カテゴリ追加) -->
       <form id="expense-form" style="display: none;">
         <input type="hidden" id="expense-id">
         <div class="form-row">
@@ -1698,7 +1698,6 @@
       document.getElementById("total-asset-val").textContent = `¥${assetVal.toLocaleString()}`;
     }
 
-    // 月跨ぎ対応の週合計ロジックを組んだカレンダー描画
     function renderCalendar() {
       const year = currentDate.getFullYear();
       const month = currentDate.getMonth();
@@ -2056,7 +2055,6 @@
       renderCharts();
     }
 
-    // カスタムカテゴリチップのレンダリング ＆ 計算
     function renderStatsCategoryChips(statsMonthStr, budgetTotal) {
       const container = document.getElementById("stats-category-chips");
       if (!container) return;
@@ -2069,7 +2067,6 @@
         return `<div class="pin-chip ${isSelected ? 'active' : ''}" onclick="toggleStatsCategory('${cat}')">${cat}</div>`;
       }).join("");
 
-      // 選択したカテゴリの合計支出を計算
       const customTotal = DB.expenses
         .filter(e => e.date.startsWith(statsMonthStr) && selectedCats.includes(e.category))
         .reduce((acc, e) => acc + e.amount, 0);
@@ -2123,14 +2120,13 @@
             const currentAsset = calculateTotalAssetOnDate(dateStr);
             pastAssetData.push(currentAsset);
             if (dateStr === todayStr) {
-              futureAssetData.push(currentAsset); // 今日の地点を未来予測線の起点に繋ぐ
+              futureAssetData.push(currentAsset);
             } else {
               futureAssetData.push(null);
             }
           } else {
             pastAssetData.push(null);
 
-            // 未来の日付の予測: 今日時点の資産 + (今日より後〜その日までの見込みシフト給与) + その他収入 - 支出
             let shiftsPay = DB.shifts.filter(s => s.date > todayStr && s.date <= dateStr)
                               .reduce((acc, s) => acc + calculateShiftPay(s).totalPay, 0);
             let otherInc = DB.otherIncomes.filter(inc => inc.date > todayStr && inc.date <= dateStr)
@@ -2159,7 +2155,7 @@
                 label: '未来予測 (円)',
                 data: futureAssetData,
                 borderColor: '#3b82f6',
-                borderDash: [5, 5], // 点線（破線）で区別
+                borderDash: [5, 5],
                 backgroundColor: 'rgba(59, 130, 246, 0.05)',
                 fill: true,
                 tension: 0.2
