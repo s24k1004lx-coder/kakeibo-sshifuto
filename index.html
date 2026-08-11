@@ -637,35 +637,8 @@
         <button class="btn btn-sm btn-good" id="reminder-add-exp-btn">💸 記録する</button>
       </div>
 
+      <!-- 本日の予定インフォバナー -->
       <div class="card info-banner-card" id="info-banner-card"></div>
-
-      <!-- 総資産 & 小銭貯金ガチャ -->
-      <div class="card">
-        <div class="card-title">🏦 総資産 ＆ 🎲 今日の小銭貯金</div>
-        <div class="asset-box">
-          <div class="asset-head">
-            <span>現在の総資産</span>
-            <button class="btn btn-sm btn-outline" id="edit-asset-modal-btn">✏️ 修正</button>
-          </div>
-          <div class="asset-val" id="total-asset-val">¥0</div>
-        </div>
-
-        <div class="asset-box" style="margin-bottom:0; background:var(--brand-light); border-color:#fed7aa;">
-          <div class="asset-head">
-            <span style="color:var(--brand-dark);">🎰 今日のランダム小銭貯金 (500円未満)</span>
-          </div>
-          <div style="display:flex; justify-content:space-between; align-items:center; margin-top:4px;">
-            <div>
-              <span style="font-size:15px; font-weight:bold;" id="coin-gacha-val">--- 円</span>
-              <div style="font-size:9.5px; color:var(--muted);" id="coin-gacha-status">「ガチャ」を押して決定！</div>
-            </div>
-            <div style="display:flex; gap:4px;">
-              <button class="btn btn-sm btn-outline" id="spin-gacha-btn">🎲 ガチャ</button>
-              <button class="btn btn-sm btn-good" id="save-gacha-btn" style="display:none;">貯金する</button>
-            </div>
-          </div>
-        </div>
-      </div>
 
       <!-- モード選択 -->
       <div class="mode-bar">
@@ -693,7 +666,7 @@
         </div>
       </div>
 
-      <!-- カレンダーカード -->
+      <!-- カレンダーカード (本日の予定のすぐ下に配置) -->
       <div class="card">
         <div class="calendar-header">
           <div class="cal-nav-btns">
@@ -735,6 +708,34 @@
 
     <!-- 2. 給料・診断タブ -->
     <div id="tab-payroll" class="tab-content">
+      <!-- 🏦 総資産 & 小銭貯金ガチャ (2ページ目の最上部へ移動) -->
+      <div class="card">
+        <div class="card-title">🏦 総資産 ＆ 🎲 今日の小銭貯金</div>
+        <div class="asset-box">
+          <div class="asset-head">
+            <span>現在の総資産</span>
+            <button class="btn btn-sm btn-outline" id="edit-asset-modal-btn">✏️ 修正</button>
+          </div>
+          <div class="asset-val" id="total-asset-val">¥0</div>
+        </div>
+
+        <div class="asset-box" style="margin-bottom:0; background:var(--brand-light); border-color:#fed7aa;">
+          <div class="asset-head">
+            <span style="color:var(--brand-dark);">🎰 今日のランダム小銭貯金 (500円未満)</span>
+          </div>
+          <div style="display:flex; justify-content:space-between; align-items:center; margin-top:4px;">
+            <div>
+              <span style="font-size:15px; font-weight:bold;" id="coin-gacha-val">--- 円</span>
+              <div style="font-size:9.5px; color:var(--muted);" id="coin-gacha-status">「ガチャ」を押して決定！</div>
+            </div>
+            <div style="display:flex; gap:4px;">
+              <button class="btn btn-sm btn-outline" id="spin-gacha-btn">🎲 ガチャ</button>
+              <button class="btn btn-sm btn-good" id="save-gacha-btn" style="display:none;">貯金する</button>
+            </div>
+          </div>
+        </div>
+      </div>
+
       <div class="card">
         <div class="card-title">
           <span>🔍 税金・社会保険料の簡易診断</span>
@@ -837,20 +838,48 @@
         </div>
       </div>
 
-      <!-- 総資産の推移グラフ（折れ線グラフ） -->
+      <!-- 総資産の推移グラフ（折れ線グラフ：未来予測対応） -->
       <div class="card">
-        <div class="card-title">📈 総資産の推移 (日別)</div>
+        <div class="card-title">📈 総資産の推移 (日別 & 未来予測)</div>
         <canvas id="chart-budget-line" style="max-height: 150px !important;"></canvas>
       </div>
 
+      <!-- 今月の予算状況（全体 ＆ 旅費除外を同一カード内で表示） -->
       <div class="card">
         <div class="card-title">今月の予算状況</div>
+        
+        <!-- 全体支出 -->
+        <div style="font-size:10.5px; font-weight:bold; color:var(--muted); margin-bottom:2px;">📊 全体支出</div>
         <div style="display: flex; justify-content: space-between; font-size: 11px; margin-bottom: 2px;">
           <span>支出: <strong id="stats-budget-used">¥0</strong></span>
           <span>予算: <strong id="stats-budget-total">¥0</strong></span>
         </div>
         <div class="progress-container">
           <div class="progress-bar" id="budget-progress-bar" style="width: 0%;"></div>
+        </div>
+
+        <!-- 旅費除外支出 -->
+        <div style="font-size:10.5px; font-weight:bold; color:var(--muted); margin-top:8px; margin-bottom:2px;">🛫 旅費を除く支出</div>
+        <div style="display: flex; justify-content: space-between; font-size: 11px; margin-bottom: 2px;">
+          <span>支出 (旅費除く): <strong id="stats-budget-used-no-travel">¥0</strong></span>
+          <span>予算: <strong id="stats-budget-total-no-travel">¥0</strong></span>
+        </div>
+        <div class="progress-container">
+          <div class="progress-bar" id="budget-progress-bar-no-travel" style="width: 0%;"></div>
+        </div>
+      </div>
+
+      <!-- 🎯 支出カテゴリ選択 予算状況カード (別枠で新設) -->
+      <div class="card">
+        <div class="card-title">🎯 カテゴリ選択 予算状況</div>
+        <div style="font-size: 10px; color: var(--muted); margin-bottom: 6px;">対象のカテゴリをタップして選択：</div>
+        <div class="pin-container" id="stats-category-chips" style="margin-bottom: 8px;"></div>
+        <div style="display: flex; justify-content: space-between; font-size: 11px; margin-bottom: 2px;">
+          <span>選択カテゴリ合計: <strong id="stats-custom-used">¥0</strong></span>
+          <span>予算: <strong id="stats-custom-budget">¥0</strong></span>
+        </div>
+        <div class="progress-container">
+          <div class="progress-bar" id="stats-custom-progress-bar" style="width: 0%;"></div>
         </div>
       </div>
 
@@ -1105,7 +1134,7 @@
         </div>
       </form>
 
-      <!-- 支出フォーム (🛫 旅費カテゴリ追加) -->
+      <!-- 支出フォーム -->
       <form id="expense-form" style="display: none;">
         <input type="hidden" id="expense-id">
         <div class="form-row">
@@ -1317,7 +1346,6 @@
       <span>🔢 計算・入力キーボード</span>
       <button type="button" class="btn btn-sm btn-good" id="calc-done-btn">完了</button>
     </div>
-    <!-- 📺 現在の入力値を表示するディスプレイ領域 -->
     <div class="calc-keyboard-display" id="calc-display-val">0</div>
     <div class="calc-keyboard-grid">
       <button type="button" class="calc-btn clear" data-val="AC">AC</button>
@@ -1361,10 +1389,16 @@
       wallTarget: 1780000,
       creditCompanies: ["ビューカード", "セゾンカード", "楽天カード", "三井住友カード"],
       reminder: { enabled: false, time: "21:00" },
-      settings: { theme: "light" }
+      settings: { 
+        theme: "light",
+        selectedStatsCategories: ["食費", "交通費", "交際費", "日用品", "趣味"]
+      }
     };
 
     let DB = JSON.parse(localStorage.getItem("SHIFT_PRO_DB")) || DEFAULT_DB;
+    if (!DB.settings.selectedStatsCategories) {
+      DB.settings.selectedStatsCategories = ["食費", "交通費", "交際費", "日用品", "趣味"];
+    }
 
     function saveDB() {
       localStorage.setItem("SHIFT_PRO_DB", JSON.stringify(DB));
@@ -1664,6 +1698,7 @@
       document.getElementById("total-asset-val").textContent = `¥${assetVal.toLocaleString()}`;
     }
 
+    // 月跨ぎ対応の週合計ロジックを組んだカレンダー描画
     function renderCalendar() {
       const year = currentDate.getFullYear();
       const month = currentDate.getMonth();
@@ -1676,33 +1711,30 @@
       if (!container) return;
       container.innerHTML = "";
 
-      const firstDay = new Date(year, month, 1).getDay();
+      const firstDayObj = new Date(year, month, 1);
+      const firstDayOfWeek = firstDayObj.getDay();
       const lastDate = new Date(year, month + 1, 0).getDate();
 
       let paydayMap = {};
       DB.jobs.forEach(job => {
-        getJobPeriodIncomeList(job, monthStr).forEach(p => {
-          if (p.payDateStr && p.income > 0) {
-            paydayMap[p.payDateStr] = true;
-          }
+        [-1, 0, 1].forEach(offset => {
+          const mObj = new Date(year, month + offset, 1);
+          const mStr = `${mObj.getFullYear()}-${String(mObj.getMonth() + 1).padStart(2, "0")}`;
+          getJobPeriodIncomeList(job, mStr).forEach(p => {
+            if (p.payDateStr && p.income > 0) {
+              paydayMap[p.payDateStr] = true;
+            }
+          });
         });
       });
 
-      let weekInc = 0, weekExp = 0, cellCount = 0;
-
-      const flushWeek = () => {
-        const sumRow = document.createElement("div");
-        sumRow.className = "cal-week-summary";
-        sumRow.innerHTML = `週合計 <b style="color:var(--good)">+¥${weekInc.toLocaleString()}</b> <b style="color:var(--danger)">-¥${weekExp.toLocaleString()}</b>`;
-        container.appendChild(sumRow);
-        weekInc = 0; weekExp = 0;
-      };
-
-      for (let i = 0; i < firstDay; i++) {
-        const cell = document.createElement("div");
-        cell.className = "day-cell other-month";
-        container.appendChild(cell);
-        cellCount++;
+      const startDate = new Date(year, month, 1 - firstDayOfWeek);
+      const totalCells = Math.ceil((firstDayOfWeek + lastDate) / 7) * 7;
+      const calendarDates = [];
+      for (let i = 0; i < totalCells; i++) {
+        const d = new Date(startDate);
+        d.setDate(startDate.getDate() + i);
+        calendarDates.push(d);
       }
 
       const todayStr = new Date().toISOString().slice(0, 10);
@@ -1712,95 +1744,96 @@
         return amt.toLocaleString();
       };
 
-      for (let d = 1; d <= lastDate; d++) {
-        const dateStr = `${monthStr}-${String(d).padStart(2, "0")}`;
-        const cell = document.createElement("div");
-        cell.className = "day-cell";
-        if (dateStr === todayStr) cell.classList.add("today");
-        if (selectedDates.has(dateStr)) cell.classList.add("selected");
+      for (let i = 0; i < calendarDates.length; i += 7) {
+        const weekDates = calendarDates.slice(i, i + 7);
+        let weekInc = 0, weekExp = 0;
 
-        const dt = new Date(year, month, d);
-        const dayOfWeek = dt.getDay();
-        const holiday = isJapaneseHoliday(year, month + 1, d);
+        weekDates.forEach(dt => {
+          const dateStr = dt.toISOString().slice(0, 10);
+          const isCurrentMonth = dt.getMonth() === month;
 
-        let dayClass = "";
-        if (dayOfWeek === 0 || holiday) {
-          dayClass = "sunday";
-        } else if (dayOfWeek === 6) {
-          dayClass = "saturday";
-        }
-
-        let dayIncTotal = 0;
-        let badgesHtml = '<div class="cal-badge-container">';
-
-        const prevDateObj = new Date(year, month, d - 1);
-        const prevDateStr = prevDateObj.toISOString().slice(0, 10);
-        const prevShifts = DB.shifts.filter(s => s.date === prevDateStr);
-        prevShifts.forEach(s => {
-          const [sH, sM] = s.startTime.split(":").map(Number);
-          let [eH, eM] = s.endTime.split(":").map(Number);
-          let startMins = sH * 60 + sM;
-          let endMins = eH * 60 + eM;
-          if (endMins <= startMins) endMins += 24 * 60;
-          if (endMins > 24 * 60) {
-            const endH = Math.floor((endMins - 24 * 60) / 60);
-            const endM = (endMins - 24 * 60) % 60;
-            badgesHtml += `<div class="cal-badge overnight">🌙 〜${String(endH).padStart(2,'0')}:${String(endM).padStart(2,'0')} (前日分)</div>`;
-          }
-        });
-
-        const dayShifts = DB.shifts.filter(s => s.date === dateStr);
-        dayShifts.forEach(s => {
-          const job = DB.jobs.find(j => String(j.id) === String(s.jobId));
-          const pay = calculateShiftPay(s).totalPay;
-          dayIncTotal += pay;
-          badgesHtml += `<div class="cal-badge" style="background:${job ? job.color : 'var(--brand)'};">給 +${formatBadgeAmount(pay)}</div>`;
-        });
-
-        const dayIncomes = DB.otherIncomes.filter(i => i.date === dateStr);
-        const otherIncSum = dayIncomes.reduce((acc, i) => acc + i.amount, 0);
-        dayIncTotal += otherIncSum;
-        if (otherIncSum > 0) badgesHtml += `<div class="cal-badge other-income">💰 収入 +${formatBadgeAmount(otherIncSum)}</div>`;
-
-        const dayExpenses = DB.expenses.filter(e => e.date === dateStr);
-        const dayExpSum = dayExpenses.reduce((acc, e) => acc + e.amount, 0);
-        if (dayExpSum > 0) badgesHtml += `<div class="cal-badge expense">💸 支出 -${formatBadgeAmount(dayExpSum)}</div>`;
-
-        badgesHtml += '</div>';
-
-        weekInc += dayIncTotal;
-        weekExp += dayExpSum;
-
-        const paydayLabel = paydayMap[dateStr] ? `<span style="font-size:9px; color:#8b5cf6; font-weight:normal; margin-left:2px;">💴給料日</span>` : '';
-
-        cell.innerHTML = `<div class="day-number ${dayClass}"><div><span>${d}</span>${paydayLabel}</div>${selectedDates.has(dateStr) ? '☑' : ''}</div>${badgesHtml}`;
-
-        cell.addEventListener("click", () => {
-          if (multiSelectMode) {
-            if (selectedDates.has(dateStr)) selectedDates.delete(dateStr);
-            else selectedDates.add(dateStr);
-            document.getElementById("selected-count").textContent = selectedDates.size;
-            renderCalendar();
-          } else if (quickMode && quickTemplateId) {
-            applyQuickTemplateToDate(dateStr);
-          } else {
-            openEntryModal(dateStr);
-          }
-        });
-
-        container.appendChild(cell);
-        cellCount++;
-        if (cellCount % 7 === 0) flushWeek();
-      }
-
-      if (cellCount % 7 !== 0) {
-        const remain = 7 - (cellCount % 7);
-        for (let e = 0; e < remain; e++) {
           const cell = document.createElement("div");
-          cell.className = "day-cell other-month";
+          cell.className = "day-cell";
+          if (!isCurrentMonth) cell.classList.add("other-month");
+          if (dateStr === todayStr) cell.classList.add("today");
+          if (selectedDates.has(dateStr)) cell.classList.add("selected");
+
+          const dayOfWeek = dt.getDay();
+          const holiday = isJapaneseHoliday(dt.getFullYear(), dt.getMonth() + 1, dt.getDate());
+
+          let dayClass = "";
+          if (dayOfWeek === 0 || holiday) {
+            dayClass = "sunday";
+          } else if (dayOfWeek === 6) {
+            dayClass = "saturday";
+          }
+
+          let dayIncTotal = 0;
+          let badgesHtml = '<div class="cal-badge-container">';
+
+          const prevDateObj = new Date(dt);
+          prevDateObj.setDate(dt.getDate() - 1);
+          const prevDateStr = prevDateObj.toISOString().slice(0, 10);
+          const prevShifts = DB.shifts.filter(s => s.date === prevDateStr);
+          prevShifts.forEach(s => {
+            const [sH, sM] = s.startTime.split(":").map(Number);
+            let [eH, eM] = s.endTime.split(":").map(Number);
+            let startMins = sH * 60 + sM;
+            let endMins = eH * 60 + eM;
+            if (endMins <= startMins) endMins += 24 * 60;
+            if (endMins > 24 * 60) {
+              const endH = Math.floor((endMins - 24 * 60) / 60);
+              const endM = (endMins - 24 * 60) % 60;
+              badgesHtml += `<div class="cal-badge overnight">🌙 〜${String(endH).padStart(2,'0')}:${String(endM).padStart(2,'0')} (前日分)</div>`;
+            }
+          });
+
+          const dayShifts = DB.shifts.filter(s => s.date === dateStr);
+          dayShifts.forEach(s => {
+            const job = DB.jobs.find(j => String(j.id) === String(s.jobId));
+            const pay = calculateShiftPay(s).totalPay;
+            dayIncTotal += pay;
+            badgesHtml += `<div class="cal-badge" style="background:${job ? job.color : 'var(--brand)'};">給 +${formatBadgeAmount(pay)}</div>`;
+          });
+
+          const dayIncomes = DB.otherIncomes.filter(inc => inc.date === dateStr);
+          const otherIncSum = dayIncomes.reduce((acc, inc) => acc + inc.amount, 0);
+          dayIncTotal += otherIncSum;
+          if (otherIncSum > 0) badgesHtml += `<div class="cal-badge other-income">💰 収入 +${formatBadgeAmount(otherIncSum)}</div>`;
+
+          const dayExpenses = DB.expenses.filter(e => e.date === dateStr);
+          const dayExpSum = dayExpenses.reduce((acc, e) => acc + e.amount, 0);
+          if (dayExpSum > 0) badgesHtml += `<div class="cal-badge expense">💸 支出 -${formatBadgeAmount(dayExpSum)}</div>`;
+
+          badgesHtml += '</div>';
+
+          weekInc += dayIncTotal;
+          weekExp += dayExpSum;
+
+          const paydayLabel = paydayMap[dateStr] ? `<span style="font-size:9px; color:#8b5cf6; font-weight:normal; margin-left:2px;">💴給料日</span>` : '';
+
+          cell.innerHTML = `<div class="day-number ${dayClass}"><div><span>${dt.getDate()}</span>${paydayLabel}</div>${selectedDates.has(dateStr) ? '☑' : ''}</div>${badgesHtml}`;
+
+          cell.addEventListener("click", () => {
+            if (multiSelectMode) {
+              if (selectedDates.has(dateStr)) selectedDates.delete(dateStr);
+              else selectedDates.add(dateStr);
+              document.getElementById("selected-count").textContent = selectedDates.size;
+              renderCalendar();
+            } else if (quickMode && quickTemplateId) {
+              applyQuickTemplateToDate(dateStr);
+            } else {
+              openEntryModal(dateStr);
+            }
+          });
+
           container.appendChild(cell);
-        }
-        flushWeek();
+        });
+
+        const sumRow = document.createElement("div");
+        sumRow.className = "cal-week-summary";
+        sumRow.innerHTML = `週合計 <b style="color:var(--good)">+¥${weekInc.toLocaleString()}</b> <b style="color:var(--danger)">-¥${weekExp.toLocaleString()}</b>`;
+        container.appendChild(sumRow);
       }
     }
 
@@ -1885,7 +1918,6 @@
       }
     }
 
-    // 明細リストの表示（右側配置のコンパクト表示形式）
     function renderHistory() {
       const container = document.getElementById("recent-history-list");
       if (!container) return;
@@ -1994,9 +2026,10 @@
       const statsMonthStr = `${statsDate.getFullYear()}-${String(statsDate.getMonth() + 1).padStart(2, "0")}`;
       if (statsPicker) statsPicker.value = statsMonthStr;
 
-      const expTotal = DB.expenses.filter(e => e.date.startsWith(statsMonthStr)).reduce((acc, e) => acc + e.amount, 0);
       const budgetTotal = DB.budgets.monthly || 50000;
 
+      // 1. 全体支出
+      const expTotal = DB.expenses.filter(e => e.date.startsWith(statsMonthStr)).reduce((acc, e) => acc + e.amount, 0);
       document.getElementById("stats-budget-used").textContent = `¥${expTotal.toLocaleString()}`;
       document.getElementById("stats-budget-total").textContent = `¥${budgetTotal.toLocaleString()}`;
       const bBar = document.getElementById("budget-progress-bar");
@@ -2006,8 +2039,63 @@
         bBar.style.background = pct > 90 ? "var(--danger)" : "var(--good)";
       }
 
+      // 2. 旅費を除く支出
+      const expNoTravel = DB.expenses.filter(e => e.date.startsWith(statsMonthStr) && e.category !== "旅費").reduce((acc, e) => acc + e.amount, 0);
+      document.getElementById("stats-budget-used-no-travel").textContent = `¥${expNoTravel.toLocaleString()}`;
+      document.getElementById("stats-budget-total-no-travel").textContent = `¥${budgetTotal.toLocaleString()}`;
+      const bBarNoTravel = document.getElementById("budget-progress-bar-no-travel");
+      if (bBarNoTravel) {
+        const pctNT = Math.min(100, Math.round((expNoTravel / budgetTotal) * 100));
+        bBarNoTravel.style.width = `${pctNT}%`;
+        bBarNoTravel.style.background = pctNT > 90 ? "var(--danger)" : "var(--good)";
+      }
+
+      // 3. 🎯 カスタムカテゴリ選択の予算状況
+      renderStatsCategoryChips(statsMonthStr, budgetTotal);
+
       renderCharts();
     }
+
+    // カスタムカテゴリチップのレンダリング ＆ 計算
+    function renderStatsCategoryChips(statsMonthStr, budgetTotal) {
+      const container = document.getElementById("stats-category-chips");
+      if (!container) return;
+
+      const allCategories = ["食費", "交通費", "旅費", "交際費", "日用品", "趣味", "固定費", "クレカ", "貯金", "その他"];
+      let selectedCats = DB.settings.selectedStatsCategories || [];
+
+      container.innerHTML = allCategories.map(cat => {
+        const isSelected = selectedCats.includes(cat);
+        return `<div class="pin-chip ${isSelected ? 'active' : ''}" onclick="toggleStatsCategory('${cat}')">${cat}</div>`;
+      }).join("");
+
+      // 選択したカテゴリの合計支出を計算
+      const customTotal = DB.expenses
+        .filter(e => e.date.startsWith(statsMonthStr) && selectedCats.includes(e.category))
+        .reduce((acc, e) => acc + e.amount, 0);
+
+      document.getElementById("stats-custom-used").textContent = `¥${customTotal.toLocaleString()}`;
+      document.getElementById("stats-custom-budget").textContent = `¥${budgetTotal.toLocaleString()}`;
+
+      const customBar = document.getElementById("stats-custom-progress-bar");
+      if (customBar) {
+        const customPct = Math.min(100, Math.round((customTotal / budgetTotal) * 100));
+        customBar.style.width = `${customPct}%`;
+        customBar.style.background = customPct > 90 ? "var(--danger)" : "var(--good)";
+      }
+    }
+
+    window.toggleStatsCategory = function(cat) {
+      let selected = DB.settings.selectedStatsCategories || [];
+      if (selected.includes(cat)) {
+        selected = selected.filter(c => c !== cat);
+      } else {
+        selected.push(cat);
+      }
+      DB.settings.selectedStatsCategories = selected;
+      saveDB();
+      renderStatsTab();
+    };
 
     function renderCharts() {
       const currentYear = currentDate.getFullYear();
@@ -2016,21 +2104,41 @@
       const statsMonthStr = `${statsYear}-${String(statsMonth + 1).padStart(2, "0")}`;
       const labels12 = ["1月","2月","3月","4月","5月","6月","7月","8月","9月","10月","11月","12月"];
 
+      // 1. 総資産の推移グラフ（実績:実線 ＆ 未来予測:破線）
       const ctxBudgetLine = document.getElementById("chart-budget-line");
       if (ctxBudgetLine) {
         if (chartBudgetLine) chartBudgetLine.destroy();
         const daysInMonth = new Date(statsYear, statsMonth + 1, 0).getDate();
         const dLabels = Array.from({ length: daysInMonth }, (_, i) => `${i + 1}日`);
-        const assetTrendData = [];
+        const pastAssetData = [];
+        const futureAssetData = [];
         const todayStr = new Date().toISOString().slice(0, 10);
+
+        let lastKnownAsset = calculateTotalAssetOnDate(todayStr);
 
         for (let i = 1; i <= daysInMonth; i++) {
           const dateStr = `${statsMonthStr}-${String(i).padStart(2, "0")}`;
 
           if (dateStr <= todayStr) {
-            assetTrendData.push(calculateTotalAssetOnDate(dateStr));
+            const currentAsset = calculateTotalAssetOnDate(dateStr);
+            pastAssetData.push(currentAsset);
+            if (dateStr === todayStr) {
+              futureAssetData.push(currentAsset); // 今日の地点を未来予測線の起点に繋ぐ
+            } else {
+              futureAssetData.push(null);
+            }
           } else {
-            assetTrendData.push(null);
+            pastAssetData.push(null);
+
+            // 未来の日付の予測: 今日時点の資産 + (今日より後〜その日までの見込みシフト給与) + その他収入 - 支出
+            let shiftsPay = DB.shifts.filter(s => s.date > todayStr && s.date <= dateStr)
+                              .reduce((acc, s) => acc + calculateShiftPay(s).totalPay, 0);
+            let otherInc = DB.otherIncomes.filter(inc => inc.date > todayStr && inc.date <= dateStr)
+                              .reduce((acc, inc) => acc + inc.amount, 0);
+            let exp = DB.expenses.filter(e => e.date > todayStr && e.date <= dateStr)
+                        .reduce((acc, e) => acc + e.amount, 0);
+
+            futureAssetData.push(lastKnownAsset + shiftsPay + otherInc - exp);
           }
         }
 
@@ -2040,10 +2148,19 @@
             labels: dLabels,
             datasets: [
               {
-                label: '総資産推移 (円)',
-                data: assetTrendData,
+                label: '総資産実績 (円)',
+                data: pastAssetData,
                 borderColor: '#f97316',
                 backgroundColor: 'rgba(249, 115, 22, 0.1)',
+                fill: true,
+                tension: 0.2
+              },
+              {
+                label: '未来予測 (円)',
+                data: futureAssetData,
+                borderColor: '#3b82f6',
+                borderDash: [5, 5], // 点線（破線）で区別
+                backgroundColor: 'rgba(59, 130, 246, 0.05)',
                 fill: true,
                 tension: 0.2
               }
@@ -2465,7 +2582,6 @@
       if (errText) errText.style.display = "block";
     }
 
-    // ⌨️ 専用電卓キーボードの制御（液晶ディスプレイリアルタイム連動）
     function updateCalcDisplay() {
       const displayEl = document.getElementById("calc-display-val");
       if (!displayEl) return;
@@ -2508,7 +2624,6 @@
       }
     }
 
-    // 当日の登録データ一覧表示（右側配置のコンパクト表示形式）
     function renderDayItemsList(dateStr) {
       const container = document.getElementById("day-items-list");
       if (!container) return;
