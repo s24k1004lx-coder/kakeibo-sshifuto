@@ -219,10 +219,9 @@
       border: 1px solid var(--line);
       border-left: 4px solid #6366f1;
       border-radius: 8px;
-      padding: 6px 8px;
+      padding: 8px 10px;
       margin-bottom: 6px;
       font-size: 11px;
-      cursor: pointer;
     }
 
     /* カレンダー */
@@ -1326,31 +1325,33 @@
     </div>
   </div>
 
+  <!-- ✏️ 実際の振込額（手取り）の補正・確定モーダル -->
   <div class="modal-overlay" id="override-pay-modal">
     <div class="modal-content" style="padding-bottom:20px;">
       <div class="modal-header">
-        <div class="modal-title">✏️ 実際の振込額を補正</div>
+        <div class="modal-title">✏️ 実際の支給・振込額を入力</div>
         <button class="icon-btn" id="close-override-modal-btn" style="color:var(--ink);">✕</button>
       </div>
       <form id="override-pay-form">
+        <input type="hidden" id="override-pay-key">
         <div class="form-group">
-          <label>対象年月</label>
-          <input type="month" id="override-month" class="form-control" required>
+          <label>対象の項目</label>
+          <input type="text" id="override-pay-name" class="form-control" readonly style="background:var(--bg); font-weight:bold;">
         </div>
         <div class="form-group">
-          <label>勤務先</label>
-          <select id="override-job-id" class="form-control" required></select>
+          <label>実際の振込・支給額 (円)</label>
+          <input type="text" id="override-amount" class="form-control calc-input" placeholder="空欄でシフト計算値に戻す" readonly>
+          <div style="font-size:10px; color:var(--muted); margin-top:3px;">※ 入力すると統計やサマリーもこの金額で計算されます。</div>
         </div>
-        <div class="form-group">
-          <label>実際の支給・振込額 (円)</label>
-          <input type="text" id="override-amount" class="form-control calc-input" placeholder="未入力で計算値に戻す" readonly>
+        <div style="display:flex; gap:6px; margin-top:10px;">
+          <button type="submit" class="btn" style="flex:1;">確定保存</button>
+          <button type="button" class="btn btn-outline" id="clear-override-btn">計算値に戻す</button>
         </div>
-        <button type="submit" class="btn" style="width:100%;">確定保存</button>
       </form>
     </div>
   </div>
 
-  <!-- ⌨️ 専用電卓キーボード（液晶表示窓付き） -->
+  <!-- ⌨️ 専用電卓キーボード -->
   <div class="calc-keyboard-drawer" id="calc-keyboard-drawer">
     <div class="calc-keyboard-header">
       <span>🔢 計算・入力キーボード</span>
@@ -1587,7 +1588,7 @@
         const calc1 = shifts1.reduce((acc, s) => acc + calculateShiftPay(s).totalPay, 0);
         const payDate1 = adjustPayDate(year, month, 25, "before");
         const key1 = `${job.id}_${targetMonthStr}_1`;
-        const inc1 = DB.actualPay[key1] !== undefined ? DB.actualPay[key1] : calc1;
+        const inc1 = (DB.actualPay && DB.actualPay[key1] !== undefined) ? DB.actualPay[key1] : calc1;
 
         const prevM2 = month - 1 === 0 ? 12 : month - 1;
         const prevY2 = month - 1 === 0 ? year - 1 : year;
@@ -1597,11 +1598,11 @@
         const calc2 = shifts2.reduce((acc, s) => acc + calculateShiftPay(s).totalPay, 0);
         const payDate2 = adjustPayDate(year, month, 15, "before");
         const key2 = `${job.id}_${targetMonthStr}_2`;
-        const inc2 = DB.actualPay[key2] !== undefined ? DB.actualPay[key2] : calc2;
+        const inc2 = (DB.actualPay && DB.actualPay[key2] !== undefined) ? DB.actualPay[key2] : calc2;
 
         return [
-          { jobId: job.id, key: key1, name: `${job.name} (15日締め25日払)`, labelPeriod: `${start1.slice(5)} 〜 ${end1.slice(5)}`, income: inc1, calcIncome: calc1, isActual: DB.actualPay[key1] !== undefined, payDateStr: getLocalDateString(payDate1) },
-          { jobId: job.id, key: key2, name: `${job.name} (5日締め15日払)`, labelPeriod: `${start2.slice(5)} 〜 ${end2.slice(5)}`, income: inc2, calcIncome: calc2, isActual: DB.actualPay[key2] !== undefined, payDateStr: getLocalDateString(payDate2) }
+          { jobId: job.id, key: key1, name: `${job.name} (15日締め25日払)`, labelPeriod: `${start1.slice(5)} 〜 ${end1.slice(5)}`, income: inc1, calcIncome: calc1, isActual: (DB.actualPay && DB.actualPay[key1] !== undefined), payDateStr: getLocalDateString(payDate1) },
+          { jobId: job.id, key: key2, name: `${job.name} (5日締め15日払)`, labelPeriod: `${start2.slice(5)} 〜 ${end2.slice(5)}`, income: inc2, calcIncome: calc2, isActual: (DB.actualPay && DB.actualPay[key2] !== undefined), payDateStr: getLocalDateString(payDate2) }
         ];
       } else {
         const cutoff = Number(job.cutoffDay || 31);
@@ -1626,9 +1627,9 @@
         const adjustedPayDate = adjustPayDate(payY, payM, payD, job.holidayAdjust || "before");
 
         const key = `${job.id}_${targetMonthStr}`;
-        const income = DB.actualPay[key] !== undefined ? DB.actualPay[key] : calcIncome;
+        const income = (DB.actualPay && DB.actualPay[key] !== undefined) ? DB.actualPay[key] : calcIncome;
 
-        return [{ jobId: job.id, key, name: job.name, labelPeriod: `${startDateStr.slice(5)} 〜 ${endDateStr.slice(5)}`, income, calcIncome, isActual: DB.actualPay[key] !== undefined, payDateStr: getLocalDateString(adjustedPayDate) }];
+        return [{ jobId: job.id, key, name: job.name, labelPeriod: `${startDateStr.slice(5)} 〜 ${endDateStr.slice(5)}`, income, calcIncome, isActual: (DB.actualPay && DB.actualPay[key] !== undefined), payDateStr: getLocalDateString(adjustedPayDate) }];
       }
     }
 
@@ -1856,6 +1857,15 @@
       }
     }
 
+    // ✏️ 実際の振込額補正モーダルを開く
+    window.openOverrideModal = function(key, name, currentActual, currentCalc) {
+      document.getElementById("override-pay-key").value = key;
+      document.getElementById("override-pay-name").value = name;
+      const amountInput = document.getElementById("override-amount");
+      amountInput.value = currentActual ? currentActual : "";
+      openModalWithLock("override-pay-modal");
+    };
+
     function renderSummaryAndPayroll() {
       const year = payrollDate.getFullYear();
       const monthStr = `${year}-${String(payrollDate.getMonth() + 1).padStart(2, "0")}`;
@@ -1871,14 +1881,23 @@
         periods.forEach(p => {
           monthIncTotal += p.income;
           jobPayHtml += `
-            <div class="credit-card-box" style="border-left-color:${job.color || 'var(--brand)'}; margin-bottom:6px;">
-              <div style="display:flex; justify-content:space-between; font-weight:bold;">
-                <span>${p.name} ${p.isActual ? '<span class="badge" style="background:var(--good);">確定</span>' : ''}</span>
-                <span style="color:var(--good)">¥${p.income.toLocaleString()}</span>
+            <div class="credit-card-box" style="border-left-color:${job.color || 'var(--brand)'};">
+              <div style="display:flex; justify-content:space-between; align-items:center;">
+                <div>
+                  <strong>${p.name}</strong>
+                  ${p.isActual ? '<span class="badge" style="background:var(--good); margin-left:4px;">確定</span>' : '<span class="badge" style="background:var(--muted); margin-left:4px;">見込み</span>'}
+                </div>
+                <div style="text-align:right;">
+                  <span style="font-size:14px; font-weight:bold; color:var(--good);">¥${p.income.toLocaleString()}</span>
+                </div>
               </div>
-              <div style="font-size:11px; color:var(--muted); margin-top:2px;">
-                集計対象: ${p.labelPeriod} | 給与日: <strong>${p.payDateStr}</strong>
+              <div style="display:flex; justify-content:space-between; align-items:center; margin-top:4px; font-size:10px; color:var(--muted);">
+                <div>集計: ${p.labelPeriod} | 給与日: <strong>${p.payDateStr}</strong></div>
+                <button class="btn btn-outline btn-sm" style="padding:2px 5px;" onclick="openOverrideModal('${p.key}', '${p.name}', ${p.isActual ? p.income : "null"}, ${p.calcIncome})">
+                  ${p.isActual ? '✏️ 実額修正' : '✏️ 実際の振込額を入力'}
+                </button>
               </div>
+              ${p.isActual ? `<div style="font-size:9.5px; color:var(--muted); margin-top:2px;">(シフト計算値: ¥${p.calcIncome.toLocaleString()})</div>` : ''}
             </div>`;
         });
       });
@@ -1905,7 +1924,7 @@
       const dailyBudget = balance > 0 ? Math.floor(balance / remainDays) : 0;
       document.getElementById("daily-budget-text").textContent = `残 ${remainDays}日：1日あたり 約 ¥${dailyBudget.toLocaleString()}`;
 
-      document.getElementById("job-pay-details-list").innerHTML = jobPayHtml;
+      document.getElementById("job-pay-details-list").innerHTML = jobPayHtml || '<div style="font-size:11px; color:var(--muted); text-align:center; padding:6px;">登録されている勤務先がありません</div>';
 
       const currentYear = currentDate.getFullYear();
       let yearTotal = 0;
@@ -2416,7 +2435,7 @@
           DB.pins.map(p => `<option value="${p.id}">${p.label}</option>`).join("");
       });
 
-      const jobSelects = [document.getElementById("shift-job-id"), document.getElementById("override-job-id"), document.getElementById("edit-pin-job")];
+      const jobSelects = [document.getElementById("shift-job-id"), document.getElementById("edit-pin-job")];
       jobSelects.forEach(sel => {
         if (!sel) return;
         sel.innerHTML = DB.jobs.map(j => `<option value="${j.id}">${j.name}</option>`).join("");
@@ -3005,33 +3024,31 @@
         renderStatsTab();
       });
 
-      // カレンダースワイプ
-      const calendarEl = document.getElementById("calendar-days-container");
+      // 📱 カレンダー左右スワイプイベント
+      const calendarCardEl = document.getElementById("calendar-card");
       let touchStartX = 0;
       let touchStartY = 0;
-      calendarEl.addEventListener("touchstart", e => {
-        if (e.touches && e.touches[0]) {
+
+      calendarCardEl.addEventListener("touchstart", e => {
+        if (e.touches && e.touches.length > 0) {
           touchStartX = e.touches[0].clientX;
           touchStartY = e.touches[0].clientY;
         }
-      }, {passive: true});
+      }, { passive: true });
 
-      calendarEl.addEventListener("touchmove", e => {
-        // スワイプ判定用
-      }, {passive: true});
-
-      calendarEl.addEventListener("touchend", e => {
+      calendarCardEl.addEventListener("touchend", e => {
         if (!touchStartX) return;
         let endX = touchStartX;
         let endY = touchStartY;
-        if (e.changedTouches && e.changedTouches[0]) {
+        if (e.changedTouches && e.changedTouches.length > 0) {
           endX = e.changedTouches[0].clientX;
           endY = e.changedTouches[0].clientY;
         }
         const diffX = touchStartX - endX;
         const diffY = touchStartY - endY;
 
-        if (Math.abs(diffX) > 40 && Math.abs(diffX) > Math.abs(diffY)) {
+        // 水平方向のスワイプ判定
+        if (Math.abs(diffX) > 45 && Math.abs(diffX) > Math.abs(diffY) * 1.5) {
           if (diffX > 0) {
             currentDate.setMonth(currentDate.getMonth() + 1);
           } else {
@@ -3041,7 +3058,7 @@
         }
         touchStartX = 0;
         touchStartY = 0;
-      }, {passive: true});
+      }, { passive: true });
 
       document.getElementById("multi-select-toggle-btn").addEventListener("click", () => {
         multiSelectMode = !multiSelectMode;
@@ -3305,23 +3322,38 @@
 
       document.getElementById("run-tax-diag-btn").addEventListener("click", runTaxDiagnosis);
 
+      // 実際の振込額補正フォームの送信・クリア
       document.getElementById("close-override-modal-btn").addEventListener("click", () => closeModalWithLock("override-pay-modal"));
       document.getElementById("override-pay-form").addEventListener("submit", e => {
         e.preventDefault();
-        const m = document.getElementById("override-month").value;
-        const jId = document.getElementById("override-job-id").value;
+        const key = document.getElementById("override-pay-key").value;
         const raw = document.getElementById("override-amount").value;
-        const key = `${jId}_${m}`;
+
+        if (!DB.actualPay) DB.actualPay = {};
 
         pushUndoState();
-        if (raw === "") delete DB.actualPay[key];
-        else {
+        if (raw === "") {
+          delete DB.actualPay[key];
+        } else {
           const evalPay = evaluateMath(raw);
           if (evalPay === null) return;
           DB.actualPay[key] = evalPay;
         }
 
-        saveDB(); closeModalWithLock("override-pay-modal"); renderAll();
+        saveDB();
+        closeModalWithLock("override-pay-modal");
+        renderAll();
+      });
+
+      document.getElementById("clear-override-btn").addEventListener("click", () => {
+        const key = document.getElementById("override-pay-key").value;
+        if (DB.actualPay && DB.actualPay[key] !== undefined) {
+          pushUndoState();
+          delete DB.actualPay[key];
+          saveDB();
+        }
+        closeModalWithLock("override-pay-modal");
+        renderAll();
       });
 
       document.getElementById("repeat-modal-open-btn").addEventListener("click", () => openModalWithLock("repeat-modal"));
