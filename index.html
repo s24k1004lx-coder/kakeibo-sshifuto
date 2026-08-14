@@ -495,7 +495,7 @@
       padding: 12px; overflow-y: auto; overflow-x: hidden;
       box-shadow: 0 -4px 20px rgba(0,0,0,0.2);
       touch-action: pan-y;
-      padding-bottom: 60px; /* モーダル下部の余白を追加 */
+      padding-bottom: 70px;
     }
     .modal-header { display: flex; justify-content: space-between; align-items: center; margin-bottom: 8px; }
     .modal-title { font-size: 14px; font-weight: 700; }
@@ -521,7 +521,7 @@
       display: flex;
       justify-content: space-between;
       align-items: center;
-      padding: 5px 0;
+      padding: 6px 0;
       border-bottom: 1px solid var(--line);
       font-size: 10.5px;
       cursor: pointer;
@@ -853,17 +853,16 @@
         </div>
       </div>
 
-      <!-- 総資産の推移グラフ（折れ線グラフ：未来予測対応） -->
+      <!-- 総資産の推移グラフ -->
       <div class="card">
         <div class="card-title">📈 総資産の推移 (日別 & 未来予測)</div>
         <canvas id="chart-budget-line" style="max-height: 150px !important;"></canvas>
       </div>
 
-      <!-- 今月の予算状況（全体 ＆ 旅費除外を同一カード内で表示） -->
+      <!-- 今月の予算状況 -->
       <div class="card">
         <div class="card-title">今月の予算状況</div>
         
-        <!-- 全体支出 -->
         <div style="font-size:10.5px; font-weight:bold; color:var(--muted); margin-bottom:2px;">📊 全体支出</div>
         <div style="display: flex; justify-content: space-between; font-size: 11px; margin-bottom: 2px;">
           <span>支出: <strong id="stats-budget-used">¥0</strong></span>
@@ -873,7 +872,6 @@
           <div class="progress-bar" id="budget-progress-bar" style="width: 0%;"></div>
         </div>
 
-        <!-- 旅費除外支出 -->
         <div style="font-size:10.5px; font-weight:bold; color:var(--muted); margin-top:8px; margin-bottom:2px;">🛫 旅費を除く支出</div>
         <div style="display: flex; justify-content: space-between; font-size: 11px; margin-bottom: 2px;">
           <span>支出 (旅費除く): <strong id="stats-budget-used-no-travel">¥0</strong></span>
@@ -1408,6 +1406,7 @@
     };
 
     let DB = JSON.parse(localStorage.getItem("SHIFT_PRO_DB")) || DEFAULT_DB;
+    if (!DB.settings) DB.settings = { theme: "light", selectedStatsCategories: ["食費", "交通費", "交際費", "日用品", "趣味"] };
     if (!DB.settings.selectedStatsCategories) {
       DB.settings.selectedStatsCategories = ["食費", "交通費", "交際費", "日用品", "趣味"];
     }
@@ -1422,7 +1421,6 @@
       if (undoStack.length > 5) undoStack.shift();
     }
 
-    // タイムゾーンによる日付のズレを防ぐため、ローカルタイムでの YYYY-MM-DD 文字列を取得する関数
     function getLocalDateString(d) {
       const y = d.getFullYear();
       const m = String(d.getMonth() + 1).padStart(2, '0');
@@ -1635,7 +1633,7 @@
     }
 
     let currentDate = new Date();
-    let payrollDate = new Date(); // 給料見込み用の月
+    let payrollDate = new Date();
     let statsDate = new Date();
     let multiSelectMode = false;
     let selectedDates = new Set();
@@ -1736,7 +1734,6 @@
       const firstDayOfWeek = firstDayObj.getDay();
       const lastDate = new Date(year, month + 1, 0).getDate();
 
-      // 前後3ヶ月分含めて給料日を網羅検索
       let paydayMap = {};
       DB.jobs.forEach(job => {
         for(let offset = -3; offset <= 3; offset++) {
@@ -1977,7 +1974,6 @@
         items.push({ id: e.id, type: "expense", date: e.date, title: displayTitle, amount: -e.amount, color: 'var(--danger)' });
       });
 
-      // 日付降順 ＆ 同じ日付なら入力が新しい順 (id降順)
       items.sort((a, b) => {
         if (a.date !== b.date) {
           return b.date.localeCompare(a.date);
@@ -2078,7 +2074,6 @@
 
       const budgetTotal = DB.budgets.monthly || 50000;
 
-      // 1. 全体支出
       const expTotal = DB.expenses.filter(e => e.date.startsWith(statsMonthStr)).reduce((acc, e) => acc + e.amount, 0);
       document.getElementById("stats-budget-used").textContent = `¥${expTotal.toLocaleString()}`;
       document.getElementById("stats-budget-total").textContent = `¥${budgetTotal.toLocaleString()}`;
@@ -2089,7 +2084,6 @@
         bBar.style.background = pct > 90 ? "var(--danger)" : "var(--good)";
       }
 
-      // 2. 旅費を除く支出
       const expNoTravel = DB.expenses.filter(e => e.date.startsWith(statsMonthStr) && e.category !== "旅費").reduce((acc, e) => acc + e.amount, 0);
       document.getElementById("stats-budget-used-no-travel").textContent = `¥${expNoTravel.toLocaleString()}`;
       document.getElementById("stats-budget-total-no-travel").textContent = `¥${budgetTotal.toLocaleString()}`;
@@ -2535,10 +2529,6 @@
       document.getElementById("income-memo").value = "";
       document.getElementById("income-amount").value = "";
 
-      document.getElementById("delete-shift-form-btn").style.display = "none";
-      document.getElementById("delete-expense-form-btn").style.display = "none";
-      document.getElementById("delete-income-form-btn").style.display = "none";
-
       renderFormShortcuts();
       renderDayItemsList(dateStr);
       openModalWithLock("entry-modal");
@@ -2569,7 +2559,6 @@
         document.getElementById("shift-break-min").value = s.breakMin;
         document.getElementById("shift-transport").value = (s.transport !== undefined && s.transport !== null) ? s.transport : 0;
 
-        document.getElementById("delete-shift-form-btn").style.display = "inline-flex";
         switchEntryForm("shift");
         updateShiftPreview();
       } else if (type === "expense") {
@@ -2581,7 +2570,6 @@
         document.getElementById("expense-memo").value = e.memo || "";
         document.getElementById("expense-amount").value = e.amount;
 
-        document.getElementById("delete-expense-form-btn").style.display = "inline-flex";
         switchEntryForm("expense");
       } else if (type === "income") {
         const i = DB.otherIncomes.find(x => String(x.id) === String(id));
@@ -2592,7 +2580,6 @@
         document.getElementById("income-memo").value = i.memo || "";
         document.getElementById("income-amount").value = i.amount;
 
-        document.getElementById("delete-income-form-btn").style.display = "inline-flex";
         switchEntryForm("income");
       }
       renderFormShortcuts();
@@ -2697,6 +2684,7 @@
               </div>
               <div class="list-item-right" style="color:${job ? job.color : 'var(--brand)'};">
                 <span>¥${pay.toLocaleString()}</span>
+                <button class="btn btn-danger btn-sm" onclick="event.stopPropagation(); deleteShift(${item.id})">削除</button>
               </div>
             </div>`;
         } else if (item.type === 'expense') {
@@ -2709,6 +2697,7 @@
               </div>
               <div class="list-item-right" style="color:var(--danger);">
                 <span>-¥${item.amount.toLocaleString()}</span>
+                <button class="btn btn-danger btn-sm" onclick="event.stopPropagation(); deleteExpense(${item.id})">削除</button>
               </div>
             </div>`;
         } else if (item.type === 'income') {
@@ -2721,6 +2710,7 @@
               </div>
               <div class="list-item-right" style="color:var(--good);">
                 <span>+¥${item.amount.toLocaleString()}</span>
+                <button class="btn btn-danger btn-sm" onclick="event.stopPropagation(); deleteIncome(${item.id})">削除</button>
               </div>
             </div>`;
         }
@@ -2983,7 +2973,6 @@
         document.getElementById("coin-gacha-status").textContent = "今日の貯金を完了しました🎉";
       });
 
-      // 電卓キーボード入力イベント
       document.querySelectorAll(".calc-input").forEach(inputEl => {
         inputEl.addEventListener("click", () => openCalcKeyboard(inputEl));
       });
@@ -2995,7 +2984,6 @@
       document.getElementById("calc-done-btn").addEventListener("click", closeCalcKeyboard);
       document.getElementById("calc-enter-btn").addEventListener("click", closeCalcKeyboard);
 
-      // ホームカレンダー月切り替え
       document.getElementById("prev-month-btn").addEventListener("click", () => { currentDate.setMonth(currentDate.getMonth() - 1); renderAll(); });
       document.getElementById("next-month-btn").addEventListener("click", () => { currentDate.setMonth(currentDate.getMonth() + 1); renderAll(); });
       document.getElementById("today-btn").addEventListener("click", () => { currentDate = new Date(); renderAll(); });
@@ -3005,11 +2993,9 @@
         renderAll();
       });
 
-      // 給料見込み＆収支詳細 月切り替え
       document.getElementById("payroll-prev-btn").addEventListener("click", () => { payrollDate.setMonth(payrollDate.getMonth() - 1); renderSummaryAndPayroll(); renderCreditCardList(); });
       document.getElementById("payroll-next-btn").addEventListener("click", () => { payrollDate.setMonth(payrollDate.getMonth() + 1); renderSummaryAndPayroll(); renderCreditCardList(); });
 
-      // 統計タブ専用月切り替え
       document.getElementById("stats-prev-month-btn").addEventListener("click", () => { statsDate.setMonth(statsDate.getMonth() - 1); renderStatsTab(); });
       document.getElementById("stats-next-month-btn").addEventListener("click", () => { statsDate.setMonth(statsDate.getMonth() + 1); renderStatsTab(); });
       document.getElementById("stats-today-btn").addEventListener("click", () => { statsDate = new Date(); renderStatsTab(); });
@@ -3019,33 +3005,43 @@
         renderStatsTab();
       });
 
-      // カレンダースワイプイベント
+      // カレンダースワイプ
       const calendarEl = document.getElementById("calendar-days-container");
-      let startX = 0;
-      let startY = 0;
+      let touchStartX = 0;
+      let touchStartY = 0;
       calendarEl.addEventListener("touchstart", e => {
-        startX = e.touches[0].clientX;
-        startY = e.touches[0].clientY;
-      }, {passive: true});
-      calendarEl.addEventListener("touchend", e => {
-        if (!startX) return;
-        const endX = e.changedTouches[0].clientX;
-        const endY = e.changedTouches[0].clientY;
-        const diffX = startX - endX;
-        const diffY = startY - endY;
-
-        if (Math.abs(diffX) > 50 && Math.abs(diffX) > Math.abs(diffY)) {
-          if (diffX > 0) {
-            currentDate.setMonth(currentDate.getMonth() - 1);
-            renderAll();
-          } else {
-            currentDate.setMonth(currentDate.getMonth() + 1);
-            renderAll();
-          }
+        if (e.touches && e.touches[0]) {
+          touchStartX = e.touches[0].clientX;
+          touchStartY = e.touches[0].clientY;
         }
-        startX = 0;
-        startY = 0;
-      });
+      }, {passive: true});
+
+      calendarEl.addEventListener("touchmove", e => {
+        // スワイプ判定用
+      }, {passive: true});
+
+      calendarEl.addEventListener("touchend", e => {
+        if (!touchStartX) return;
+        let endX = touchStartX;
+        let endY = touchStartY;
+        if (e.changedTouches && e.changedTouches[0]) {
+          endX = e.changedTouches[0].clientX;
+          endY = e.changedTouches[0].clientY;
+        }
+        const diffX = touchStartX - endX;
+        const diffY = touchStartY - endY;
+
+        if (Math.abs(diffX) > 40 && Math.abs(diffX) > Math.abs(diffY)) {
+          if (diffX > 0) {
+            currentDate.setMonth(currentDate.getMonth() + 1);
+          } else {
+            currentDate.setMonth(currentDate.getMonth() - 1);
+          }
+          renderAll();
+        }
+        touchStartX = 0;
+        touchStartY = 0;
+      }, {passive: true});
 
       document.getElementById("multi-select-toggle-btn").addEventListener("click", () => {
         multiSelectMode = !multiSelectMode;
@@ -3256,19 +3252,6 @@
           DB.otherIncomes.push({ id: Date.now(), ...payload });
         }
         saveDB(); closeEntryModal(); renderAll();
-      });
-
-      document.getElementById("delete-shift-form-btn").addEventListener("click", () => {
-        const id = document.getElementById("shift-id").value;
-        if (id) deleteShift(id);
-      });
-      document.getElementById("delete-expense-form-btn").addEventListener("click", () => {
-        const id = document.getElementById("expense-id").value;
-        if (id) deleteExpense(id);
-      });
-      document.getElementById("delete-income-form-btn").addEventListener("click", () => {
-        const id = document.getElementById("income-id").value;
-        if (id) deleteIncome(id);
       });
 
       document.getElementById("open-cc-modal-btn").addEventListener("click", () => {
