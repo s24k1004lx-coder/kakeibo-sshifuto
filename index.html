@@ -495,6 +495,7 @@
       padding: 12px; overflow-y: auto; overflow-x: hidden;
       box-shadow: 0 -4px 20px rgba(0,0,0,0.2);
       touch-action: pan-y;
+      padding-bottom: 60px; /* モーダル下部の余白を追加 */
     }
     .modal-header { display: flex; justify-content: space-between; align-items: center; margin-bottom: 8px; }
     .modal-title { font-size: 14px; font-weight: 700; }
@@ -606,6 +607,21 @@
     .calc-btn.op { background: var(--brand-light); color: var(--brand-dark); border-color: #fed7aa; }
     .calc-btn.action { background: var(--brand); color: white; border: none; }
     .calc-btn.clear { background: var(--danger-light); color: var(--danger); border-color: #fca5a5; }
+
+    /* トースト */
+    .toast-container {
+      position: fixed; top: 14px; left: 50%;
+      transform: translateX(-50%);
+      z-index: 400; display: flex; flex-direction: column; gap: 6px;
+      width: 90%; max-width: 380px; pointer-events: none;
+    }
+    .toast {
+      background: var(--ink); color: white;
+      padding: 8px 12px; border-radius: 8px; font-size: 11px;
+      display: flex; justify-content: space-between; align-items: center;
+      box-shadow: var(--shadow); pointer-events: auto;
+    }
+    .toast-undo { color: #fbbf24; font-weight: 700; background: none; border: none; cursor: pointer; margin-left: 8px; }
   </style>
 </head>
 <body>
@@ -626,6 +642,8 @@
       <button class="icon-btn" id="theme-toggle-btn">🌙</button>
     </div>
   </header>
+
+  <div class="toast-container" id="toast-container"></div>
 
   <!-- メインコンテンツ -->
   <main>
@@ -666,8 +684,8 @@
         </div>
       </div>
 
-      <!-- カレンダーカード (本日の予定のすぐ下に配置) -->
-      <div class="card">
+      <!-- カレンダーカード -->
+      <div class="card" id="calendar-card">
         <div class="calendar-header">
           <div class="cal-nav-btns">
             <button class="cal-nav-btn" id="prev-month-btn">◀</button>
@@ -686,7 +704,7 @@
           <div class="cal-day-head">金</div>
           <div class="cal-day-head">土</div>
         </div>
-        <div class="calendar-grid" id="calendar-days-container" style="margin-top: 2px;"></div>
+        <div class="calendar-grid" id="calendar-days-container" style="margin-top: 2px; touch-action: pan-y;"></div>
       </div>
 
       <!-- 明細リスト -->
@@ -708,7 +726,7 @@
 
     <!-- 2. 給料・診断タブ -->
     <div id="tab-payroll" class="tab-content">
-      <!-- 🏦 総資産 & 小銭貯金ガチャ (2ページ目の最上部へ移動) -->
+      <!-- 🏦 総資産 & 小銭貯金ガチャ -->
       <div class="card">
         <div class="card-title">🏦 総資産 ＆ 🎲 今日の小銭貯金</div>
         <div class="asset-box">
@@ -775,7 +793,14 @@
       </div>
 
       <div class="card">
-        <div class="card-title">💴 給料見込み ＆ 収支詳細</div>
+        <div class="card-title">
+          <span>💴 給料見込み ＆ 収支詳細</span>
+          <div class="cal-nav-btns" style="transform: scale(0.85); transform-origin: right center;">
+            <button class="cal-nav-btn" id="payroll-prev-btn">◀</button>
+            <span id="payroll-month-label" style="font-size:12px; margin:0 4px; font-weight:bold;"></span>
+            <button class="cal-nav-btn" id="payroll-next-btn">▶</button>
+          </div>
+        </div>
         <div class="form-row" style="margin-bottom: 6px;">
           <div style="flex:1; background:var(--bg); padding:6px; border-radius:6px; text-align:center;">
             <div style="font-size:9.5px; color:var(--muted);">選択月の収入</div>
@@ -810,17 +835,7 @@
 
       <div class="card">
         <div class="card-title">🗓️ 年間月別サマリー</div>
-        <table class="data-table">
-          <thead>
-            <tr>
-              <th>月</th>
-              <th>給料収入</th>
-              <th>支出</th>
-              <th>収支差額</th>
-            </tr>
-          </thead>
-          <tbody id="yearly-summary-tbody"></tbody>
-        </table>
+        <div id="yearly-summary-list"></div>
       </div>
     </div>
 
@@ -869,7 +884,7 @@
         </div>
       </div>
 
-      <!-- 🎯 支出カテゴリ選択 予算状況カード (進捗バーのみに適用) -->
+      <!-- 🎯 支出カテゴリ選択 予算状況カード -->
       <div class="card">
         <div class="card-title">🎯 カテゴリ選択 予算状況</div>
         <div style="font-size: 10px; color: var(--muted); margin-bottom: 6px;">対象のカテゴリをタップして選択：</div>
@@ -1130,11 +1145,10 @@
 
         <div style="display:flex; gap:6px;">
           <button type="submit" class="btn" style="flex:1;">保存</button>
-          <button type="button" class="btn btn-danger" id="delete-shift-form-btn" style="display:none;">削除</button>
         </div>
       </form>
 
-      <!-- 支出フォーム (🛫 旅費カテゴリ追加) -->
+      <!-- 支出フォーム -->
       <form id="expense-form" style="display: none;">
         <input type="hidden" id="expense-id">
         <div class="form-row">
@@ -1169,7 +1183,6 @@
         </div>
         <div style="display:flex; gap:6px;">
           <button type="submit" class="btn btn-danger" style="flex:1;">支出を記録</button>
-          <button type="button" class="btn btn-danger" id="delete-expense-form-btn" style="display:none;">削除</button>
         </div>
       </form>
 
@@ -1203,7 +1216,6 @@
         </div>
         <div style="display:flex; gap:6px;">
           <button type="submit" class="btn btn-good" style="flex:1;">収入を記録</button>
-          <button type="button" class="btn btn-danger" id="delete-income-form-btn" style="display:none;">削除</button>
         </div>
       </form>
 
@@ -1216,7 +1228,7 @@
 
   <!-- モーダル: テンプレート編集用 -->
   <div class="modal-overlay" id="pin-edit-modal">
-    <div class="modal-content" style="max-width:380px;">
+    <div class="modal-content" style="max-width:380px; padding-bottom:20px;">
       <div class="modal-header">
         <div class="modal-title">✏️ テンプレートの編集</div>
         <button class="icon-btn" onclick="closePinEditModal()" style="color:var(--ink);">✕</button>
@@ -1252,7 +1264,7 @@
   </div>
 
   <div class="modal-overlay" id="cc-modal">
-    <div class="modal-content">
+    <div class="modal-content" style="padding-bottom:20px;">
       <div class="modal-header">
         <div class="modal-title">💳 クレカ引き落としの登録</div>
         <button class="icon-btn" id="close-cc-modal-btn" style="color:var(--ink);">✕</button>
@@ -1279,7 +1291,7 @@
   </div>
 
   <div class="modal-overlay" id="repeat-modal">
-    <div class="modal-content">
+    <div class="modal-content" style="padding-bottom:20px;">
       <div class="modal-header">
         <div class="modal-title">🔁 シフトの繰り返し一括登録</div>
         <button class="icon-btn" id="close-repeat-modal-btn" style="color:var(--ink);">✕</button>
@@ -1317,7 +1329,7 @@
   </div>
 
   <div class="modal-overlay" id="override-pay-modal">
-    <div class="modal-content">
+    <div class="modal-content" style="padding-bottom:20px;">
       <div class="modal-header">
         <div class="modal-title">✏️ 実際の振込額を補正</div>
         <button class="icon-btn" id="close-override-modal-btn" style="color:var(--ink);">✕</button>
@@ -1408,6 +1420,14 @@
     function pushUndoState() {
       undoStack.push({ dbState: JSON.stringify(DB) });
       if (undoStack.length > 5) undoStack.shift();
+    }
+
+    // タイムゾーンによる日付のズレを防ぐため、ローカルタイムでの YYYY-MM-DD 文字列を取得する関数
+    function getLocalDateString(d) {
+      const y = d.getFullYear();
+      const m = String(d.getMonth() + 1).padStart(2, '0');
+      const day = String(d.getDate()).padStart(2, '0');
+      return `${y}-${m}-${day}`;
     }
 
     function evaluateMath(expr) {
@@ -1582,8 +1602,8 @@
         const inc2 = DB.actualPay[key2] !== undefined ? DB.actualPay[key2] : calc2;
 
         return [
-          { jobId: job.id, key: key1, name: `${job.name} (15日締め25日払)`, labelPeriod: `${start1.slice(5)} 〜 ${end1.slice(5)}`, income: inc1, calcIncome: calc1, isActual: DB.actualPay[key1] !== undefined, payDateStr: `${payDate1.getFullYear()}-${String(payDate1.getMonth()+1).padStart(2,'0')}-${String(payDate1.getDate()).padStart(2,'0')}` },
-          { jobId: job.id, key: key2, name: `${job.name} (5日締め15日払)`, labelPeriod: `${start2.slice(5)} 〜 ${end2.slice(5)}`, income: inc2, calcIncome: calc2, isActual: DB.actualPay[key2] !== undefined, payDateStr: `${payDate2.getFullYear()}-${String(payDate2.getMonth()+1).padStart(2,'0')}-${String(payDate2.getDate()).padStart(2,'0')}` }
+          { jobId: job.id, key: key1, name: `${job.name} (15日締め25日払)`, labelPeriod: `${start1.slice(5)} 〜 ${end1.slice(5)}`, income: inc1, calcIncome: calc1, isActual: DB.actualPay[key1] !== undefined, payDateStr: getLocalDateString(payDate1) },
+          { jobId: job.id, key: key2, name: `${job.name} (5日締め15日払)`, labelPeriod: `${start2.slice(5)} 〜 ${end2.slice(5)}`, income: inc2, calcIncome: calc2, isActual: DB.actualPay[key2] !== undefined, payDateStr: getLocalDateString(payDate2) }
         ];
       } else {
         const cutoff = Number(job.cutoffDay || 31);
@@ -1606,16 +1626,16 @@
         let payD = Number(job.payDay || 15);
         if (payD === 31) payD = new Date(payY, payM, 0).getDate();
         const adjustedPayDate = adjustPayDate(payY, payM, payD, job.holidayAdjust || "before");
-        const payDateStr = `${adjustedPayDate.getFullYear()}-${String(adjustedPayDate.getMonth()+1).padStart(2,'0')}-${String(adjustedPayDate.getDate()).padStart(2,'0')}`;
 
         const key = `${job.id}_${targetMonthStr}`;
         const income = DB.actualPay[key] !== undefined ? DB.actualPay[key] : calcIncome;
 
-        return [{ jobId: job.id, key, name: job.name, labelPeriod: `${startDateStr.slice(5)} 〜 ${endDateStr.slice(5)}`, income, calcIncome, isActual: DB.actualPay[key] !== undefined, payDateStr }];
+        return [{ jobId: job.id, key, name: job.name, labelPeriod: `${startDateStr.slice(5)} 〜 ${endDateStr.slice(5)}`, income, calcIncome, isActual: DB.actualPay[key] !== undefined, payDateStr: getLocalDateString(adjustedPayDate) }];
       }
     }
 
     let currentDate = new Date();
+    let payrollDate = new Date(); // 給料見込み用の月
     let statsDate = new Date();
     let multiSelectMode = false;
     let selectedDates = new Set();
@@ -1649,8 +1669,10 @@
     function renderInfoBanner() {
       const banner = document.getElementById("info-banner-card");
       if (!banner) return;
-      const todayStr = new Date().toISOString().slice(0, 10);
-      const tomorrowStr = new Date(Date.now() + 86400000).toISOString().slice(0, 10);
+      const todayStr = getLocalDateString(new Date());
+      const tomorrowObj = new Date();
+      tomorrowObj.setDate(tomorrowObj.getDate() + 1);
+      const tomorrowStr = getLocalDateString(tomorrowObj);
 
       const todayShifts = DB.shifts.filter(s => s.date === todayStr);
       const tomorrowShifts = DB.shifts.filter(s => s.date === tomorrowStr);
@@ -1692,7 +1714,7 @@
     }
 
     function renderHeaderAsset() {
-      const todayStr = new Date().toISOString().slice(0, 10);
+      const todayStr = getLocalDateString(new Date());
       const assetVal = calculateTotalAssetOnDate(todayStr);
       document.getElementById("header-base-asset").textContent = `¥${assetVal.toLocaleString()}`;
       document.getElementById("total-asset-val").textContent = `¥${assetVal.toLocaleString()}`;
@@ -1714,9 +1736,10 @@
       const firstDayOfWeek = firstDayObj.getDay();
       const lastDate = new Date(year, month + 1, 0).getDate();
 
+      // 前後3ヶ月分含めて給料日を網羅検索
       let paydayMap = {};
       DB.jobs.forEach(job => {
-        [-1, 0, 1].forEach(offset => {
+        for(let offset = -3; offset <= 3; offset++) {
           const mObj = new Date(year, month + offset, 1);
           const mStr = `${mObj.getFullYear()}-${String(mObj.getMonth() + 1).padStart(2, "0")}`;
           getJobPeriodIncomeList(job, mStr).forEach(p => {
@@ -1724,7 +1747,7 @@
               paydayMap[p.payDateStr] = true;
             }
           });
-        });
+        }
       });
 
       const startDate = new Date(year, month, 1 - firstDayOfWeek);
@@ -1736,7 +1759,7 @@
         calendarDates.push(d);
       }
 
-      const todayStr = new Date().toISOString().slice(0, 10);
+      const todayStr = getLocalDateString(new Date());
 
       const formatBadgeAmount = (amt) => {
         if (amt >= 10000) return (amt / 10000).toFixed(1) + "万";
@@ -1748,7 +1771,7 @@
         let weekInc = 0, weekExp = 0;
 
         weekDates.forEach(dt => {
-          const dateStr = dt.toISOString().slice(0, 10);
+          const dateStr = getLocalDateString(dt);
           const isCurrentMonth = dt.getMonth() === month;
 
           const cell = document.createElement("div");
@@ -1772,7 +1795,7 @@
 
           const prevDateObj = new Date(dt);
           prevDateObj.setDate(dt.getDate() - 1);
-          const prevDateStr = prevDateObj.toISOString().slice(0, 10);
+          const prevDateStr = getLocalDateString(prevDateObj);
           const prevShifts = DB.shifts.filter(s => s.date === prevDateStr);
           prevShifts.forEach(s => {
             const [sH, sM] = s.startTime.split(":").map(Number);
@@ -1837,8 +1860,11 @@
     }
 
     function renderSummaryAndPayroll() {
-      const year = currentDate.getFullYear();
-      const monthStr = `${year}-${String(currentDate.getMonth() + 1).padStart(2, "0")}`;
+      const year = payrollDate.getFullYear();
+      const monthStr = `${year}-${String(payrollDate.getMonth() + 1).padStart(2, "0")}`;
+
+      const lbl = document.getElementById("payroll-month-label");
+      if (lbl) lbl.textContent = `${year}年${payrollDate.getMonth() + 1}月`;
 
       let monthIncTotal = 0;
       let jobPayHtml = "";
@@ -1871,16 +1897,23 @@
       document.getElementById("sum-balance").textContent = `¥${balance.toLocaleString()}`;
 
       const now = new Date();
-      const daysInMonth = new Date(year, currentDate.getMonth() + 1, 0).getDate();
-      const remainDays = Math.max(1, daysInMonth - now.getDate() + 1);
+      let remainDays = 1;
+      if (now.getFullYear() === year && now.getMonth() === payrollDate.getMonth()) {
+        const daysInMonth = new Date(year, payrollDate.getMonth() + 1, 0).getDate();
+        remainDays = Math.max(1, daysInMonth - now.getDate() + 1);
+      } else if (now < payrollDate) {
+        remainDays = new Date(year, payrollDate.getMonth() + 1, 0).getDate();
+      }
+      
       const dailyBudget = balance > 0 ? Math.floor(balance / remainDays) : 0;
       document.getElementById("daily-budget-text").textContent = `残 ${remainDays}日：1日あたり 約 ¥${dailyBudget.toLocaleString()}`;
 
       document.getElementById("job-pay-details-list").innerHTML = jobPayHtml;
 
+      const currentYear = currentDate.getFullYear();
       let yearTotal = 0;
-      DB.shifts.filter(s => s.date.startsWith(String(year))).forEach(s => yearTotal += calculateShiftPay(s).totalPay);
-      DB.otherIncomes.filter(i => i.date.startsWith(String(year))).forEach(i => yearTotal += i.amount);
+      DB.shifts.filter(s => s.date.startsWith(String(currentYear))).forEach(s => yearTotal += calculateShiftPay(s).totalPay);
+      DB.otherIncomes.filter(i => i.date.startsWith(String(currentYear))).forEach(i => yearTotal += i.amount);
 
       document.getElementById("year-income-total").textContent = `累計 ¥${yearTotal.toLocaleString()}`;
       const targetWall = DB.wallTarget || 1780000;
@@ -1895,25 +1928,29 @@
       const remainWall = targetWall - yearTotal;
       document.getElementById("wall-sub-text").textContent = remainWall > 0 ? `壁まで あと ¥${remainWall.toLocaleString()}` : `⚠️ 年収の壁を超えています！ (+¥${Math.abs(remainWall).toLocaleString()})`;
 
-      const tbody = document.getElementById("yearly-summary-tbody");
-      if (tbody) {
+      const summaryList = document.getElementById("yearly-summary-list");
+      if (summaryList) {
         let html = "";
         for (let m = 1; m <= 12; m++) {
-          const mStr = `${year}-${String(m).padStart(2, "0")}`;
+          const mStr = `${currentYear}-${String(m).padStart(2, "0")}`;
           let inc = 0;
           DB.jobs.forEach(j => getJobPeriodIncomeList(j, mStr).forEach(p => inc += p.income));
           inc += DB.otherIncomes.filter(i => i.date.startsWith(mStr)).reduce((acc, i) => acc + i.amount, 0);
           const exp = DB.expenses.filter(e => e.date.startsWith(mStr)).reduce((acc, e) => acc + e.amount, 0);
           const bal = inc - exp;
           html += `
-            <tr>
-              <td><strong>${m}月</strong></td>
-              <td style="color:var(--good); font-weight:bold;">¥${inc.toLocaleString()}</td>
-              <td style="color:var(--danger);">¥${exp.toLocaleString()}</td>
-              <td style="font-weight:bold; color:${bal >= 0 ? 'var(--good)' : 'var(--danger)'}">¥${bal.toLocaleString()}</td>
-            </tr>`;
+            <div class="list-item">
+              <div class="list-item-left">
+                <strong>${m}月</strong>
+              </div>
+              <div class="list-item-right">
+                <span style="color:var(--good); font-size:10px;">+¥${inc.toLocaleString()}</span>
+                <span style="color:var(--danger); font-size:10px;">-¥${exp.toLocaleString()}</span>
+                <span style="font-weight:bold; font-size:11px; color:${bal >= 0 ? 'var(--good)' : 'var(--danger)'}; margin-left:4px; width:45px; text-align:right;">¥${bal.toLocaleString()}</span>
+              </div>
+            </div>`;
         }
-        tbody.innerHTML = html;
+        summaryList.innerHTML = html;
       }
     }
 
@@ -1940,12 +1977,26 @@
         items.push({ id: e.id, type: "expense", date: e.date, title: displayTitle, amount: -e.amount, color: 'var(--danger)' });
       });
 
-      items.sort((a, b) => b.date.localeCompare(a.date));
+      // 日付降順 ＆ 同じ日付なら入力が新しい順 (id降順)
+      items.sort((a, b) => {
+        if (a.date !== b.date) {
+          return b.date.localeCompare(a.date);
+        }
+        return b.id - a.id;
+      });
 
       if (filter !== "all") items = items.filter(i => i.type === filter);
       if (query) items = items.filter(i => i.title.toLowerCase().includes(query));
 
       const sliced = items.slice(0, historyLimit);
+      
+      const loadMoreBtn = document.getElementById("load-more-history-btn");
+      if (items.length > historyLimit) {
+        loadMoreBtn.style.display = "block";
+      } else {
+        loadMoreBtn.style.display = "none";
+      }
+
       if (sliced.length === 0) {
         container.innerHTML = `<div style="font-size: 12px; color: var(--muted); text-align: center; padding: 10px;">データがありません</div>`;
         return;
@@ -1968,11 +2019,11 @@
     function renderCreditCardList() {
       const container = document.getElementById("credit-card-list");
       if (!container) return;
-      const monthStr = `${currentDate.getFullYear()}-${String(currentDate.getMonth() + 1).padStart(2, "0")}`;
+      const monthStr = `${payrollDate.getFullYear()}-${String(payrollDate.getMonth() + 1).padStart(2, "0")}`;
       const ccList = DB.expenses.filter(e => e.category === "クレカ" && e.date.startsWith(monthStr));
 
       if (ccList.length === 0) {
-        container.innerHTML = `<div style="font-size:12px; color:var(--muted); text-align:center; padding:8px;">今月の引き落とし予定はありません</div>`;
+        container.innerHTML = `<div style="font-size:12px; color:var(--muted); text-align:center; padding:8px;">該当月の引き落とし予定はありません</div>`;
         return;
       }
 
@@ -2049,9 +2100,7 @@
         bBarNoTravel.style.background = pctNT > 90 ? "var(--danger)" : "var(--good)";
       }
 
-      // 3. 🎯 カスタムカテゴリ選択の予算状況
       renderStatsCategoryChips(statsMonthStr, budgetTotal);
-
       renderCharts();
     }
 
@@ -2101,7 +2150,6 @@
       const statsMonthStr = `${statsYear}-${String(statsMonth + 1).padStart(2, "0")}`;
       const labels12 = ["1月","2月","3月","4月","5月","6月","7月","8月","9月","10月","11月","12月"];
 
-      // 1. 総資産の推移グラフ（実績:実線 ＆ 未来予測:破線）
       const ctxBudgetLine = document.getElementById("chart-budget-line");
       if (ctxBudgetLine) {
         if (chartBudgetLine) chartBudgetLine.destroy();
@@ -2109,7 +2157,7 @@
         const dLabels = Array.from({ length: daysInMonth }, (_, i) => `${i + 1}日`);
         const pastAssetData = [];
         const futureAssetData = [];
-        const todayStr = new Date().toISOString().slice(0, 10);
+        const todayStr = getLocalDateString(new Date());
 
         let lastKnownAsset = calculateTotalAssetOnDate(todayStr);
 
@@ -2407,7 +2455,10 @@
       const histContainer = document.getElementById("form-history-shortcuts");
       if (histContainer) {
         const historyMap = new Map();
-        [...DB.shifts].sort((a,b) => b.date.localeCompare(a.date)).forEach(s => {
+        [...DB.shifts].sort((a,b) => {
+          if (a.date !== b.date) return b.date.localeCompare(a.date);
+          return b.id - a.id;
+        }).forEach(s => {
           const key = `${s.jobId}_${s.startTime}_${s.endTime}_${s.breakMin}`;
           if (!historyMap.has(key)) {
             const job = DB.jobs.find(j => String(j.id) === String(s.jobId));
@@ -2625,49 +2676,54 @@
       if (!container) return;
 
       let html = "";
-      DB.shifts.filter(s => s.date === dateStr).forEach(s => {
-        const job = DB.jobs.find(j => String(j.id) === String(s.jobId));
-        const pay = calculateShiftPay(s).totalPay;
-        html += `
-          <div class="list-item" onclick="openEditModalById('shift', ${s.id})">
-            <div class="list-item-left">
-              <span class="badge" style="background:${job ? job.color : 'var(--brand)'};">シフト</span>
-              <strong>${job ? job.name : ''}</strong>
-              <span style="font-size:10px; color:var(--muted); margin-left:2px;">(${s.startTime}~${s.endTime})</span>
-            </div>
-            <div class="list-item-right" style="color:${job ? job.color : 'var(--brand)'};">
-              <span>¥${pay.toLocaleString()}</span>
-              <button class="btn btn-danger btn-sm" onclick="event.stopPropagation(); deleteShift(${s.id})">削除</button>
-            </div>
-          </div>`;
-      });
-      DB.expenses.filter(e => e.date === dateStr).forEach(e => {
-        const displayTitle = (e.memo && e.memo !== e.category) ? `[${e.category}] ${e.memo}` : `[${e.category}]`;
-        html += `
-          <div class="list-item" onclick="openEditModalById('expense', ${e.id})">
-            <div class="list-item-left">
-              <span class="badge" style="background:var(--danger);">支出</span>
-              <span style="overflow:hidden; text-overflow:ellipsis;">${displayTitle}</span>
-            </div>
-            <div class="list-item-right" style="color:var(--danger);">
-              <span>-¥${e.amount.toLocaleString()}</span>
-              <button class="btn btn-danger btn-sm" onclick="event.stopPropagation(); deleteExpense(${e.id})">削除</button>
-            </div>
-          </div>`;
-      });
-      DB.otherIncomes.filter(i => i.date === dateStr).forEach(i => {
-        const displayTitle = (i.memo && i.memo !== i.category) ? `[${i.category}] ${i.memo}` : `[${i.category}]`;
-        html += `
-          <div class="list-item" onclick="openEditModalById('income', ${i.id})">
-            <div class="list-item-left">
-              <span class="badge" style="background:var(--good);">収入</span>
-              <span style="overflow:hidden; text-overflow:ellipsis;">${displayTitle}</span>
-            </div>
-            <div class="list-item-right" style="color:var(--good);">
-              <span>+¥${i.amount.toLocaleString()}</span>
-              <button class="btn btn-danger btn-sm" onclick="event.stopPropagation(); deleteIncome(${i.id})">削除</button>
-            </div>
-          </div>`;
+      
+      const dayItems = [];
+      DB.shifts.filter(s => s.date === dateStr).forEach(s => dayItems.push({ type: 'shift', ...s }));
+      DB.expenses.filter(e => e.date === dateStr).forEach(e => dayItems.push({ type: 'expense', ...e }));
+      DB.otherIncomes.filter(i => i.date === dateStr).forEach(i => dayItems.push({ type: 'income', ...i }));
+      
+      dayItems.sort((a, b) => b.id - a.id);
+
+      dayItems.forEach(item => {
+        if (item.type === 'shift') {
+          const job = DB.jobs.find(j => String(j.id) === String(item.jobId));
+          const pay = calculateShiftPay(item).totalPay;
+          html += `
+            <div class="list-item" onclick="openEditModalById('shift', ${item.id})">
+              <div class="list-item-left">
+                <span class="badge" style="background:${job ? job.color : 'var(--brand)'};">シフト</span>
+                <strong>${job ? job.name : ''}</strong>
+                <span style="font-size:10px; color:var(--muted); margin-left:2px;">(${item.startTime}~${item.endTime})</span>
+              </div>
+              <div class="list-item-right" style="color:${job ? job.color : 'var(--brand)'};">
+                <span>¥${pay.toLocaleString()}</span>
+              </div>
+            </div>`;
+        } else if (item.type === 'expense') {
+          const displayTitle = (item.memo && item.memo !== item.category) ? `[${item.category}] ${item.memo}` : `[${item.category}]`;
+          html += `
+            <div class="list-item" onclick="openEditModalById('expense', ${item.id})">
+              <div class="list-item-left">
+                <span class="badge" style="background:var(--danger);">支出</span>
+                <span style="overflow:hidden; text-overflow:ellipsis;">${displayTitle}</span>
+              </div>
+              <div class="list-item-right" style="color:var(--danger);">
+                <span>-¥${item.amount.toLocaleString()}</span>
+              </div>
+            </div>`;
+        } else if (item.type === 'income') {
+          const displayTitle = (item.memo && item.memo !== item.category) ? `[${item.category}] ${item.memo}` : `[${item.category}]`;
+          html += `
+            <div class="list-item" onclick="openEditModalById('income', ${item.id})">
+              <div class="list-item-left">
+                <span class="badge" style="background:var(--good);">収入</span>
+                <span style="overflow:hidden; text-overflow:ellipsis;">${displayTitle}</span>
+              </div>
+              <div class="list-item-right" style="color:var(--good);">
+                <span>+¥${item.amount.toLocaleString()}</span>
+              </div>
+            </div>`;
+        }
       });
 
       container.innerHTML = html || `<div style="font-size:12px; color:var(--muted);">データなし</div>`;
@@ -2818,24 +2874,34 @@
     }
 
     window.deleteShift = id => {
-      if (confirm("このシフトを削除してもよろしいですか？")) {
+      const s = DB.shifts.find(x => String(x.id) === String(id));
+      if(!s) return;
+      const job = DB.jobs.find(j => String(j.id) === String(s.jobId));
+      const jName = job ? job.name : '';
+      if (confirm(`シフト「${jName} ${s.startTime}~${s.endTime}」を削除してもよろしいですか？`)) {
         pushUndoState();
-        DB.shifts = DB.shifts.filter(s => String(s.id) !== String(id));
+        DB.shifts = DB.shifts.filter(x => String(x.id) !== String(id));
         saveDB(); renderAll(); closeEntryModal();
       }
     };
     window.deleteExpense = id => {
-      if (confirm("この支出を削除してもよろしいですか？")) {
+      const e = DB.expenses.find(x => String(x.id) === String(id));
+      if(!e) return;
+      const name = e.memo || e.category;
+      if (confirm(`支出「${name}」を削除してもよろしいですか？`)) {
         pushUndoState();
-        DB.expenses = DB.expenses.filter(e => String(e.id) !== String(id));
+        DB.expenses = DB.expenses.filter(x => String(x.id) !== String(id));
         saveDB(); renderAll(); closeEntryModal();
       }
     };
     window.deleteIncome = id => {
-      if (confirm("この収入を削除してもよろしいですか？")) {
+      const i = DB.otherIncomes.find(x => String(x.id) === String(id));
+      if(!i) return;
+      const name = i.memo || i.category;
+      if (confirm(`収入「${name}」を削除してもよろしいですか？`)) {
         pushUndoState();
-        DB.otherIncomes = DB.otherIncomes.filter(i => String(i.id) !== String(id));
-        saveDB(); renderAll();
+        DB.otherIncomes = DB.otherIncomes.filter(x => String(x.id) !== String(id));
+        saveDB(); renderAll(); closeEntryModal();
       }
     };
     window.deleteJob = id => {
@@ -2910,7 +2976,7 @@
       document.getElementById("save-gacha-btn").addEventListener("click", () => {
         if (!currentGachaVal) return;
         pushUndoState();
-        const todayStr = new Date().toISOString().slice(0, 10);
+        const todayStr = getLocalDateString(new Date());
         DB.expenses.push({ id: Date.now(), date: todayStr, category: "貯金", memo: "🎲 小銭貯金ガチャ", amount: currentGachaVal });
         saveDB(); renderAll();
         document.getElementById("save-gacha-btn").style.display = "none";
@@ -2939,6 +3005,10 @@
         renderAll();
       });
 
+      // 給料見込み＆収支詳細 月切り替え
+      document.getElementById("payroll-prev-btn").addEventListener("click", () => { payrollDate.setMonth(payrollDate.getMonth() - 1); renderSummaryAndPayroll(); renderCreditCardList(); });
+      document.getElementById("payroll-next-btn").addEventListener("click", () => { payrollDate.setMonth(payrollDate.getMonth() + 1); renderSummaryAndPayroll(); renderCreditCardList(); });
+
       // 統計タブ専用月切り替え
       document.getElementById("stats-prev-month-btn").addEventListener("click", () => { statsDate.setMonth(statsDate.getMonth() - 1); renderStatsTab(); });
       document.getElementById("stats-next-month-btn").addEventListener("click", () => { statsDate.setMonth(statsDate.getMonth() + 1); renderStatsTab(); });
@@ -2947,6 +3017,34 @@
         const [y, m] = e.target.value.split("-").map(Number);
         statsDate = new Date(y, m - 1, 1);
         renderStatsTab();
+      });
+
+      // カレンダースワイプイベント
+      const calendarEl = document.getElementById("calendar-days-container");
+      let startX = 0;
+      let startY = 0;
+      calendarEl.addEventListener("touchstart", e => {
+        startX = e.touches[0].clientX;
+        startY = e.touches[0].clientY;
+      }, {passive: true});
+      calendarEl.addEventListener("touchend", e => {
+        if (!startX) return;
+        const endX = e.changedTouches[0].clientX;
+        const endY = e.changedTouches[0].clientY;
+        const diffX = startX - endX;
+        const diffY = startY - endY;
+
+        if (Math.abs(diffX) > 50 && Math.abs(diffX) > Math.abs(diffY)) {
+          if (diffX > 0) {
+            currentDate.setMonth(currentDate.getMonth() - 1);
+            renderAll();
+          } else {
+            currentDate.setMonth(currentDate.getMonth() + 1);
+            renderAll();
+          }
+        }
+        startX = 0;
+        startY = 0;
       });
 
       document.getElementById("multi-select-toggle-btn").addEventListener("click", () => {
@@ -2999,8 +3097,8 @@
         }
       });
 
-      document.getElementById("history-search-input").addEventListener("input", renderHistory);
-      document.getElementById("history-filter-select").addEventListener("change", renderHistory);
+      document.getElementById("history-search-input").addEventListener("input", () => { historyLimit = 10; renderHistory(); });
+      document.getElementById("history-filter-select").addEventListener("change", () => { historyLimit = 10; renderHistory(); });
       document.getElementById("load-more-history-btn").addEventListener("click", () => { historyLimit += 10; renderHistory(); });
 
       document.getElementById("start-nudge-minus").addEventListener("click", () => nudgeTime('start', -15));
@@ -3174,7 +3272,7 @@
       });
 
       document.getElementById("open-cc-modal-btn").addEventListener("click", () => {
-        document.getElementById("cc-date-input").value = new Date().toISOString().slice(0, 10);
+        document.getElementById("cc-date-input").value = getLocalDateString(new Date());
         openModalWithLock("cc-modal");
       });
       document.getElementById("close-cc-modal-btn").addEventListener("click", () => closeModalWithLock("cc-modal"));
@@ -3213,9 +3311,9 @@
       fabBtn.addEventListener("click", toggleFab);
       fabOverlay.addEventListener("click", toggleFab);
 
-      document.getElementById("fab-add-shift").addEventListener("click", () => { toggleFab(); openEntryModal(new Date().toISOString().slice(0, 10)); switchEntryForm("shift"); });
-      document.getElementById("fab-add-expense").addEventListener("click", () => { toggleFab(); openEntryModal(new Date().toISOString().slice(0, 10)); switchEntryForm("expense"); });
-      document.getElementById("fab-add-income").addEventListener("click", () => { toggleFab(); openEntryModal(new Date().toISOString().slice(0, 10)); switchEntryForm("income"); });
+      document.getElementById("fab-add-shift").addEventListener("click", () => { toggleFab(); openEntryModal(getLocalDateString(new Date())); switchEntryForm("shift"); });
+      document.getElementById("fab-add-expense").addEventListener("click", () => { toggleFab(); openEntryModal(getLocalDateString(new Date())); switchEntryForm("expense"); });
+      document.getElementById("fab-add-income").addEventListener("click", () => { toggleFab(); openEntryModal(getLocalDateString(new Date())); switchEntryForm("income"); });
 
       document.getElementById("close-entry-modal-btn").addEventListener("click", closeEntryModal);
       document.getElementById("type-shift-btn").addEventListener("click", () => switchEntryForm("shift"));
@@ -3260,7 +3358,7 @@
         let curr = new Date(start);
         while (curr <= end) {
           if (dows.includes(curr.getDay())) {
-            DB.shifts.push({ id: Date.now() + Math.random(), jobId: pin.jobId, date: curr.toISOString().slice(0, 10), startTime: pin.start, endTime: pin.end, breakMin: pin.breakMin, transport: pin.transport });
+            DB.shifts.push({ id: Date.now() + Math.random(), jobId: pin.jobId, date: getLocalDateString(curr), startTime: pin.start, endTime: pin.end, breakMin: pin.breakMin, transport: pin.transport });
           }
           curr.setDate(curr.getDate() + 1);
         }
@@ -3337,13 +3435,13 @@
         DB.otherIncomes.forEach(i => csv += `${i.date},収入,${i.memo},${i.amount}\n`);
         const blob = new Blob([csv], { type: "text/csv;charset=utf-8;" });
         const a = document.createElement("a"); a.href = URL.createObjectURL(blob);
-        a.download = `shift_pro_export_${new Date().toISOString().slice(0, 10)}.csv`; a.click();
+        a.download = `shift_pro_export_${getLocalDateString(new Date())}.csv`; a.click();
       });
 
       document.getElementById("export-json-btn").addEventListener("click", () => {
         const blob = new Blob([JSON.stringify(DB, null, 2)], { type: "application/json" });
         const a = document.createElement("a"); a.href = URL.createObjectURL(blob);
-        a.download = `shift_pro_backup_${new Date().toISOString().slice(0, 10)}.json`; a.click();
+        a.download = `shift_pro_backup_${getLocalDateString(new Date())}.json`; a.click();
       });
 
       const fileInput = document.getElementById("json-file-input");
