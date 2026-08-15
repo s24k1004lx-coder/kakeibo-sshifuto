@@ -1400,31 +1400,26 @@
       jobs: [
         {
           id: 1,
-          name: "協栄",
+          name: "メイン勤務先",
           color: "#f97316",
           hourlyWage: 1200,
           nightWage: 1500,
           transport: 0,
-          type: "kyoei_double", // 月2回支給（新・協栄ルール）
-          // 第1期: 1日〜15日締め ➔ 当月末日支給
+          type: "monthly",
+          cutoffDay: 31,
+          payMonthOffset: 1,
+          payDay: 15,
+          holidayAdjust: "before",
+          // 月2回用カスタム設定
           p1Cutoff: 15,
           p1MonthOffset: 0,
           p1PayDay: 31,
           p1HolidayAdjust: "before",
-          // 第2期: 16日〜月末締め ➔ 翌月15日支給
           p2Cutoff: 31,
           p2MonthOffset: 1,
           p2PayDay: 15,
           p2HolidayAdjust: "before",
-          // 協栄ルール特有の丸め
-          kyoei15mRound: true,
-          kyoeiMin5h: true,
-
-          // 通常（月1回）用フォールバック
-          cutoffDay: 31,
-          payMonthOffset: 1,
-          payDay: 15,
-          holidayAdjust: "before"
+          customRules: []
         }
       ],
       pins: [],
@@ -1527,7 +1522,7 @@
     function adjustPayDate(year, month, day, adjustType) {
       let dt = new Date(year, month - 1, day);
       if (adjustType === "none") return dt;
-      while (dt.getDay() === 0 || dt.getDay() === 6) {
+      while (dt.getDay() === 0 || dt.getDay() === 6 || isJapaneseHoliday(dt.getFullYear(), dt.getMonth() + 1, dt.getDate())) {
         if (adjustType === "before") dt.setDate(dt.getDate() - 1);
         else if (adjustType === "after") dt.setDate(dt.getDate() + 1);
       }
@@ -1541,7 +1536,10 @@
       const [sH, sM] = shift.startTime.split(":").map(Number);
       let [eH, eM] = shift.endTime.split(":").map(Number);
 
-      const isRound15 = job.kyoei15mRound !== false && (job.type === "kyoei_double" || (job.name && job.name.includes("協栄")));
+      const rules = job.customRules || [];
+      const isRound15 = rules.includes("round15");
+      const isMin5h = rules.includes("min5h");
+
       if (isRound15 && eM % 15 !== 0) {
         eM = Math.ceil(eM / 15) * 15;
         if (eM === 60) { eM = 0; eH += 1; }
@@ -1555,7 +1553,6 @@
       const breakMin = Number(shift.breakMin) || 0;
       let netMins = grossMins - breakMin;
 
-      const isMin5h = job.kyoeiMin5h !== false && (job.type === "kyoei_double" || (job.name && job.name.includes("協栄")));
       if (isMin5h && netMins < 300) {
         netMins = 300;
       }
@@ -1617,59 +1614,53 @@
       }
     }
 
-    // 締め日・給料日の期間計算（通常・月2回柔軟ルール対応）
+    // 月2回支給・通常支給を柔軟に計算する関数
     function getJobPeriodIncomeList(job, targetMonthStr) {
       const [year, month] = targetMonthStr.split("-").map(Number);
 
       if (job.type === "kyoei_double") {
-        // 設定値の取得（デフォルト: 第1期=1~15日締め当月末振込、第2期=16~末日締め翌月15日振込）
+        // --- 期間1（例: 1日〜15日 ➔ 当月末払） ---
         const p1Cutoff = Number(job.p1Cutoff !== undefined ? job.p1Cutoff : 15);
         const p1MonthOffset = Number(job.p1MonthOffset !== undefined ? job.p1MonthOffset : 0);
-        const p1PayDay = Number(job.p1PayDay !== undefined ? job.p1PayDay : 31);
+        let p1PayDay = Number(job.p1PayDay !== undefined ? job.p1PayDay : 31);
         const p1HolidayAdjust = job.p1HolidayAdjust || "before";
 
-        const p2Cutoff = Number(job.p2Cutoff !== undefined ? job.p2Cutoff : 31);
-        const p2MonthOffset = Number(job.p2MonthOffset !== undefined ? job.p2MonthOffset : 1);
-        const p2PayDay = Number(job.p2PayDay !== undefined ? job.p2PayDay : 15);
-        const p2HolidayAdjust = job.p2HolidayAdjust || "before";
-
-        // 第1期 (例: 1日〜15日)
         const start1 = `${targetMonthStr}-01`;
         const end1 = `${targetMonthStr}-${String(p1Cutoff).padStart(2, '0')}`;
         const shifts1 = DB.shifts.filter(s => String(s.jobId) === String(job.id) && s.date >= start1 && s.date <= end1);
         const calc1 = shifts1.reduce((acc, s) => acc + calculateShiftPay(s).totalPay, 0);
 
-        let p1M = month + p1MonthOffset;
-        let p1Y = year;
-        if (p1M > 12) { p1M -= 12; p1Y += 1; }
-        let p1D = p1PayDay === 31 ? new Date(p1Y, p1M, 0).getDate() : p1PayDay;
-        const payDate1 = adjustPayDate(p1Y, p1M, p1D, p1HolidayAdjust);
-
+        let payM1 = month + p1MonthOffset;
+        let payY1 = year;
+        if (payM1 > 12) { payM1 -= 12; payY1 += 1; }
+        if (p1PayDay === 31) p1PayDay = new Date(payY1, payM1, 0).getDate();
+        const payDate1 = adjustPayDate(payY1, payM1, p1PayDay, p1HolidayAdjust);
         const key1 = `${job.id}_${targetMonthStr}_1`;
         const inc1 = (DB.actualPay && DB.actualPay[key1] !== undefined) ? DB.actualPay[key1] : calc1;
 
-        // 第2期 (例: 16日〜月末)
-        const lastDayOfMonth = new Date(year, month, 0).getDate();
+        // --- 期間2（例: 16日〜月末 ➔ 翌月15日払） ---
+        const p2Cutoff = Number(job.p2Cutoff !== undefined ? job.p2Cutoff : 31);
+        const p2MonthOffset = Number(job.p2MonthOffset !== undefined ? job.p2MonthOffset : 1);
+        let p2PayDay = Number(job.p2PayDay !== undefined ? job.p2PayDay : 15);
+        const p2HolidayAdjust = job.p2HolidayAdjust || "before";
+
         const start2 = `${targetMonthStr}-${String(p1Cutoff + 1).padStart(2, '0')}`;
-        const end2 = `${targetMonthStr}-${String(lastDayOfMonth).padStart(2, '0')}`;
+        const lastDay2 = new Date(year, month, 0).getDate();
+        const end2 = p2Cutoff === 31 ? `${targetMonthStr}-${String(lastDay2).padStart(2, '0')}` : `${targetMonthStr}-${String(p2Cutoff).padStart(2, '0')}`;
         const shifts2 = DB.shifts.filter(s => String(s.jobId) === String(job.id) && s.date >= start2 && s.date <= end2);
         const calc2 = shifts2.reduce((acc, s) => acc + calculateShiftPay(s).totalPay, 0);
 
-        let p2M = month + p2MonthOffset;
-        let p2Y = year;
-        if (p2M > 12) { p2M -= 12; p2Y += 1; }
-        let p2D = p2PayDay === 31 ? new Date(p2Y, p2M, 0).getDate() : p2PayDay;
-        const payDate2 = adjustPayDate(p2Y, p2M, p2D, p2HolidayAdjust);
-
+        let payM2 = month + p2MonthOffset;
+        let payY2 = year;
+        if (payM2 > 12) { payM2 -= 12; payY2 += 1; }
+        if (p2PayDay === 31) p2PayDay = new Date(payY2, payM2, 0).getDate();
+        const payDate2 = adjustPayDate(payY2, payM2, p2PayDay, p2HolidayAdjust);
         const key2 = `${job.id}_${targetMonthStr}_2`;
         const inc2 = (DB.actualPay && DB.actualPay[key2] !== undefined) ? DB.actualPay[key2] : calc2;
 
-        const p1PayDayLabel = p1PayDay === 31 ? '末' : `${p1PayDay}日`;
-        const p2PayDayLabel = p2PayDay === 31 ? '末' : `${p2PayDay}日`;
-
         return [
-          { jobId: job.id, key: key1, name: `${job.name} (1~${p1Cutoff}日締 ${p1MonthOffset===0?'当':'翌'}月${p1PayDayLabel}払)`, labelPeriod: `${start1.slice(5)} 〜 ${end1.slice(5)}`, income: inc1, calcIncome: calc1, isActual: (DB.actualPay && DB.actualPay[key1] !== undefined), payDateStr: getLocalDateString(payDate1) },
-          { jobId: job.id, key: key2, name: `${job.name} (${p1Cutoff+1}~末日締 ${p2MonthOffset===0?'当':'翌'}月${p2PayDayLabel}払)`, labelPeriod: `${start2.slice(5)} 〜 ${end2.slice(5)}`, income: inc2, calcIncome: calc2, isActual: (DB.actualPay && DB.actualPay[key2] !== undefined), payDateStr: getLocalDateString(payDate2) }
+          { jobId: job.id, key: key1, name: `${job.name} (前半分)`, labelPeriod: `${start1.slice(5)} 〜 ${end1.slice(5)}`, income: inc1, calcIncome: calc1, isActual: (DB.actualPay && DB.actualPay[key1] !== undefined), payDateStr: getLocalDateString(payDate1) },
+          { jobId: job.id, key: key2, name: `${job.name} (後半分)`, labelPeriod: `${start2.slice(5)} 〜 ${end2.slice(5)}`, income: inc2, calcIncome: calc2, isActual: (DB.actualPay && DB.actualPay[key2] !== undefined), payDateStr: getLocalDateString(payDate2) }
         ];
       } else {
         const cutoff = Number(job.cutoffDay || 31);
@@ -1924,7 +1915,6 @@
       }
     }
 
-    // ✏️ 実際の振込額補正モーダルを開く
     window.openOverrideModal = function(key, name, currentActual, currentCalc) {
       document.getElementById("override-pay-key").value = key;
       document.getElementById("override-pay-name").value = name;
@@ -2319,6 +2309,7 @@
           let inc = 0;
           DB.jobs.forEach(j => getJobPeriodIncomeList(j, mStr).forEach(p => inc += p.income));
           inc += DB.otherIncomes.filter(i => i.date.startsWith(mStr)).reduce((acc, i) => acc + i.amount, 0);
+          chartTrendData = inc;
           incData.push(inc);
           expData.push(DB.expenses.filter(e => e.date.startsWith(mStr)).reduce((acc, e) => acc + e.amount, 0));
         });
@@ -2420,11 +2411,14 @@
       }
     }
 
-    // 🏢 勤務先ごとの柔軟な設定画面（通常 ＆ 月2回・協栄ルールのフルカスタム対応）
+    // 🏢 勤務先ごとの柔軟な詳細設定（月2回支給カスタム対応）
     function renderSettingsTab() {
       const jobsConfig = document.getElementById("jobs-config-list");
       if (jobsConfig) {
-        jobsConfig.innerHTML = DB.jobs.map((j, idx) => `
+        jobsConfig.innerHTML = DB.jobs.map((j, idx) => {
+          const rules = j.customRules || [];
+          const isKyoei = j.type === 'kyoei_double';
+          return `
           <div class="job-setting-card">
             <div class="form-row" style="align-items:center;">
               <input type="color" value="${j.color || '#f97316'}" onchange="updateJobConfig(${idx}, 'color', this.value)" style="width:36px; height:34px; border:none; cursor:pointer; padding:0; border-radius:4px;">
@@ -2433,23 +2427,20 @@
             </div>
             
             <div class="form-row" style="margin-top:6px;">
-              <div class="form-group"><label>時給 (円)</label><input type="text" value="${j.hourlyWage}" class="form-control" onchange="updateJobConfig(${idx}, 'hourlyWage', evaluateMath(this.value)||1200)"></div>
+              <div class="form-group"><label>基本時給 (円)</label><input type="text" value="${j.hourlyWage}" class="form-control" onchange="updateJobConfig(${idx}, 'hourlyWage', evaluateMath(this.value)||1200)"></div>
               <div class="form-group"><label>深夜時給 (円)</label><input type="text" value="${j.nightWage || Math.floor(j.hourlyWage*1.25)}" class="form-control" onchange="updateJobConfig(${idx}, 'nightWage', evaluateMath(this.value))"></div>
               <div class="form-group"><label>交通費/日 (円)</label><input type="text" value="${j.transport}" class="form-control" onchange="updateJobConfig(${idx}, 'transport', evaluateMath(this.value)||0)"></div>
             </div>
 
-            <div class="form-row">
-              <div class="form-group">
-                <label>給与支給サイクル</label>
-                <select class="form-control" onchange="updateJobConfig(${idx}, 'type', this.value)">
-                  <option value="monthly" ${j.type !== 'kyoei_double' ? 'selected' : ''}>通常 (月1回支給)</option>
-                  <option value="kyoei_double" ${j.type === 'kyoei_double' ? 'selected' : ''}>月2回支給 (カスタム・協栄等)</option>
-                </select>
-              </div>
+            <div class="form-group" style="margin-top:4px;">
+              <label>支給形態</label>
+              <select class="form-control" onchange="updateJobConfig(${idx}, 'type', this.value)">
+                <option value="monthly" ${!isKyoei ? 'selected' : ''}>通常 (月1回支給)</option>
+                <option value="kyoei_double" ${isKyoei ? 'selected' : ''}>月2回支給 (前半・後半分割)</option>
+              </select>
             </div>
 
-            ${j.type !== 'kyoei_double' ? `
-            <!-- 月1回通常設定 -->
+            ${!isKyoei ? `
             <div class="form-row">
               <div class="form-group">
                 <label>締め日</label>
@@ -2492,22 +2483,21 @@
               </select>
             </div>
             ` : `
-            <!-- 月2回（協栄・カスタム）設定 -->
-            <div style="background:var(--card); border:1px solid var(--line); border-radius:6px; padding:6px; margin-top:4px;">
-              <div style="font-size:10.5px; font-weight:bold; color:var(--brand-dark); margin-bottom:4px;">📌 第1期（前半）の支給設定</div>
+            <div style="background:var(--card); border:1px solid var(--line); border-radius:6px; padding:6px; margin-top:6px;">
+              <div style="font-size:10.5px; font-weight:bold; color:var(--brand-dark); margin-bottom:4px;">1️⃣ 前半分（1日〜15日勤務分など）の設定</div>
               <div class="form-row">
                 <div class="form-group">
                   <label>締め日</label>
                   <select class="form-control" onchange="updateJobConfig(${idx}, 'p1Cutoff', Number(this.value))">
-                    <option value="15" ${Number(j.p1Cutoff !== undefined ? j.p1Cutoff : 15) === 15 ? 'selected' : ''}>15日締め (1~15日)</option>
-                    <option value="10" ${Number(j.p1Cutoff) === 10 ? 'selected' : ''}>10日締め (1~10日)</option>
-                    <option value="20" ${Number(j.p1Cutoff) === 20 ? 'selected' : ''}>20日締め (1~20日)</option>
+                    <option value="15" ${Number(j.p1Cutoff || 15) === 15 ? 'selected' : ''}>15日</option>
+                    <option value="10" ${Number(j.p1Cutoff) === 10 ? 'selected' : ''}>10日</option>
+                    <option value="20" ${Number(j.p1Cutoff) === 20 ? 'selected' : ''}>20日</option>
                   </select>
                 </div>
                 <div class="form-group">
                   <label>支給月</label>
                   <select class="form-control" onchange="updateJobConfig(${idx}, 'p1MonthOffset', Number(this.value))">
-                    <option value="0" ${Number(j.p1MonthOffset !== undefined ? j.p1MonthOffset : 0) === 0 ? 'selected' : ''}>当月</option>
+                    <option value="0" ${Number(j.p1MonthOffset || 0) === 0 ? 'selected' : ''}>当月</option>
                     <option value="1" ${Number(j.p1MonthOffset) === 1 ? 'selected' : ''}>翌月</option>
                   </select>
                 </div>
@@ -2518,13 +2508,14 @@
                     <option value="25" ${Number(j.p1PayDay) === 25 ? 'selected' : ''}>25日</option>
                     <option value="20" ${Number(j.p1PayDay) === 20 ? 'selected' : ''}>20日</option>
                     <option value="15" ${Number(j.p1PayDay) === 15 ? 'selected' : ''}>15日</option>
+                    <option value="10" ${Number(j.p1PayDay) === 10 ? 'selected' : ''}>10日</option>
                   </select>
                 </div>
               </div>
               <div class="form-group">
-                <label>第1期の土日祝振込調整</label>
+                <label>土日祝の調整</label>
                 <select class="form-control" onchange="updateJobConfig(${idx}, 'p1HolidayAdjust', this.value)">
-                  <option value="before" ${j.p1HolidayAdjust !== 'after' && j.p1HolidayAdjust !== 'none' ? 'selected' : ''}>前営業日（前倒し振込）</option>
+                  <option value="before" ${(j.p1HolidayAdjust || 'before') === 'before' ? 'selected' : ''}>前営業日（前倒し振込）</option>
                   <option value="after" ${j.p1HolidayAdjust === 'after' ? 'selected' : ''}>翌営業日（後ろ倒し）</option>
                   <option value="none" ${j.p1HolidayAdjust === 'none' ? 'selected' : ''}>調整なし</option>
                 </select>
@@ -2532,13 +2523,13 @@
             </div>
 
             <div style="background:var(--card); border:1px solid var(--line); border-radius:6px; padding:6px; margin-top:6px;">
-              <div style="font-size:10.5px; font-weight:bold; color:var(--brand-dark); margin-bottom:4px;">📌 第2期（後半）の支給設定</div>
+              <div style="font-size:10.5px; font-weight:bold; color:var(--brand-dark); margin-bottom:4px;">2️⃣ 後半分（16日〜月末勤務分など）の設定</div>
               <div class="form-row">
                 <div class="form-group">
                   <label>締め日</label>
                   <select class="form-control" onchange="updateJobConfig(${idx}, 'p2Cutoff', Number(this.value))">
-                    <option value="31" ${Number(j.p2Cutoff !== undefined ? j.p2Cutoff : 31) === 31 ? 'selected' : ''}>末日締め</option>
-                    <option value="5" ${Number(j.p2Cutoff) === 5 ? 'selected' : ''}>翌月5日締め</option>
+                    <option value="31" ${Number(j.p2Cutoff || 31) === 31 ? 'selected' : ''}>月末</option>
+                    <option value="5" ${Number(j.p2Cutoff) === 5 ? 'selected' : ''}>5日</option>
                   </select>
                 </div>
                 <div class="form-group">
@@ -2551,36 +2542,42 @@
                 <div class="form-group">
                   <label>給料日</label>
                   <select class="form-control" onchange="updateJobConfig(${idx}, 'p2PayDay', Number(this.value))">
-                    <option value="15" ${Number(j.p2PayDay !== undefined ? j.p2PayDay : 15) === 15 ? 'selected' : ''}>15日</option>
+                    <option value="15" ${Number(j.p2PayDay || 15) === 15 ? 'selected' : ''}>15日</option>
                     <option value="10" ${Number(j.p2PayDay) === 10 ? 'selected' : ''}>10日</option>
+                    <option value="20" ${Number(j.p2PayDay) === 20 ? 'selected' : ''}>20日</option>
                     <option value="25" ${Number(j.p2PayDay) === 25 ? 'selected' : ''}>25日</option>
                     <option value="31" ${Number(j.p2PayDay) === 31 ? 'selected' : ''}>末日</option>
                   </select>
                 </div>
               </div>
               <div class="form-group">
-                <label>第2期の土日祝振込調整</label>
+                <label>土日祝の調整</label>
                 <select class="form-control" onchange="updateJobConfig(${idx}, 'p2HolidayAdjust', this.value)">
-                  <option value="before" ${j.p2HolidayAdjust !== 'after' && j.p2HolidayAdjust !== 'none' ? 'selected' : ''}>前営業日（前倒し振込）</option>
+                  <option value="before" ${(j.p2HolidayAdjust || 'before') === 'before' ? 'selected' : ''}>前営業日（前倒し振込）</option>
                   <option value="after" ${j.p2HolidayAdjust === 'after' ? 'selected' : ''}>翌営業日（後ろ倒し）</option>
                   <option value="none" ${j.p2HolidayAdjust === 'none' ? 'selected' : ''}>調整なし</option>
                 </select>
               </div>
             </div>
-
-            <div style="margin-top:6px; font-size:10.5px;">
-              <label style="display:flex; align-items:center; gap:4px; cursor:pointer;">
-                <input type="checkbox" ${j.kyoei15mRound !== false ? 'checked' : ''} onchange="updateJobConfig(${idx}, 'kyoei15mRound', this.checked)">
-                退勤時間を15分単位で切り上げ計算
-              </label>
-              <label style="display:flex; align-items:center; gap:4px; margin-top:3px; cursor:pointer;">
-                <input type="checkbox" ${j.kyoeiMin5h !== false ? 'checked' : ''} onchange="updateJobConfig(${idx}, 'kyoeiMin5h', this.checked)">
-                実働が5時間未満でも最低5時間保証
-              </label>
-            </div>
             `}
+
+            <!-- 協栄などの特殊ルールのトグル -->
+            <div style="margin-top:6px; font-size:10.5px; border-top:1px dashed var(--line); padding-top:4px;">
+              <label style="display:block; margin-bottom:2px; font-weight:bold; color:var(--muted);">勤務時間・給与計算の特別ルール</label>
+              <div style="display:flex; flex-direction:column; gap:4px;">
+                <label style="font-size:11px; cursor:pointer;">
+                  <input type="checkbox" ${rules.includes('round15') ? 'checked' : ''} onchange="toggleJobCustomRule(${idx}, 'round15')">
+                  終了時間を15分単位で切り上げ計算
+                </label>
+                <label style="font-size:11px; cursor:pointer;">
+                  <input type="checkbox" ${rules.includes('min5h') ? 'checked' : ''} onchange="toggleJobCustomRule(${idx}, 'min5h')">
+                  1勤務あたり最低5時間分支給（5時間保証）
+                </label>
+              </div>
+            </div>
+
           </div>
-        `).join("");
+        `;}).join("");
       }
 
       const pinsConfig = document.getElementById("pins-config-list");
@@ -2641,6 +2638,20 @@
     window.updateJobConfig = function(idx, key, val) {
       if (DB.jobs[idx]) {
         DB.jobs[idx][key] = val;
+        saveDB();
+        renderAll();
+      }
+    };
+
+    window.toggleJobCustomRule = function(idx, ruleName) {
+      if (DB.jobs[idx]) {
+        if (!DB.jobs[idx].customRules) DB.jobs[idx].customRules = [];
+        const cur = DB.jobs[idx].customRules;
+        if (cur.includes(ruleName)) {
+          DB.jobs[idx].customRules = cur.filter(r => r !== ruleName);
+        } else {
+          DB.jobs[idx].customRules.push(ruleName);
+        }
         saveDB();
         renderAll();
       }
@@ -3003,9 +3014,10 @@
       let endMin = eH * 60 + eM;
       if (endMin <= startMin) endMin += 24 * 60;
 
-      const isKyoei = job && (job.type === "kyoei_double" || (job.name && job.name.includes("協栄")));
+      const rules = job ? (job.customRules || []) : [];
+      const isRound15 = rules.includes("round15");
 
-      if (isKyoei && job.kyoei15mRound !== false && eM % 15 !== 0) {
+      if (isRound15 && eM % 15 !== 0) {
         let roundedEndM = Math.ceil(eM / 15) * 15;
         let roundedEndH = eH;
         if (roundedEndM === 60) { roundedEndM = 0; roundedEndH += 1; }
@@ -3017,31 +3029,21 @@
       const grossHours = grossMins / 60;
       let autoBreak = 0;
 
-      if (isKyoei) {
-        if (grossHours >= 8.0) {
-          autoBreak = 60;
-        } else if (grossHours >= 6.0) {
-          autoBreak = 30;
-        } else {
-          autoBreak = 0;
-        }
+      if (grossHours > 8.0) {
+        autoBreak = 60;
+      } else if (grossMins === 360) {
+        autoBreak = 45;
+      } else if (grossHours > 6.0) {
+        autoBreak = 45;
       } else {
-        if (grossHours > 8.0) {
-          autoBreak = 60;
-        } else if (grossMins === 360) {
-          autoBreak = 45;
-        } else if (grossHours > 6.0) {
-          autoBreak = 45;
-        } else {
-          autoBreak = 0;
-        }
+        autoBreak = 0;
       }
 
       document.getElementById("shift-break-min").value = autoBreak;
 
       const hintEl = document.getElementById("legal-break-hint");
       if (hintEl) {
-        hintEl.textContent = isKyoei ? `(協栄:${autoBreak}分自動)` : (grossMins === 360 ? `(6h特例:45分)` : `(自動:${autoBreak}分)`);
+        hintEl.textContent = (grossMins === 360 ? `(6h特例:45分)` : `(自動:${autoBreak}分)`);
       }
     }
 
@@ -3246,7 +3248,7 @@
         renderStatsTab();
       });
 
-      // 📱 カレンダー左右スワイプ
+      // 📱 カレンダー左右スワイプイベント
       const calendarCardEl = document.getElementById("calendar-card");
       let touchStartX = 0;
       let touchStartY = 0;
@@ -3556,7 +3558,6 @@
 
       document.getElementById("run-tax-diag-btn").addEventListener("click", runTaxDiagnosis);
 
-      // 実際の振込額補正フォーム
       document.getElementById("close-override-modal-btn").addEventListener("click", () => closeModalWithLock("override-pay-modal"));
       document.getElementById("override-pay-form").addEventListener("submit", e => {
         e.preventDefault();
@@ -3641,9 +3642,19 @@
           cutoffDay: 31,
           payMonthOffset: 1,
           payDay: 15,
-          holidayAdjust: "before"
+          holidayAdjust: "before",
+          p1Cutoff: 15,
+          p1MonthOffset: 0,
+          p1PayDay: 31,
+          p1HolidayAdjust: "before",
+          p2Cutoff: 31,
+          p2MonthOffset: 1,
+          p2PayDay: 15,
+          p2HolidayAdjust: "before",
+          customRules: []
         });
-        saveDB(); renderAll();
+        saveDB();
+        renderAll();
       });
 
       document.getElementById("add-pin-btn").addEventListener("click", () => {
