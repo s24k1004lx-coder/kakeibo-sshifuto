@@ -302,24 +302,40 @@
     .cal-badge-container {
       display: flex;
       flex-direction: column;
-      gap: 1px;
+      gap: 1.5px;
       width: 100%;
     }
+
+    /* 📊 視認性を極限まで高めたカレンダーバッジ */
     .cal-badge {
       font-size: 8.5px;
-      padding: 1px;
-      border-radius: 2px;
-      font-weight: 700;
+      padding: 1px 2px;
+      border-radius: 3px;
+      font-weight: 800;
       white-space: nowrap;
       overflow: hidden;
       text-overflow: ellipsis;
-      color: #fff;
       text-align: center;
-      line-height: 1.1;
+      line-height: 1.15;
       width: 100%;
+      letter-spacing: -0.3px;
     }
-    .cal-badge.expense { background: var(--danger) !important; }
-    .cal-badge.other-income { background: var(--good) !important; }
+    .cal-badge.shift-badge {
+      background: var(--good-light);
+      color: #065f46;
+      border: 1px solid var(--good);
+      border-left: 2.5px solid var(--job-color, var(--brand));
+    }
+    .cal-badge.other-income {
+      background: var(--good-light);
+      color: #065f46;
+      border: 1px solid var(--good);
+    }
+    .cal-badge.expense {
+      background: var(--danger-light);
+      color: #991b1b;
+      border: 1px solid #fca5a5;
+    }
 
     .cal-week-summary {
       grid-column: 1 / -1;
@@ -1061,6 +1077,7 @@
               <option value="交際費">🎉 交際費</option>
               <option value="日用品">🛒 日用品</option>
               <option value="趣味">🎮 趣味</option>
+              <option value="旅費">✈️ 旅費</option>
               <option value="固定費">🏠 固定費</option>
               <option value="クレカ">💳 クレカ引き落とし</option>
               <option value="貯金">🪙 小銭貯金</option>
@@ -1423,7 +1440,45 @@
     function getJobPeriodIncomeList(job, targetMonthStr) {
       const [year, month] = targetMonthStr.split("-").map(Number);
 
-      if (job.type === "kyoei_double") {
+      if (job.type === "multi_period" && Array.isArray(job.periods)) {
+        return job.periods.map(period => {
+          let sY = year, sM = month + (period.startMonthOffset || 0);
+          while (sM <= 0) { sM += 12; sY -= 1; }
+          while (sM > 12) { sM -= 12; sY += 1; }
+          const startDayVal = period.startDay === "end" ? new Date(sY, sM, 0).getDate() : Number(period.startDay || 1);
+          const startStr = `${sY}-${String(sM).padStart(2, '0')}-${String(startDayVal).padStart(2, '0')}`;
+
+          let eY = year, eM = month + (period.endMonthOffset || 0);
+          while (eM <= 0) { eM += 12; eY -= 1; }
+          while (eM > 12) { eM -= 12; eY += 1; }
+          const endDayVal = period.endDay === "end" ? new Date(eY, eM, 0).getDate() : Number(period.endDay || 31);
+          const endStr = `${eY}-${String(eM).padStart(2, '0')}-${String(endDayVal).padStart(2, '0')}`;
+
+          const shifts = DB.shifts.filter(s => String(s.jobId) === String(job.id) && s.date >= startStr && s.date <= endStr);
+          const calcIncome = shifts.reduce((acc, s) => acc + calculateShiftPay(s).totalPay, 0);
+
+          let pY = year, pM = month + (period.payMonthOffset || 0);
+          while (pM <= 0) { pM += 12; pY -= 1; }
+          while (pM > 12) { pM -= 12; pY += 1; }
+          let payDayVal = period.payDay === "end" ? new Date(pY, pM, 0).getDate() : Number(period.payDay || 15);
+          const adjustedPayDate = adjustPayDate(pY, pM, payDayVal, period.holidayAdjust || "before");
+          const payDateStr = `${adjustedPayDate.getFullYear()}-${String(adjustedPayDate.getMonth()+1).padStart(2,'0')}-${String(adjustedPayDate.getDate()).padStart(2,'0')}`;
+
+          const key = `${job.id}_${targetMonthStr}_${period.id}`;
+          const income = (DB.actualPay && DB.actualPay[key] !== undefined) ? DB.actualPay[key] : calcIncome;
+
+          return {
+            jobId: job.id,
+            key,
+            name: `${job.name} (${period.label})`,
+            labelPeriod: `${startStr.slice(5)} 〜 ${endStr.slice(5)}`,
+            income,
+            calcIncome,
+            isActual: (DB.actualPay && DB.actualPay[key] !== undefined),
+            payDateStr
+          };
+        });
+      } else if (job.type === "kyoei_double") {
         const prevM1 = month - 1 === 0 ? 12 : month - 1;
         const prevY1 = month - 1 === 0 ? year - 1 : year;
         const start1 = `${prevY1}-${String(prevM1).padStart(2, '0')}-16`;
@@ -1633,18 +1688,19 @@
         dayShifts.forEach(s => {
           const job = DB.jobs.find(j => String(j.id) === String(s.jobId));
           const pay = calculateShiftPay(s).totalPay;
+          const jColor = job ? (job.color || 'var(--brand)') : 'var(--brand)';
           dayIncTotal += pay;
-          badgesHtml += `<div class="cal-badge" style="background:${job ? job.color : 'var(--brand)'};">給 +${formatBadgeAmount(pay)}</div>`;
+          badgesHtml += `<div class="cal-badge shift-badge" style="--job-color: ${jColor};">+${formatBadgeAmount(pay)}</div>`;
         });
 
         const dayIncomes = DB.otherIncomes.filter(i => i.date === dateStr);
         const otherIncSum = dayIncomes.reduce((acc, i) => acc + i.amount, 0);
         dayIncTotal += otherIncSum;
-        if (otherIncSum > 0) badgesHtml += `<div class="cal-badge other-income">💰 収入 +${formatBadgeAmount(otherIncSum)}</div>`;
+        if (otherIncSum > 0) badgesHtml += `<div class="cal-badge other-income">+${formatBadgeAmount(otherIncSum)}</div>`;
 
         const dayExpenses = DB.expenses.filter(e => e.date === dateStr);
         const dayExpSum = dayExpenses.reduce((acc, e) => acc + e.amount, 0);
-        if (dayExpSum > 0) badgesHtml += `<div class="cal-badge expense">💸 支出 -${formatBadgeAmount(dayExpSum)}</div>`;
+        if (dayExpSum > 0) badgesHtml += `<div class="cal-badge expense">-${formatBadgeAmount(dayExpSum)}</div>`;
 
         badgesHtml += '</div>';
 
@@ -2577,7 +2633,7 @@
       populateOverrideJobSelect();
       document.getElementById("override-month").value = monthStr;
       document.getElementById("override-job-id").value = key;
-      const currentVal = DB.actualPay && DB.actualPay[key] !== undefined ? DB.actualPay[key] : "";
+      const currentVal = (DB.actualPay && DB.actualPay[key] !== undefined) ? DB.actualPay[key] : "";
       document.getElementById("override-amount").value = currentVal;
       openModalWithLock("override-pay-modal");
     };
