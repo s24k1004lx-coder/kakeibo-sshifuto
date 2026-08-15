@@ -306,26 +306,27 @@
       width: 100%;
     }
     
-    /* 🎨 金額が見やすく一目でわかるバッジスタイル */
+    /* 🎨 金額が見やすく一目でわかるバッジスタイル（幅短縮対応） */
     .cal-badge {
-      font-size: 9px;
-      padding: 1.5px 2px;
+      font-size: 8px;
+      padding: 1px 0px;
       border-radius: 3px;
       font-weight: 800;
       white-space: nowrap;
       overflow: hidden;
-      text-overflow: ellipsis;
-      line-height: 1.1;
+      text-overflow: clip;
+      line-height: 1.15;
       width: 100%;
       text-align: center;
       box-sizing: border-box;
+      letter-spacing: -0.2px;
     }
     /* シフト給料：収入ベースの配色＋勤務先カラーの太枠 */
     .cal-badge.shift-pay {
       background: var(--good-light);
       color: #065f46;
-      border: 1.5px solid var(--good);
-      border-left-width: 3.5px;
+      border: 1px solid var(--good);
+      border-left-width: 3px;
     }
     [data-theme="dark"] .cal-badge.shift-pay {
       background: #064e3b;
@@ -357,7 +358,7 @@
       background: #f1f5f9 !important;
       color: #475569 !important;
       border: 1px dashed #94a3b8 !important;
-      font-size: 8px;
+      font-size: 7.5px;
     }
     [data-theme="dark"] .cal-badge.overnight {
       background: #1e293b !important;
@@ -1413,7 +1414,7 @@
     </div>
   </div>
 
-  <!-- ⌨️ 専用電卓キーボード -->
+  <!-- ⌨️ 専用電タクキーボード -->
   <div class="calc-keyboard-drawer" id="calc-keyboard-drawer">
     <div class="calc-keyboard-header">
       <span>🔢 計算・入力キーボード</span>
@@ -1895,6 +1896,16 @@
       document.getElementById("total-asset-val").textContent = `¥${assetVal.toLocaleString()}`;
     }
 
+    // 🔢 カレンダー上の金額をスマートに短縮するフォーマッター（5桁以上は「万」表記）
+    function formatCalBadgeAmount(amt, prefix = "") {
+      if (amt >= 10000) {
+        const valInMan = amt / 10000;
+        const formatted = (valInMan >= 100) ? Math.round(valInMan) : valInMan.toFixed(1).replace(/\.0$/, '');
+        return `${prefix}${formatted}万`;
+      }
+      return `${prefix}${amt.toLocaleString()}`;
+    }
+
     function renderCalendar() {
       const year = currentDate.getFullYear();
       const month = currentDate.getMonth();
@@ -1975,29 +1986,29 @@
             if (endMins > 24 * 60) {
               const endH = Math.floor((endMins - 24 * 60) / 60);
               const endM = (endMins - 24 * 60) % 60;
-              badgesHtml += `<div class="cal-badge overnight">🌙 〜${String(endH).padStart(2,'0')}:${String(endM).padStart(2,'0')}</div>`;
+              badgesHtml += `<div class="cal-badge overnight">🌙〜${String(endH).padStart(2,'0')}:${String(endM).padStart(2,'0')}</div>`;
             }
           });
 
-          // 勤務先別カラー枠線を施した給与バッジ（文字は省き金額のみ表示）
+          // 勤務先別カラー枠線を施した給料バッジ（5桁以上は「万」表記）
           const dayShifts = DB.shifts.filter(s => s.date === dateStr);
           dayShifts.forEach(s => {
             const job = DB.jobs.find(j => String(j.id) === String(s.jobId));
             const pay = calculateShiftPay(s).totalPay;
             dayIncTotal += pay;
             const jobColor = job ? job.color : 'var(--good)';
-            badgesHtml += `<div class="cal-badge shift-pay" style="border-left-color:${jobColor}; border-color:${jobColor}44; border-left-color:${jobColor};">+${pay.toLocaleString()}</div>`;
+            badgesHtml += `<div class="cal-badge shift-pay" style="border-left-color:${jobColor}; border-color:${jobColor}44; border-left-color:${jobColor};">${formatCalBadgeAmount(pay, "+")}</div>`;
           });
 
           const dayIncomes = DB.otherIncomes.filter(inc => inc.date === dateStr);
           const otherIncSum = dayIncomes.reduce((acc, inc) => acc + inc.amount, 0);
           dayIncTotal += otherIncSum;
-          if (otherIncSum > 0) badgesHtml += `<div class="cal-badge other-income">+${otherIncSum.toLocaleString()}</div>`;
+          if (otherIncSum > 0) badgesHtml += `<div class="cal-badge other-income">${formatCalBadgeAmount(otherIncSum, "+")}</div>`;
 
-          // 支出バッジ（赤系・金額のみ表示）
+          // 支出バッジ（赤系・5桁以上は「万」表記）
           const dayExpenses = DB.expenses.filter(e => e.date === dateStr);
           const dayExpSum = dayExpenses.reduce((acc, e) => acc + e.amount, 0);
-          if (dayExpSum > 0) badgesHtml += `<div class="cal-badge expense">-${dayExpSum.toLocaleString()}</div>`;
+          if (dayExpSum > 0) badgesHtml += `<div class="cal-badge expense">${formatCalBadgeAmount(dayExpSum, "-")}</div>`;
 
           badgesHtml += '</div>';
 
@@ -3744,7 +3755,6 @@
         saveDB(); closeModalWithLock("repeat-modal"); renderAll();
       });
 
-      // 設定タブ アコーディオン開閉
       const accs = ["acc-jobs", "acc-pins", "acc-wall", "acc-fixed", "acc-cards", "acc-reminder", "acc-data"];
       accs.forEach(id => {
         const btn = document.getElementById(`${id}-btn`);
