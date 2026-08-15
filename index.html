@@ -306,16 +306,16 @@
       width: 100%;
     }
     
-    /* 🎨 金額が見やすく一目でわかるバッジスタイル（幅短縮対応） */
+    /* 🎨 金額が見やすく一目でわかるバッジスタイル */
     .cal-badge {
-      font-size: 8px;
-      padding: 1px 0px;
+      font-size: 8.5px;
+      padding: 1.5px 1px;
       border-radius: 3px;
       font-weight: 800;
       white-space: nowrap;
       overflow: hidden;
-      text-overflow: clip;
-      line-height: 1.15;
+      text-overflow: ellipsis;
+      line-height: 1.1;
       width: 100%;
       text-align: center;
       box-sizing: border-box;
@@ -326,7 +326,7 @@
       background: var(--good-light);
       color: #065f46;
       border: 1px solid var(--good);
-      border-left-width: 3px;
+      border-left-width: 3.5px;
     }
     [data-theme="dark"] .cal-badge.shift-pay {
       background: #064e3b;
@@ -358,7 +358,7 @@
       background: #f1f5f9 !important;
       color: #475569 !important;
       border: 1px dashed #94a3b8 !important;
-      font-size: 7.5px;
+      font-size: 8px;
     }
     [data-theme="dark"] .cal-badge.overnight {
       background: #1e293b !important;
@@ -1414,7 +1414,7 @@
     </div>
   </div>
 
-  <!-- ⌨️ 専用電タクキーボード -->
+  <!-- ⌨️ 専用電卓キーボード（. と 00 の位置を交換） -->
   <div class="calc-keyboard-drawer" id="calc-keyboard-drawer">
     <div class="calc-keyboard-header">
       <span>🔢 計算・入力キーボード</span>
@@ -1440,10 +1440,10 @@
       <button type="button" class="calc-btn" data-val="1">1</button>
       <button type="button" class="calc-btn" data-val="2">2</button>
       <button type="button" class="calc-btn" data-val="3">3</button>
-      <button type="button" class="calc-btn" data-val="00">00</button>
+      <button type="button" class="calc-btn" data-val=".">.</button>
 
       <button type="button" class="calc-btn" data-val="0">0</button>
-      <button type="button" class="calc-btn" data-val=".">.</button>
+      <button type="button" class="calc-btn" data-val="00">00</button>
       <button type="button" class="calc-btn action" style="grid-column: span 2;" id="calc-enter-btn">確定</button>
     </div>
   </div>
@@ -1552,6 +1552,17 @@
       const m = String(d.getMonth() + 1).padStart(2, '0');
       const day = String(d.getDate()).padStart(2, '0');
       return `${y}-${m}-${day}`;
+    }
+
+    // 💡 カレンダー表示用の金額短縮フォーマッター（1万円以上は +1.2万 / -3.5万 等に短縮）
+    function formatCalBadgeAmount(amt, isPlus) {
+      const sign = isPlus ? "+" : "-";
+      if (amt >= 10000) {
+        const val = amt / 10000;
+        const formatted = val % 1 === 0 ? val.toFixed(0) : val.toFixed(1);
+        return `${sign}${formatted}万`;
+      }
+      return `${sign}${amt.toLocaleString()}`;
     }
 
     function evaluateMath(expr) {
@@ -1896,16 +1907,6 @@
       document.getElementById("total-asset-val").textContent = `¥${assetVal.toLocaleString()}`;
     }
 
-    // 🔢 カレンダー上の金額をスマートに短縮するフォーマッター（5桁以上は「万」表記）
-    function formatCalBadgeAmount(amt, prefix = "") {
-      if (amt >= 10000) {
-        const valInMan = amt / 10000;
-        const formatted = (valInMan >= 100) ? Math.round(valInMan) : valInMan.toFixed(1).replace(/\.0$/, '');
-        return `${prefix}${formatted}万`;
-      }
-      return `${prefix}${amt.toLocaleString()}`;
-    }
-
     function renderCalendar() {
       const year = currentDate.getFullYear();
       const month = currentDate.getMonth();
@@ -1986,29 +1987,29 @@
             if (endMins > 24 * 60) {
               const endH = Math.floor((endMins - 24 * 60) / 60);
               const endM = (endMins - 24 * 60) % 60;
-              badgesHtml += `<div class="cal-badge overnight">🌙〜${String(endH).padStart(2,'0')}:${String(endM).padStart(2,'0')}</div>`;
+              badgesHtml += `<div class="cal-badge overnight">🌙 〜${String(endH).padStart(2,'0')}:${String(endM).padStart(2,'0')}</div>`;
             }
           });
 
-          // 勤務先別カラー枠線を施した給料バッジ（5桁以上は「万」表記）
+          // 勤務先別カラー枠線を施した給与バッジ（1万以上は万単位で短縮）
           const dayShifts = DB.shifts.filter(s => s.date === dateStr);
           dayShifts.forEach(s => {
             const job = DB.jobs.find(j => String(j.id) === String(s.jobId));
             const pay = calculateShiftPay(s).totalPay;
             dayIncTotal += pay;
             const jobColor = job ? job.color : 'var(--good)';
-            badgesHtml += `<div class="cal-badge shift-pay" style="border-left-color:${jobColor}; border-color:${jobColor}44; border-left-color:${jobColor};">${formatCalBadgeAmount(pay, "+")}</div>`;
+            badgesHtml += `<div class="cal-badge shift-pay" style="border-left-color:${jobColor}; border-color:${jobColor}44; border-left-color:${jobColor};">${formatCalBadgeAmount(pay, true)}</div>`;
           });
 
           const dayIncomes = DB.otherIncomes.filter(inc => inc.date === dateStr);
           const otherIncSum = dayIncomes.reduce((acc, inc) => acc + inc.amount, 0);
           dayIncTotal += otherIncSum;
-          if (otherIncSum > 0) badgesHtml += `<div class="cal-badge other-income">${formatCalBadgeAmount(otherIncSum, "+")}</div>`;
+          if (otherIncSum > 0) badgesHtml += `<div class="cal-badge other-income">${formatCalBadgeAmount(otherIncSum, true)}</div>`;
 
-          // 支出バッジ（赤系・5桁以上は「万」表記）
+          // 支出バッジ（赤系・1万以上は万単位で短縮）
           const dayExpenses = DB.expenses.filter(e => e.date === dateStr);
           const dayExpSum = dayExpenses.reduce((acc, e) => acc + e.amount, 0);
-          if (dayExpSum > 0) badgesHtml += `<div class="cal-badge expense">${formatCalBadgeAmount(dayExpSum, "-")}</div>`;
+          if (dayExpSum > 0) badgesHtml += `<div class="cal-badge expense">${formatCalBadgeAmount(dayExpSum, false)}</div>`;
 
           badgesHtml += '</div>';
 
@@ -3755,6 +3756,7 @@
         saveDB(); closeModalWithLock("repeat-modal"); renderAll();
       });
 
+      // 設定タブ アコーディオン開閉
       const accs = ["acc-jobs", "acc-pins", "acc-wall", "acc-fixed", "acc-cards", "acc-reminder", "acc-data"];
       accs.forEach(id => {
         const btn = document.getElementById(`${id}-btn`);
