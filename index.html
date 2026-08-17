@@ -306,7 +306,6 @@
       width: 100%;
     }
     
-    /* 🎨 金額が見やすく一目でわかるバッジスタイル */
     .cal-badge {
       font-size: 8.5px;
       padding: 1.5px 1px;
@@ -321,7 +320,6 @@
       box-sizing: border-box;
       letter-spacing: -0.2px;
     }
-    /* シフト給料：収入ベースの配色＋勤務先カラーの太枠 */
     .cal-badge.shift-pay {
       background: var(--good-light);
       color: #065f46;
@@ -332,7 +330,6 @@
       background: #064e3b;
       color: #a7f3d0;
     }
-    /* 支出：赤色ベース */
     .cal-badge.expense {
       background: var(--danger-light);
       color: var(--danger);
@@ -343,7 +340,6 @@
       color: #fca5a5;
       border-color: #7f1d1d;
     }
-    /* その他収入：緑色ベース */
     .cal-badge.other-income {
       background: var(--good-light);
       color: #065f46;
@@ -1205,6 +1201,7 @@
 
         <div style="display:flex; gap:6px;">
           <button type="submit" class="btn" style="flex:1;">保存</button>
+          <button type="button" class="btn btn-outline btn-sm" id="btn-new-shift-same-day" style="display:none;" onclick="openNewShiftOnDate(document.getElementById('shift-date').value)">＋ 新規シフトを追加</button>
         </div>
       </form>
 
@@ -1414,7 +1411,7 @@
     </div>
   </div>
 
-  <!-- ⌨️ 専用電卓キーボード（. と 00 の位置を交換） -->
+  <!-- ⌨️ 専用電卓キーボード -->
   <div class="calc-keyboard-drawer" id="calc-keyboard-drawer">
     <div class="calc-keyboard-header">
       <span>🔢 計算・入力キーボード</span>
@@ -1554,7 +1551,6 @@
       return `${y}-${m}-${day}`;
     }
 
-    // 💡 カレンダー表示用の金額短縮フォーマッター（1万円以上は +1.2万 / -3.5万 等に短縮）
     function formatCalBadgeAmount(amt, isPlus) {
       const sign = isPlus ? "+" : "-";
       if (amt >= 10000) {
@@ -1991,7 +1987,6 @@
             }
           });
 
-          // 勤務先別カラー枠線を施した給与バッジ（1万以上は万単位で短縮）
           const dayShifts = DB.shifts.filter(s => s.date === dateStr);
           dayShifts.forEach(s => {
             const job = DB.jobs.find(j => String(j.id) === String(s.jobId));
@@ -2006,7 +2001,6 @@
           dayIncTotal += otherIncSum;
           if (otherIncSum > 0) badgesHtml += `<div class="cal-badge other-income">${formatCalBadgeAmount(otherIncSum, true)}</div>`;
 
-          // 支出バッジ（赤系・1万以上は万単位で短縮）
           const dayExpenses = DB.expenses.filter(e => e.date === dateStr);
           const dayExpSum = dayExpenses.reduce((acc, e) => acc + e.amount, 0);
           if (dayExpSum > 0) badgesHtml += `<div class="cal-badge expense">${formatCalBadgeAmount(dayExpSum, false)}</div>`;
@@ -2020,6 +2014,7 @@
 
           cell.innerHTML = `<div class="day-number ${dayClass}"><div><span>${dt.getDate()}</span>${paydayLabel}</div>${selectedDates.has(dateStr) ? '☑' : ''}</div>${badgesHtml}`;
 
+          // 📱 スマートな日付タップハンドラ
           cell.addEventListener("click", () => {
             if (multiSelectMode) {
               if (selectedDates.has(dateStr)) selectedDates.delete(dateStr);
@@ -2029,7 +2024,7 @@
             } else if (quickMode && quickTemplateId) {
               applyQuickTemplateToDate(dateStr);
             } else {
-              openEntryModal(dateStr);
+              handleDateCellClick(dateStr);
             }
           });
 
@@ -2040,6 +2035,27 @@
         sumRow.className = "cal-week-summary";
         sumRow.innerHTML = `週合計 <b style="color:var(--good)">+¥${weekInc.toLocaleString()}</b> <b style="color:var(--danger)">-¥${weekExp.toLocaleString()}</b>`;
         container.appendChild(sumRow);
+      }
+    }
+
+    // 🎯 日付セルをタップした時の遷移分岐ロジック
+    function handleDateCellClick(dateStr) {
+      const todayStr = getLocalDateString(new Date());
+
+      if (dateStr <= todayStr) {
+        // 今日を含む過去の日付：支出入力へ
+        openEntryModal(dateStr, "expense");
+      } else {
+        // 翌日以降（未来）
+        const dayShifts = DB.shifts.filter(s => s.date === dateStr);
+        if (dayShifts.length > 0) {
+          // すでにシフトが入力されている日：そのシフトの編集画面へダイレクトに遷移
+          const targetShift = dayShifts[dayShifts.length - 1];
+          openEditModalById("shift", targetShift.id);
+        } else {
+          // シフトが入力されていない日：新規シフト入力画面へ
+          openEntryModal(dateStr, "shift");
+        }
       }
     }
 
@@ -2907,7 +2923,7 @@
       }
     }
 
-    function openEntryModal(dateStr) {
+    function openEntryModal(dateStr, defaultType = "shift") {
       selectedShortcutKey = null;
       clearFormErrors();
       document.getElementById("shift-id").value = "";
@@ -2923,14 +2939,20 @@
       document.getElementById("income-memo").value = "";
       document.getElementById("income-amount").value = "";
 
+      document.getElementById("btn-new-shift-same-day").style.display = "none";
+
       renderFormShortcuts();
       renderDayItemsList(dateStr);
       openModalWithLock("entry-modal");
-      switchEntryForm("shift");
+      switchEntryForm(defaultType);
       onJobChangeSync();
       autoSelectBreakMin();
       updateShiftPreview();
     }
+
+    window.openNewShiftOnDate = (dateStr) => {
+      openEntryModal(dateStr, "shift");
+    };
 
     window.openEditModalById = (type, id) => {
       selectedShortcutKey = null;
@@ -2953,6 +2975,8 @@
         document.getElementById("shift-break-min").value = s.breakMin;
         document.getElementById("shift-transport").value = (s.transport !== undefined && s.transport !== null) ? s.transport : 0;
 
+        document.getElementById("btn-new-shift-same-day").style.display = "inline-flex";
+
         switchEntryForm("shift");
         updateShiftPreview();
       } else if (type === "expense") {
@@ -2964,6 +2988,7 @@
         document.getElementById("expense-memo").value = e.memo || "";
         document.getElementById("expense-amount").value = e.amount;
 
+        document.getElementById("btn-new-shift-same-day").style.display = "none";
         switchEntryForm("expense");
       } else if (type === "income") {
         const i = DB.otherIncomes.find(x => String(x.id) === String(id));
@@ -2974,6 +2999,7 @@
         document.getElementById("income-memo").value = i.memo || "";
         document.getElementById("income-amount").value = i.amount;
 
+        document.getElementById("btn-new-shift-same-day").style.display = "none";
         switchEntryForm("income");
       }
       renderFormShortcuts();
@@ -3146,6 +3172,7 @@
       updateShiftPreview();
     }
 
+    // 💡 協栄および一般勤務の休憩自動判定ロジックの修正
     function autoSelectBreakMin() {
       const jobId = document.getElementById("shift-job-id").value;
       const job = DB.jobs.find(j => String(j.id) === String(jobId));
@@ -3401,7 +3428,6 @@
         renderStatsTab();
       });
 
-      // 📱 カレンダー左右スワイプイベント
       const calendarCardEl = document.getElementById("calendar-card");
       let touchStartX = 0;
       let touchStartY = 0;
@@ -3687,9 +3713,9 @@
       fabBtn.addEventListener("click", toggleFab);
       fabOverlay.addEventListener("click", toggleFab);
 
-      document.getElementById("fab-add-shift").addEventListener("click", () => { toggleFab(); openEntryModal(getLocalDateString(new Date())); switchEntryForm("shift"); });
-      document.getElementById("fab-add-expense").addEventListener("click", () => { toggleFab(); openEntryModal(getLocalDateString(new Date())); switchEntryForm("expense"); });
-      document.getElementById("fab-add-income").addEventListener("click", () => { toggleFab(); openEntryModal(getLocalDateString(new Date())); switchEntryForm("income"); });
+      document.getElementById("fab-add-shift").addEventListener("click", () => { toggleFab(); openEntryModal(getLocalDateString(new Date()), "shift"); });
+      document.getElementById("fab-add-expense").addEventListener("click", () => { toggleFab(); openEntryModal(getLocalDateString(new Date()), "expense"); });
+      document.getElementById("fab-add-income").addEventListener("click", () => { toggleFab(); openEntryModal(getLocalDateString(new Date()), "income"); });
 
       document.getElementById("close-entry-modal-btn").addEventListener("click", closeEntryModal);
       document.getElementById("type-shift-btn").addEventListener("click", () => switchEntryForm("shift"));
@@ -3698,7 +3724,6 @@
 
       document.getElementById("run-tax-diag-btn").addEventListener("click", runTaxDiagnosis);
 
-      // 実際の振込額補正フォームの送信・クリア
       document.getElementById("close-override-modal-btn").addEventListener("click", () => closeModalWithLock("override-pay-modal"));
       document.getElementById("override-pay-form").addEventListener("submit", e => {
         e.preventDefault();
@@ -3756,7 +3781,6 @@
         saveDB(); closeModalWithLock("repeat-modal"); renderAll();
       });
 
-      // 設定タブ アコーディオン開閉
       const accs = ["acc-jobs", "acc-pins", "acc-wall", "acc-fixed", "acc-cards", "acc-reminder", "acc-data"];
       accs.forEach(id => {
         const btn = document.getElementById(`${id}-btn`);
