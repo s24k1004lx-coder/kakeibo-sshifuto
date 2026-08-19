@@ -134,7 +134,6 @@
       margin: 0 auto;
       width: 100%;
       overflow-x: hidden;
-      touch-action: pan-y;
     }
 
     .tab-content { display: none; }
@@ -720,7 +719,7 @@
   <div class="toast-container" id="toast-container"></div>
 
   <!-- メインコンテンツ -->
-  <main id="main-content-wrapper">
+  <main>
     <!-- 1. ホーム画面 -->
     <div id="tab-home" class="tab-content active">
 
@@ -1843,8 +1842,6 @@
     let currentGachaVal = null;
     let activeCalcInput = null;
 
-    const TABS_ORDER = ["home", "payroll", "stats", "settings"];
-
     function renderAll() {
       applyTheme();
       renderInfoBanner();
@@ -2026,7 +2023,6 @@
           weekInc += dayIncTotal;
           weekExp += dayExpSum;
 
-          // 💴 給料日マークを1行で日付の横に表示
           const paydayLabel = paydayMap[dateStr] ? `<span style="font-size:7.5px; color:#8b5cf6; font-weight:bold; white-space:nowrap; margin-left:1px; flex-shrink:0;">💴給料</span>` : '';
 
           cell.innerHTML = `
@@ -2101,7 +2097,6 @@
         const periods = getJobPeriodIncomeList(job, monthStr);
         periods.forEach(p => {
           monthIncTotal += p.income;
-          // 確定なら緑、見込みならグレーで金額を表示
           const payColorStyle = p.isActual ? "color:var(--good);" : "color:var(--muted);";
 
           jobPayHtml += `
@@ -2393,7 +2388,6 @@
       const statsMonthStr = `${statsYear}-${String(statsMonth + 1).padStart(2, "0")}`;
       const labels12 = ["1月","2月","3月","4月","5月","6月","7月","8月","9月","10月","11月","12月"];
 
-      // 📈 総資産推移グラフ：常に「今日」が真ん中に来る（前後15日間）
       const ctxBudgetLine = document.getElementById("chart-budget-line");
       if (ctxBudgetLine) {
         if (chartBudgetLine) chartBudgetLine.destroy();
@@ -2407,7 +2401,6 @@
         const futureAssetData = [];
         const lastKnownAsset = calculateTotalAssetOnDate(todayStr);
 
-        // 前後15日間 (計31日間)
         for (let i = -15; i <= 15; i++) {
           const d = new Date(todayObj);
           d.setDate(todayObj.getDate() + i);
@@ -3092,7 +3085,6 @@
       document.getElementById("calc-keyboard-drawer").classList.remove("active");
     }
 
-    // 💡 記号が連続して押された場合に置換する電卓キー制御
     function handleCalcKeyPress(val) {
       if (!activeCalcInput) return;
       let curr = activeCalcInput.value || "";
@@ -3508,6 +3500,7 @@
         renderStatsTab();
       });
 
+      // 📱 カレンダーカード スライド（月切り替え）
       const calendarCardEl = document.getElementById("calendar-card");
       if (calendarCardEl) {
         attachSwipeListener(calendarCardEl, 
@@ -3516,6 +3509,7 @@
         );
       }
 
+      // 📱 給料見込み＆収支詳細カード スライド（月切り替え）
       const payrollCardEl = document.getElementById("payroll-summary-card");
       if (payrollCardEl) {
         attachSwipeListener(payrollCardEl,
@@ -3524,37 +3518,12 @@
         );
       }
 
+      // 📱 統計タブ スライド（統計月切り替え）
       const statsTabEl = document.getElementById("tab-stats");
       if (statsTabEl) {
         attachSwipeListener(statsTabEl,
           () => { statsDate.setMonth(statsDate.getMonth() + 1); renderStatsTab(); },
           () => { statsDate.setMonth(statsDate.getMonth() - 1); renderStatsTab(); }
-        );
-      }
-
-      const mainWrapperEl = document.getElementById("main-content-wrapper");
-      if (mainWrapperEl) {
-        attachSwipeListener(mainWrapperEl,
-          () => {
-            if (document.body.classList.contains("modal-open") || activeCalcInput) return;
-            const currentTabEl = document.querySelector(".tab-content.active");
-            if (!currentTabEl) return;
-            const curId = currentTabEl.id.replace("tab-", "");
-            const curIdx = TABS_ORDER.indexOf(curId);
-            if (curIdx !== -1 && curIdx < TABS_ORDER.length - 1) {
-              switchTab(TABS_ORDER[curIdx + 1]);
-            }
-          },
-          () => {
-            if (document.body.classList.contains("modal-open") || activeCalcInput) return;
-            const currentTabEl = document.querySelector(".tab-content.active");
-            if (!currentTabEl) return;
-            const curId = currentTabEl.id.replace("tab-", "");
-            const curIdx = TABS_ORDER.indexOf(curId);
-            if (curIdx !== -1 && curIdx > 0) {
-              switchTab(TABS_ORDER[curIdx - 1]);
-            }
-          }
         );
       }
 
