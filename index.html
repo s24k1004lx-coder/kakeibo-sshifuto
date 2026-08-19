@@ -1,14 +1,4013 @@
-const operators = ['+', '-', '*', '/', '×', '÷'];
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover">
+  <title>シフト給料＆家計簿 PRO</title>
 
-function handleInputOperator(currentFormula, nextOperator) {
-  if (!currentFormula) return '';
-  
-  const lastChar = currentFormula.slice(-1);
-  
-  // 直前が演算子の場合は置き換え
-  if (operators.includes(lastChar)) {
-    return currentFormula.slice(0, -1) + nextOperator;
-  }
-  
-  return currentFormula + nextOperator;
-}
+  <!-- 📱 スマホホーム画面用アイコン -->
+  <link rel="apple-touch-icon" href="https://img.icons8.com/color/192/calculator--v1.png">
+
+  <!-- Chart.js CDN -->
+  <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+  <style>
+    :root {
+      --brand: #f97316;
+      --brand-light: #fff7ed;
+      --brand-dark: #ea580c;
+      --bg: #f8fafc;
+      --card: #ffffff;
+      --ink: #0f172a;
+      --muted: #64748b;
+      --line: #e2e8f0;
+      --danger: #ef4444;
+      --danger-light: #fee2e2;
+      --good: #10b981;
+      --good-light: #dcfce7;
+      --primary: #f97316;
+      --primary-light: #fff7ed;
+      --border-color: #e2e8f0;
+      --shadow: 0 4px 12px rgba(0, 0, 0, 0.05);
+      --radius: 14px;
+      --font-stack: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, "Helvetica Neue", sans-serif;
+      --sat-color: #2563eb;
+    }
+
+    [data-theme="dark"] {
+      --bg: #0b1220;
+      --card: #131c2e;
+      --ink: #e5e9f0;
+      --muted: #93a2b8;
+      --line: #24304a;
+      --brand-light: #2a1c0f;
+      --danger-light: #3a1616;
+      --good-light: #113224;
+      --border-color: #24304a;
+      --shadow: 0 4px 12px rgba(0, 0, 0, 0.3);
+      --sat-color: #3b82f6;
+    }
+
+    * {
+      box-sizing: border-box;
+      margin: 0;
+      padding: 0;
+      -webkit-tap-highlight-color: transparent;
+      user-select: none;
+    }
+
+    body {
+      font-family: var(--font-stack);
+      background-color: var(--bg);
+      color: var(--ink);
+      line-height: 1.4;
+      padding-bottom: calc(75px + env(safe-area-inset-bottom));
+      overflow-x: hidden;
+      transition: background 0.2s, color 0.2s;
+    }
+
+    body.modal-open {
+      overflow: hidden !important;
+    }
+
+    input, select, textarea, button {
+      font-family: inherit;
+      font-size: 14px;
+      user-select: text;
+      min-width: 0;
+    }
+
+    header {
+      position: sticky;
+      top: 0;
+      z-index: 100;
+      background: var(--brand);
+      color: #fff;
+      padding: 12px 14px;
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      box-shadow: 0 2px 4px rgba(0,0,0,0.1);
+    }
+
+    .app-title {
+      font-size: 16px;
+      font-weight: 700;
+      display: flex;
+      align-items: center;
+      gap: 6px;
+    }
+
+    .header-actions {
+      display: flex;
+      align-items: center;
+      gap: 8px;
+    }
+
+    .asset-badge {
+      background: rgba(255, 255, 255, 0.2);
+      color: #fff;
+      padding: 4px 8px;
+      border-radius: 20px;
+      font-size: 11px;
+      font-weight: 600;
+      display: flex;
+      align-items: center;
+      gap: 4px;
+      cursor: pointer;
+    }
+
+    .icon-btn {
+      background: none;
+      border: none;
+      color: #fff;
+      font-size: 18px;
+      cursor: pointer;
+      padding: 2px;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+    }
+
+    main {
+      padding: 8px;
+      max-width: 600px;
+      margin: 0 auto;
+      width: 100%;
+      overflow-x: hidden;
+      touch-action: pan-y;
+    }
+
+    .tab-content { display: none; }
+    .tab-content.active { display: block; }
+
+    .card {
+      background: var(--card);
+      border-radius: var(--radius);
+      padding: 10px;
+      margin-bottom: 10px;
+      box-shadow: var(--shadow);
+      border: 1px solid var(--line);
+      width: 100%;
+      overflow: hidden;
+    }
+
+    .card-title {
+      font-size: 13px;
+      font-weight: 700;
+      margin-bottom: 8px;
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+    }
+
+    .info-banner-card {
+      background: linear-gradient(135deg, var(--brand) 0%, var(--brand-dark) 100%);
+      color: #fff;
+      border: none;
+    }
+    .info-banner-row {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      gap: 6px;
+    }
+    .info-banner-row + .info-banner-row {
+      margin-top: 6px;
+      padding-top: 6px;
+      border-top: 1px solid rgba(255, 255, 255, 0.25);
+    }
+    .info-banner-lbl { font-size: 11px; opacity: 0.9; }
+    .info-banner-val { font-size: 11px; font-weight: bold; text-align: right; }
+    .info-empty { font-size: 11px; opacity: 0.85; }
+
+    .reminder-alert-card {
+      background: #fef3c7;
+      border: 1.5px solid #f59e0b;
+      color: #92400e;
+      border-radius: 12px;
+      padding: 8px 10px;
+      margin-bottom: 10px;
+      font-size: 11px;
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      font-weight: bold;
+    }
+
+    .asset-box {
+      background: var(--bg);
+      border: 1px solid var(--line);
+      border-radius: 10px;
+      padding: 8px 10px;
+      margin-bottom: 6px;
+    }
+    .asset-head {
+      display: flex;
+      justify-content: space-between;
+      font-size: 11px;
+      font-weight: bold;
+      margin-bottom: 2px;
+      align-items: center;
+    }
+    .asset-val {
+      font-size: 17px;
+      font-weight: 700;
+      color: var(--brand-dark);
+    }
+
+    .credit-card-box {
+      background: var(--bg);
+      border: 1px solid var(--line);
+      border-left: 4px solid #6366f1;
+      border-radius: 8px;
+      padding: 8px 10px;
+      margin-bottom: 6px;
+      font-size: 11px;
+    }
+
+    /* カレンダー */
+    .calendar-header {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      margin-bottom: 6px;
+      gap: 4px;
+      flex-wrap: wrap;
+    }
+    .cal-nav-btns { display: flex; align-items: center; gap: 4px; }
+    .cal-nav-btn {
+      background: var(--bg);
+      border: 1px solid var(--line);
+      color: var(--ink);
+      width: 28px;
+      height: 28px;
+      border-radius: 6px;
+      font-weight: bold;
+      cursor: pointer;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+    }
+    .cal-today-btn { font-size: 11px; padding: 0 6px; width: auto; }
+
+    .calendar-grid {
+      display: grid;
+      grid-template-columns: repeat(7, 1fr);
+      gap: 1px;
+      background: var(--line);
+      border: 1px solid var(--line);
+      border-radius: 8px;
+      overflow: hidden;
+      width: 100%;
+    }
+
+    .cal-day-head {
+      background: var(--bg);
+      text-align: center;
+      font-size: 10px;
+      font-weight: bold;
+      padding: 4px 0;
+      color: var(--muted);
+    }
+    .cal-day-head:nth-child(1) { color: var(--danger); }
+    .cal-day-head:nth-child(7) { color: var(--sat-color); }
+
+    .day-cell {
+      background: var(--card);
+      min-height: 64px;
+      padding: 2px 1px;
+      display: flex;
+      flex-direction: column;
+      justify-content: flex-start;
+      gap: 2px;
+      cursor: pointer;
+      position: relative;
+      overflow: hidden;
+    }
+    .day-cell.other-month { opacity: 0.25; }
+    .day-cell.today { background: var(--brand-light); border: 1.5px solid var(--brand); }
+    .day-cell.selected { outline: 2px solid #f59e0b; outline-offset: -2px; }
+
+    .day-number {
+      font-size: 10px;
+      font-weight: 700;
+      padding: 1px 2px;
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      line-height: 1;
+      color: var(--ink);
+      white-space: nowrap;
+      overflow: hidden;
+    }
+    .day-number.sunday, .day-number.holiday { color: var(--danger); }
+    .day-number.saturday { color: var(--sat-color); }
+
+    .day-number-left {
+      display: flex;
+      align-items: center;
+      gap: 1px;
+      white-space: nowrap;
+      overflow: hidden;
+    }
+
+    .cal-badge-container {
+      display: flex;
+      flex-direction: column;
+      gap: 1px;
+      width: 100%;
+    }
+    
+    .cal-badge {
+      font-size: 8.5px;
+      padding: 1.5px 1px;
+      border-radius: 3px;
+      font-weight: 800;
+      white-space: nowrap;
+      overflow: hidden;
+      text-overflow: ellipsis;
+      line-height: 1.1;
+      width: 100%;
+      text-align: center;
+      box-sizing: border-box;
+      letter-spacing: -0.2px;
+    }
+    .cal-badge.shift-pay {
+      background: var(--good-light);
+      color: #065f46;
+      border: 1px solid var(--good);
+      border-left-width: 3.5px;
+    }
+    [data-theme="dark"] .cal-badge.shift-pay {
+      background: #064e3b;
+      color: #a7f3d0;
+    }
+    .cal-badge.expense {
+      background: var(--danger-light);
+      color: var(--danger);
+      border: 1px solid #fca5a5;
+    }
+    [data-theme="dark"] .cal-badge.expense {
+      background: #450a0a;
+      color: #fca5a5;
+      border-color: #7f1d1d;
+    }
+    .cal-badge.other-income {
+      background: var(--good-light);
+      color: #065f46;
+      border: 1px solid #6ee7b7;
+    }
+    [data-theme="dark"] .cal-badge.other-income {
+      background: #064e3b;
+      color: #a7f3d0;
+      border-color: #047857;
+    }
+    .cal-badge.overnight {
+      background: #f1f5f9 !important;
+      color: #475569 !important;
+      border: 1px dashed #94a3b8 !important;
+      font-size: 8px;
+    }
+    [data-theme="dark"] .cal-badge.overnight {
+      background: #1e293b !important;
+      color: #cbd5e1 !important;
+      border-color: #475569 !important;
+    }
+
+    .cal-week-summary {
+      grid-column: 1 / -1;
+      background: var(--bg);
+      font-size: 9.5px;
+      color: var(--muted);
+      padding: 2px 4px;
+      display: flex;
+      justify-content: flex-end;
+      gap: 6px;
+      border-top: 1px dashed var(--line);
+    }
+
+    .btn {
+      background: var(--brand);
+      color: white;
+      border: none;
+      padding: 7px 10px;
+      border-radius: 8px;
+      font-weight: 700;
+      cursor: pointer;
+      display: inline-flex;
+      align-items: center;
+      justify-content: center;
+      gap: 4px;
+      font-size: 12px;
+    }
+    .btn-secondary { background: var(--muted); color: white; }
+    .btn-danger { background: var(--danger); color: white; }
+    .btn-good { background: var(--good); color: white; }
+    .btn-outline { background: transparent; border: 1.5px solid var(--line); color: var(--ink); }
+    .btn-sm { padding: 3px 6px; font-size: 10.5px; border-radius: 5px; width: auto; }
+    .btn-nudge { background: var(--bg); border: 1.5px solid var(--line); color: var(--ink); border-radius: 6px; padding: 3px 5px; font-size: 10px; font-weight: bold; cursor: pointer; flex-shrink: 0; }
+
+    .badge {
+      display: inline-block;
+      padding: 2px 6px;
+      border-radius: 4px;
+      font-size: 10px;
+      color: white;
+      font-weight: bold;
+    }
+
+    .form-group { margin-bottom: 8px; width: 100%; }
+    .form-group label { display: block; font-size: 10.5px; font-weight: 600; color: var(--muted); margin-bottom: 2px; }
+    .form-control {
+      width: 100%;
+      padding: 6px 8px;
+      border-radius: 6px;
+      border: 1.5px solid var(--line);
+      background: var(--card);
+      color: var(--ink);
+      outline: none;
+      min-width: 0;
+      transition: border-color 0.2s, box-shadow 0.2s;
+    }
+    .form-control.input-error {
+      border-color: var(--danger) !important;
+      background-color: var(--danger-light) !important;
+      box-shadow: 0 0 0 2px rgba(239, 68, 68, 0.2);
+    }
+
+    .form-row { display: flex; gap: 4px; width: 100%; flex-wrap: wrap; }
+    .form-row .form-group { flex: 1; min-width: 100px; }
+
+    .progress-container {
+      background: var(--line);
+      border-radius: 10px;
+      height: 8px;
+      overflow: hidden;
+      margin: 4px 0;
+    }
+    .progress-bar {
+      height: 100%;
+      background: var(--good);
+      border-radius: 10px;
+      transition: width 0.3s ease;
+    }
+
+    .accordion-item { border-bottom: 1px solid var(--line); }
+    .accordion-item:last-child { border-bottom: none; }
+    .accordion-header {
+      width: 100%;
+      background: none;
+      border: none;
+      padding: 10px 0;
+      text-align: left;
+      font-size: 12px;
+      font-weight: 700;
+      color: var(--ink);
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      cursor: pointer;
+    }
+    .accordion-header::after { content: '＋'; font-size: 12px; color: var(--muted); }
+    .accordion-header.active::after { content: '－'; }
+    .accordion-body { display: none; padding-bottom: 10px; }
+    .accordion-body.active { display: block; }
+
+    .tab-bar {
+      position: fixed;
+      bottom: 0;
+      left: 0;
+      right: 0;
+      height: calc(54px + env(safe-area-inset-bottom));
+      background: var(--card);
+      border-top: 1px solid var(--line);
+      display: flex;
+      justify-content: space-around;
+      align-items: flex-start;
+      padding-top: 4px;
+      z-index: 100;
+    }
+    .tab-item {
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      gap: 2px;
+      background: none;
+      border: none;
+      color: var(--muted);
+      font-size: 9.5px;
+      font-weight: 700;
+      cursor: pointer;
+      width: 25%;
+    }
+    .tab-item.active { color: var(--brand-dark); }
+    .tab-icon { font-size: 16px; }
+
+    .fab-overlay {
+      position: fixed; inset: 0;
+      background: rgba(0, 0, 0, 0.3);
+      z-index: 200; display: none;
+      backdrop-filter: blur(2px);
+    }
+    .fab-overlay.active { display: block; }
+    .fab-container {
+      position: fixed;
+      bottom: calc(62px + env(safe-area-inset-bottom));
+      right: 14px;
+      z-index: 201;
+      display: flex;
+      flex-direction: column;
+      align-items: flex-end;
+      gap: 6px;
+    }
+    .fab-menu { display: none; flex-direction: column; align-items: flex-end; gap: 6px; }
+    .fab-menu.active { display: flex; }
+    .fab-item {
+      display: flex; align-items: center; gap: 6px;
+      background: var(--card); color: var(--ink);
+      padding: 5px 10px; border-radius: 20px;
+      box-shadow: var(--shadow); font-size: 11px; font-weight: 700;
+      border: 1px solid var(--line); cursor: pointer;
+    }
+    .fab-main {
+      width: 48px; height: 48px; border-radius: 24px;
+      background: var(--brand); color: white; border: none;
+      font-size: 20px; font-weight: bold;
+      box-shadow: 0 4px 12px rgba(249, 115, 22, 0.4);
+      cursor: pointer; display: flex; align-items: center; justify-content: center;
+      transition: transform 0.2s ease;
+    }
+    .fab-main.active { transform: rotate(45deg); background: var(--danger); }
+
+    .modal-overlay {
+      position: fixed; inset: 0;
+      background: rgba(0,0,0,0.5);
+      z-index: 300; display: none;
+      align-items: flex-end; justify-content: center;
+      touch-action: none;
+    }
+    .modal-overlay.active { display: flex; }
+    .modal-content {
+      background: var(--card);
+      width: 100%; max-width: 480px;
+      max-height: 88vh;
+      border-top-left-radius: 16px; border-top-right-radius: 16px;
+      padding: 12px; overflow-y: auto; overflow-x: hidden;
+      box-shadow: 0 -4px 20px rgba(0,0,0,0.2);
+      touch-action: pan-y;
+      padding-bottom: 70px;
+    }
+    .modal-header { display: flex; justify-content: space-between; align-items: center; margin-bottom: 8px; }
+    .modal-title { font-size: 14px; font-weight: 700; }
+
+    .pin-chip {
+      background: var(--card); border: 1px solid var(--brand); color: var(--brand-dark);
+      border-radius: 16px; padding: 3px 8px; font-size: 10.5px; font-weight: 600;
+      white-space: nowrap; cursor: pointer; display: inline-flex; align-items: center; gap: 3px;
+      transition: all 0.15s ease;
+    }
+    .pin-chip.active {
+      background: var(--brand);
+      color: #fff;
+      border-color: var(--brand-dark);
+      box-shadow: 0 0 0 2px rgba(249, 115, 22, 0.3);
+    }
+    .pin-container { display: flex; flex-wrap: wrap; gap: 4px; width: 100%; }
+    .mode-bar { display: flex; gap: 4px; margin-bottom: 8px; overflow-x: auto; width: 100%; -webkit-overflow-scrolling: touch; }
+    .diag-box { background: var(--bg); border: 1.5px solid var(--line); border-radius: 8px; padding: 8px; font-size: 11px; }
+
+    .list-item {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      padding: 6px 0;
+      border-bottom: 1px solid var(--line);
+      font-size: 10.5px;
+      cursor: pointer;
+      gap: 6px;
+      width: 100%;
+    }
+    .list-item:hover { background: var(--bg); }
+    .list-item:last-child { border-bottom: none; }
+    .list-item-left {
+      display: flex;
+      align-items: center;
+      gap: 4px;
+      overflow: hidden;
+      white-space: nowrap;
+      text-overflow: ellipsis;
+      flex: 1;
+      min-width: 0;
+    }
+    .list-item-right {
+      display: flex;
+      align-items: center;
+      gap: 6px;
+      flex-shrink: 0;
+      font-weight: 700;
+    }
+
+    .card canvas {
+      max-height: 130px !important;
+      width: 100% !important;
+    }
+
+    .job-setting-card {
+      background: var(--bg);
+      border: 1px solid var(--line);
+      border-radius: 8px;
+      padding: 8px;
+      margin-bottom: 8px;
+    }
+
+    .period-setting-card {
+      background: var(--card);
+      border: 1.5px dashed var(--line);
+      border-radius: 8px;
+      padding: 6px;
+      margin-bottom: 6px;
+    }
+    .period-setting-head {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      margin-bottom: 4px;
+    }
+    .period-setting-head strong { font-size: 11px; }
+
+    /* ⌨️ 専用電卓キーボード */
+    .calc-keyboard-drawer {
+      position: fixed;
+      bottom: 0; left: 0; right: 0;
+      background: var(--card);
+      border-top: 2px solid var(--brand);
+      box-shadow: 0 -6px 25px rgba(0,0,0,0.2);
+      z-index: 500;
+      display: none;
+      flex-direction: column;
+      padding: 8px;
+      gap: 6px;
+      max-width: 600px;
+      margin: 0 auto;
+    }
+    .calc-keyboard-drawer.active { display: flex; }
+    .calc-keyboard-header {
+      display: flex; justify-content: space-between; align-items: center;
+      font-size: 11px; font-weight: bold; color: var(--muted);
+    }
+    .calc-keyboard-display {
+      background: var(--bg);
+      border: 1.5px solid var(--brand);
+      border-radius: 8px;
+      padding: 6px 12px;
+      font-size: 20px;
+      font-weight: bold;
+      text-align: right;
+      color: var(--brand-dark);
+      min-height: 42px;
+      word-break: break-all;
+      display: flex; align-items: center; justify-content: flex-end;
+    }
+    .calc-keyboard-grid {
+      display: grid;
+      grid-template-columns: repeat(4, 1fr);
+      gap: 6px;
+    }
+    .calc-btn {
+      background: var(--bg);
+      border: 1px solid var(--line);
+      color: var(--ink);
+      font-size: 16px;
+      font-weight: bold;
+      padding: 10px 0;
+      border-radius: 8px;
+      cursor: pointer;
+      display: flex; align-items: center; justify-content: center;
+      transition: background 0.1s;
+    }
+    .calc-btn:active { background: var(--line); }
+    .calc-btn.op { background: var(--brand-light); color: var(--brand-dark); border-color: #fed7aa; }
+    .calc-btn.action { background: var(--brand); color: white; border: none; }
+    .calc-btn.clear { background: var(--danger-light); color: var(--danger); border-color: #fca5a5; }
+
+    .toast-container {
+      position: fixed; top: 14px; left: 50%;
+      transform: translateX(-50%);
+      z-index: 400; display: flex; flex-direction: column; gap: 6px;
+      width: 90%; max-width: 380px; pointer-events: none;
+    }
+  </style>
+</head>
+<body>
+
+  <input type="file" id="json-file-input" style="display:none;" accept=".json">
+
+  <!-- ヘッダー -->
+  <header>
+    <div class="app-title">
+      <span>💰</span>
+      <span>シフト給料＆家計簿 PRO</span>
+    </div>
+    <div class="header-actions">
+      <div class="asset-badge" id="asset-gacha-btn">
+        <span>🏦 資産:</span>
+        <span id="header-base-asset">¥0</span>
+      </div>
+      <button class="icon-btn" id="theme-toggle-btn">🌙</button>
+    </div>
+  </header>
+
+  <div class="toast-container" id="toast-container"></div>
+
+  <!-- メインコンテンツ -->
+  <main id="main-content-wrapper">
+    <!-- 1. ホーム画面 -->
+    <div id="tab-home" class="tab-content active">
+
+      <div class="reminder-alert-card" id="reminder-alert-card" style="display: none;">
+        <span>⚠️ 本日の支出がまだ記録されていません</span>
+        <button class="btn btn-sm btn-good" id="reminder-add-exp-btn">💸 記録する</button>
+      </div>
+
+      <!-- 本日の予定インフォバナー -->
+      <div class="card info-banner-card" id="info-banner-card"></div>
+
+      <!-- モード選択 -->
+      <div class="mode-bar">
+        <button class="btn btn-outline btn-sm" id="multi-select-toggle-btn">☑️ 複数選択</button>
+        <button class="btn btn-outline btn-sm" id="repeat-modal-open-btn">🔁 リピート</button>
+        <button class="btn btn-outline btn-sm" id="quick-mode-toggle-btn">⚡ クイック</button>
+      </div>
+
+      <div id="quick-pin-section" class="card" style="display: none; background: var(--brand-light); border: 1.5px solid var(--brand);">
+        <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 6px;">
+          <div style="font-size: 10.5px; color: var(--brand-dark); font-weight: bold;">
+            ⚡ テンプレ選択 → 日付タップで即登録
+          </div>
+          <button class="btn btn-danger btn-sm" id="cancel-quick-mode-btn">✕ 終了</button>
+        </div>
+        <div class="pin-container" id="quick-pin-list"></div>
+      </div>
+
+      <div id="multi-select-actions" class="card" style="display: none; background: #fef3c7; border-color: #f59e0b;">
+        <div style="font-size: 11px; font-weight: 700; margin-bottom: 4px;">複数選択中: <span id="selected-count">0</span> 日</div>
+        <div style="display: flex; gap: 4px;">
+          <select id="quick-pin-select" class="form-control" style="font-size: 10.5px;"></select>
+          <button class="btn btn-sm" id="apply-pin-bulk-btn">一括適用</button>
+          <button class="btn btn-danger btn-sm" id="delete-bulk-btn">一括削除</button>
+        </div>
+      </div>
+
+      <!-- カレンダーカード -->
+      <div class="card" id="calendar-card">
+        <div class="calendar-header">
+          <div class="cal-nav-btns">
+            <button class="cal-nav-btn" id="prev-month-btn">◀</button>
+            <button class="cal-nav-btn cal-today-btn" id="today-btn">今日</button>
+            <button class="cal-nav-btn" id="next-month-btn">▶</button>
+          </div>
+          <input type="month" id="calendar-month-picker" class="form-control" style="width: auto; padding: 2px 4px;">
+        </div>
+
+        <div class="calendar-grid">
+          <div class="cal-day-head">日</div>
+          <div class="cal-day-head">月</div>
+          <div class="cal-day-head">火</div>
+          <div class="cal-day-head">水</div>
+          <div class="cal-day-head">木</div>
+          <div class="cal-day-head">金</div>
+          <div class="cal-day-head">土</div>
+        </div>
+        <div class="calendar-grid" id="calendar-days-container" style="margin-top: 2px; touch-action: pan-y;"></div>
+      </div>
+
+      <!-- 明細リスト -->
+      <div class="card">
+        <div class="card-title">📋 明細リスト (タップで修正)</div>
+        <div class="form-row" style="margin-bottom: 6px;">
+          <input type="search" id="history-search-input" class="form-control" placeholder="🔍 メモ・勤務先で検索">
+          <select id="history-filter-select" class="form-control" style="width: 80px; flex: none;">
+            <option value="all">すべて</option>
+            <option value="shift">給料</option>
+            <option value="income">収入</option>
+            <option value="expense">支出</option>
+          </select>
+        </div>
+        <div id="recent-history-list"></div>
+        <button class="btn btn-outline btn-sm" id="load-more-history-btn" style="margin-top: 6px; width: 100%;">もっと見る</button>
+      </div>
+    </div>
+
+    <!-- 2. 給料・診断タブ -->
+    <div id="tab-payroll" class="tab-content">
+      <!-- 🏦 総資産 & 小銭貯金ガチャ -->
+      <div class="card">
+        <div class="card-title">🏦 総資産 ＆ 🎲 今日の小銭貯金</div>
+        <div class="asset-box">
+          <div class="asset-head">
+            <span>現在の総資産</span>
+            <button class="btn btn-sm btn-outline" id="edit-asset-modal-btn">✏️ 修正</button>
+          </div>
+          <div class="asset-val" id="total-asset-val">¥0</div>
+        </div>
+
+        <div class="asset-box" style="margin-bottom:0; background:var(--brand-light); border-color:#fed7aa;">
+          <div class="asset-head">
+            <span style="color:var(--brand-dark);">🎰 今日のランダム小銭貯金 (500円未満)</span>
+          </div>
+          <div style="display:flex; justify-content:space-between; align-items:center; margin-top:4px;">
+            <div>
+              <span style="font-size:15px; font-weight:bold;" id="coin-gacha-val">--- 円</span>
+              <div style="font-size:9.5px; color:var(--muted);" id="coin-gacha-status">「ガチャ」を押して決定！</div>
+            </div>
+            <div style="display:flex; gap:4px;">
+              <button class="btn btn-sm btn-outline" id="spin-gacha-btn">🎲 ガチャ</button>
+              <button class="btn btn-sm btn-good" id="save-gacha-btn" style="display:none;">貯金する</button>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <div class="card">
+        <div class="card-title">
+          <span>🔍 税金・社会保険料の簡易診断</span>
+          <button class="btn btn-outline btn-sm" id="run-tax-diag-btn">⚡ 再診断</button>
+        </div>
+        <div class="diag-box">
+          <div class="form-group">
+            <label>今年の年間見込み収入 (給与＋副業合計)</label>
+            <input type="text" id="diag-income-input" class="form-control calc-input" readonly>
+          </div>
+          <div class="form-row">
+            <div class="form-group">
+              <label>勤労学生ですか？</label>
+              <select id="diag-student-select" class="form-control">
+                <option value="yes">はい (学生)</option>
+                <option value="no">いいえ (一般)</option>
+              </select>
+            </div>
+            <div class="form-group">
+              <label>年齢 (社会保険用)</label>
+              <select id="diag-age-select" class="form-control">
+                <option value="under20">20歳未満</option>
+                <option value="over20">20歳以上</option>
+              </select>
+            </div>
+          </div>
+          <div id="diag-result-box" style="margin-top: 6px; padding-top: 6px; border-top: 1px dashed var(--line);"></div>
+        </div>
+      </div>
+
+      <div class="card">
+        <div class="card-title">
+          <span>💳 クレカ引き落とし管理</span>
+          <button class="btn btn-sm" id="open-cc-modal-btn">＋ 登録</button>
+        </div>
+        <div id="credit-card-list"></div>
+      </div>
+
+      <!-- 📱 左右スワイプ対応の給料見込みカード -->
+      <div class="card" id="payroll-summary-card" style="touch-action: pan-y;">
+        <div class="card-title">
+          <span>💴 給料見込み ＆ 収支詳細</span>
+          <div class="cal-nav-btns" style="transform: scale(0.85); transform-origin: right center;">
+            <button class="cal-nav-btn" id="payroll-prev-btn">◀</button>
+            <span id="payroll-month-label" style="font-size:12px; margin:0 4px; font-weight:bold;"></span>
+            <button class="cal-nav-btn" id="payroll-next-btn">▶</button>
+          </div>
+        </div>
+        <div class="form-row" style="margin-bottom: 6px;">
+          <div style="flex:1; background:var(--bg); padding:6px; border-radius:6px; text-align:center;">
+            <div style="font-size:9.5px; color:var(--muted);">選択月の収入</div>
+            <div style="font-size:14px; font-weight:bold; color:var(--good);" id="sum-income">¥0</div>
+          </div>
+          <div style="flex:1; background:var(--bg); padding:6px; border-radius:6px; text-align:center;">
+            <div style="font-size:9.5px; color:var(--muted);">選択月の支出</div>
+            <div style="font-size:14px; font-weight:bold; color:var(--danger);" id="sum-expense">¥0</div>
+          </div>
+        </div>
+
+        <div id="job-pay-details-list" style="margin-bottom: 6px;"></div>
+
+        <div style="background: var(--brand-light); border: 1px solid #fed7aa; padding: 6px; border-radius: 6px; text-align: center;">
+          <div style="font-size:9.5px; color:var(--muted);">差し引き残高（使えるお金）</div>
+          <div style="font-size:16px; font-weight:bold;" id="sum-balance">¥0</div>
+          <div style="font-size:9.5px; color:var(--muted); margin-top:2px;" id="daily-budget-text">1日あたり: 約 ¥0</div>
+        </div>
+      </div>
+
+      <div class="card">
+        <div class="card-title">
+          <span>🚧 年収の壁トラッカー</span>
+          <span class="badge" style="background: var(--brand); color: #fff;" id="wall-target-badge">178万円の壁</span>
+        </div>
+        <div style="font-size: 16px; font-weight: 700; margin-bottom: 2px;" id="year-income-total">累計 ¥0</div>
+        <div class="progress-container">
+          <div class="progress-bar" id="wall-progress-bar" style="width: 0%;"></div>
+        </div>
+        <div style="font-size: 9.5px; color: var(--muted); margin-top: 2px;" id="wall-sub-text">壁まで あと ¥0</div>
+      </div>
+
+      <div class="card">
+        <div class="card-title">🗓️ 年間月別サマリー</div>
+        <div id="yearly-summary-list"></div>
+      </div>
+    </div>
+
+    <!-- 3. 統計タブ -->
+    <div id="tab-stats" class="tab-content" style="touch-action: pan-y;">
+      <div class="card" style="background: var(--bg);">
+        <div class="calendar-header" style="margin-bottom: 0;">
+          <div class="cal-nav-btns">
+            <button class="cal-nav-btn" id="stats-prev-month-btn">◀</button>
+            <button class="cal-nav-btn cal-today-btn" id="stats-today-btn">今月</button>
+            <button class="cal-nav-btn" id="stats-next-month-btn">▶</button>
+          </div>
+          <input type="month" id="stats-month-picker" class="form-control" style="width: auto; padding: 2px 4px;">
+        </div>
+      </div>
+
+      <!-- 📈 総資産の推移グラフ (常に今日が真ん中) -->
+      <div class="card">
+        <div class="card-title">📈 総資産の推移 (前後15日間・今日が中心)</div>
+        <canvas id="chart-budget-line" style="max-height: 150px !important;"></canvas>
+      </div>
+
+      <div class="card">
+        <div class="card-title">今月の予算状況</div>
+        
+        <div style="font-size:10.5px; font-weight:bold; color:var(--muted); margin-bottom:2px;">📊 全体支出</div>
+        <div style="display: flex; justify-content: space-between; font-size: 11px; margin-bottom: 2px;">
+          <span>支出: <strong id="stats-budget-used">¥0</strong></span>
+          <span>予算: <strong id="stats-budget-total">¥0</strong></span>
+        </div>
+        <div class="progress-container">
+          <div class="progress-bar" id="budget-progress-bar" style="width: 0%;"></div>
+        </div>
+
+        <div style="font-size:10.5px; font-weight:bold; color:var(--muted); margin-top:8px; margin-bottom:2px;">🛫 旅費を除く支出</div>
+        <div style="display: flex; justify-content: space-between; font-size: 11px; margin-bottom: 2px;">
+          <span>支出 (旅費除く): <strong id="stats-budget-used-no-travel">¥0</strong></span>
+          <span>予算: <strong id="stats-budget-total-no-travel">¥0</strong></span>
+        </div>
+        <div class="progress-container">
+          <div class="progress-bar" id="budget-progress-bar-no-travel" style="width: 0%;"></div>
+        </div>
+      </div>
+
+      <div class="card">
+        <div class="card-title">🎯 カテゴリ選択 予算状況</div>
+        <div style="font-size: 10px; color: var(--muted); margin-bottom: 6px;">対象のカテゴリをタップして選択：</div>
+        <div class="pin-container" id="stats-category-chips" style="margin-bottom: 8px;"></div>
+        <div style="display: flex; justify-content: space-between; font-size: 11px; margin-bottom: 2px;">
+          <span>選択カテゴリ合計: <strong id="stats-custom-used">¥0</strong></span>
+          <span>予算: <strong id="stats-custom-budget">¥0</strong></span>
+        </div>
+        <div class="progress-container">
+          <div class="progress-bar" id="stats-custom-progress-bar" style="width: 0%;"></div>
+        </div>
+      </div>
+
+      <div class="card">
+        <div class="card-title">💴 勤務先別の給料見込み推移</div>
+        <canvas id="chart-jobs"></canvas>
+      </div>
+
+      <div class="card">
+        <div class="card-title">📊 収支推移 (月別)</div>
+        <canvas id="chart-trend"></canvas>
+      </div>
+
+      <div class="card">
+        <div class="card-title">📈 今月の支出推移 (日別)</div>
+        <canvas id="chart-daily-expense"></canvas>
+      </div>
+
+      <div class="card">
+        <div class="card-title">🍩 今月のカテゴリ別支出</div>
+        <canvas id="chart-expense-pie"></canvas>
+      </div>
+    </div>
+
+    <!-- 4. 設定タブ -->
+    <div id="tab-settings" class="tab-content">
+      <div class="card">
+        <div class="card-title">アプリ設定</div>
+
+        <div class="accordion-item">
+          <button class="accordion-header" id="acc-jobs-btn">🏢 勤務先・締め日・給料日設定</button>
+          <div class="accordion-body" id="acc-jobs-body">
+            <div id="jobs-config-list"></div>
+            <button class="btn btn-outline btn-sm" id="add-job-btn" style="margin-top: 6px; width: 100%;">＋ 新しい勤務先を追加</button>
+          </div>
+        </div>
+
+        <div class="accordion-item">
+          <button class="accordion-header" id="acc-pins-btn">📌 シフトテンプレート</button>
+          <div class="accordion-body" id="acc-pins-body">
+            <div id="pins-config-list"></div>
+            <button class="btn btn-outline btn-sm" id="add-pin-btn" style="margin-top: 6px;">＋ テンプレートを追加</button>
+          </div>
+        </div>
+
+        <div class="accordion-item">
+          <button class="accordion-header" id="acc-wall-btn">🏦 総資産・年収の壁・目標設定</button>
+          <div class="accordion-body" id="acc-wall-body">
+            <div class="form-group">
+              <label>8月7日時点のベース総資産 (円)</label>
+              <input type="text" id="setting-base-asset" class="form-control calc-input" readonly>
+            </div>
+            <div class="form-group">
+              <label>年収の壁 ターゲット</label>
+              <select id="setting-wall-target" class="form-control">
+                <option value="1780000">178万円の壁 (所得税 非課税ライン)</option>
+                <option value="1060000">106万円の壁 (社会保険加入)</option>
+                <option value="1300000">130万円の壁 (社会保険扶養外)</option>
+                <option value="1500000">150万円の壁 (配偶者特別控除)</option>
+                <option value="2010000">201万円の壁 (配偶者特別控除上限)</option>
+                <option value="custom">カスタム指定...</option>
+              </select>
+            </div>
+            <div class="form-group" id="custom-wall-group" style="display: none;">
+              <label>カスタム目標額 (円)</label>
+              <input type="number" id="setting-wall-custom" class="form-control">
+            </div>
+            <div class="form-group">
+              <label>月間貯金目標額 (円)</label>
+              <input type="text" id="setting-savings-goal" class="form-control calc-input" readonly>
+            </div>
+            <div class="form-group">
+              <label>月間支出予算 (円)</label>
+              <input type="text" id="setting-monthly-budget" class="form-control calc-input" readonly>
+            </div>
+            <button class="btn btn-sm" id="save-asset-settings-btn">設定を保存</button>
+          </div>
+        </div>
+
+        <div class="accordion-item">
+          <button class="accordion-header" id="acc-fixed-btn">🏠 毎月の固定費自動登録</button>
+          <div class="accordion-body" id="acc-fixed-body">
+            <div id="fixed-expenses-config-list"></div>
+            <button class="btn btn-outline btn-sm" id="add-fixed-btn" style="margin-top: 6px;">＋ 固定費を追加</button>
+          </div>
+        </div>
+
+        <div class="accordion-item">
+          <button class="accordion-header" id="acc-cards-btn">💳 クレカ会社テンプレート管理</button>
+          <div class="accordion-body" id="acc-cards-body">
+            <div id="credit-companies-config-list"></div>
+            <div class="form-row" style="margin-top: 6px;">
+              <input type="text" id="new-card-name" class="form-control" placeholder="カード会社名">
+              <button class="btn btn-sm" id="add-card-btn" style="width: auto;">追加</button>
+            </div>
+          </div>
+        </div>
+
+        <div class="accordion-item">
+          <button class="accordion-header" id="acc-reminder-btn">🔔 入力忘れ防止リマインダー</button>
+          <div class="accordion-body" id="acc-reminder-body">
+            <div class="form-group">
+              <label><input type="checkbox" id="setting-reminder-enable"> リマインダー通知を有効化</label>
+            </div>
+            <div class="form-group">
+              <label>通知時刻</label>
+              <input type="time" id="setting-reminder-time" class="form-control">
+            </div>
+            <button class="btn btn-sm" id="save-reminder-btn">保存</button>
+          </div>
+        </div>
+
+        <div class="accordion-item">
+          <button class="accordion-header" id="acc-data-btn">💾 データ管理・バックアップ</button>
+          <div class="accordion-body" id="acc-data-body">
+            <div style="display: flex; flex-direction: column; gap: 6px;">
+              <button class="btn btn-outline btn-sm" id="export-csv-btn">📤 CSV書き出し</button>
+              <button class="btn btn-outline btn-sm" id="export-json-btn">💾 JSONバックアップ</button>
+              <button class="btn btn-outline btn-sm" id="import-json-trigger-btn">📥 JSON復元</button>
+              <button class="btn btn-danger btn-sm" id="reset-data-btn" style="margin-top: 6px;">⚠️ 全データ初期化</button>
+            </div>
+          </div>
+        </div>
+
+      </div>
+    </div>
+  </main>
+
+  <!-- FAB -->
+  <div class="fab-overlay" id="fab-overlay"></div>
+  <div class="fab-container">
+    <div class="fab-menu" id="fab-menu">
+      <div class="fab-item" id="fab-add-shift"><span>📅</span> シフト追加</div>
+      <div class="fab-item" id="fab-add-expense"><span>💸</span> 支出記録</div>
+      <div class="fab-item" id="fab-add-income"><span>💵</span> その他収入</div>
+    </div>
+    <button class="fab-main" id="fab-main-btn">＋</button>
+  </div>
+
+  <!-- タブバー -->
+  <nav class="tab-bar">
+    <button class="tab-item active" id="tab-btn-home">
+      <span class="tab-icon">🏠</span>
+      <span>ホーム</span>
+    </button>
+    <button class="tab-item" id="tab-btn-payroll">
+      <span class="tab-icon">💴</span>
+      <span>給料・診断</span>
+    </button>
+    <button class="tab-item" id="tab-btn-stats">
+      <span class="tab-icon">📊</span>
+      <span>統計</span>
+    </button>
+    <button class="tab-item" id="tab-btn-settings">
+      <span class="tab-icon">⚙️</span>
+      <span>設定</span>
+    </button>
+  </nav>
+
+  <!-- モーダル: 入力/編集 -->
+  <div class="modal-overlay" id="entry-modal">
+    <div class="modal-content">
+      <div class="modal-header">
+        <div class="modal-title" id="entry-modal-title">登録・編集</div>
+        <button class="icon-btn" id="close-entry-modal-btn" style="color:var(--ink);">✕</button>
+      </div>
+
+      <div class="mode-bar" id="entry-type-selector">
+        <button class="btn btn-sm" id="type-shift-btn">📅 シフト</button>
+        <button class="btn btn-outline btn-sm" id="type-income-btn">💵 その他収入</button>
+        <button class="btn btn-outline btn-sm" id="type-expense-btn">💸 支出</button>
+      </div>
+
+      <div id="shift-overlap-alert" style="display:none; background:var(--danger-light); color:var(--danger); padding:6px; border-radius:6px; font-size:10.5px; font-weight:bold; margin-bottom:8px;">
+        ⚠️ 警告: 同じ時間帯に別のシフトが登録されています！
+      </div>
+
+      <!-- シフトフォーム -->
+      <form id="shift-form">
+        <input type="hidden" id="shift-id">
+
+        <div style="background:var(--bg); border:1px solid var(--line); border-radius:8px; padding:6px; margin-bottom:8px; width:100%; overflow:hidden;">
+          <div style="font-size:9.5px; font-weight:bold; color:var(--muted); margin-bottom:3px;">📋 テンプレートからワンタップ入力</div>
+          <div class="pin-container" id="form-pin-shortcuts" style="margin-bottom:6px;"></div>
+          <div style="font-size:9.5px; font-weight:bold; color:var(--muted); margin-bottom:3px;">↩️ 過去の入力からワンタップ</div>
+          <div class="pin-container" id="form-history-shortcuts"></div>
+        </div>
+
+        <div style="margin-bottom: 6px; text-align: right;">
+          <button type="button" class="btn btn-outline btn-sm" id="save-as-pin-btn">＋ この内容をテンプレ保存</button>
+        </div>
+
+        <div class="form-row">
+          <div class="form-group" style="flex:1.2; min-width:0;">
+            <label>勤務先</label>
+            <select id="shift-job-id" class="form-control" required></select>
+          </div>
+          <div class="form-group" style="flex:1; min-width:0;">
+            <label>日付</label>
+            <input type="date" id="shift-date" class="form-control" required>
+          </div>
+        </div>
+
+        <div class="form-group">
+          <label>開始時間</label>
+          <div style="display:flex; align-items:center; gap:3px; flex-wrap:nowrap; width:100%;">
+            <button type="button" class="btn-nudge" id="start-nudge-minus">-15</button>
+            <select id="shift-start-hour" class="form-control" style="text-align:center; padding:5px 2px;"></select>
+            <span style="font-weight:bold;">:</span>
+            <select id="shift-start-min" class="form-control" style="text-align:center; padding:5px 2px;"></select>
+            <button type="button" class="btn-nudge" id="start-nudge-plus">+15</button>
+          </div>
+        </div>
+
+        <div class="form-group">
+          <label>終了時間</label>
+          <div style="display:flex; align-items:center; gap:3px; flex-wrap:nowrap; width:100%;">
+            <button type="button" class="btn-nudge" id="end-nudge-minus">-15</button>
+            <select id="shift-end-hour" class="form-control" style="text-align:center; padding:5px 2px;"></select>
+            <span style="font-weight:bold;">:</span>
+            <select id="shift-end-min" class="form-control" style="text-align:center; padding:5px 2px;"></select>
+            <button type="button" class="btn-nudge" id="end-nudge-plus">+15</button>
+          </div>
+        </div>
+
+        <div class="form-row">
+          <div class="form-group" style="flex:1; min-width:0;">
+            <label>休憩 <span id="legal-break-hint" style="color:var(--brand-dark); font-weight:bold;"></span></label>
+            <select id="shift-break-min" class="form-control">
+              <option value="0">0分</option>
+              <option value="15">15分</option>
+              <option value="30">30分</option>
+              <option value="45">45分</option>
+              <option value="60">60分 (1h)</option>
+              <option value="75">75分</option>
+              <option value="90">90分</option>
+              <option value="120">120分 (2h)</option>
+            </select>
+          </div>
+          <div class="form-group" style="flex:1; min-width:0;">
+            <label>交通費 (円)</label>
+            <input type="text" id="shift-transport" class="form-control calc-input" value="0" readonly>
+            <div class="input-error-text" style="font-size:9.5px; color:var(--danger); display:none; margin-top:2px;">⚠️ 計算式が不完全です</div>
+          </div>
+        </div>
+
+        <div id="shift-pay-preview" style="font-size:10.5px; color:var(--muted); margin-bottom:6px;"></div>
+
+        <div style="display:flex; gap:6px;">
+          <button type="submit" class="btn" style="flex:1;">保存</button>
+          <button type="button" class="btn btn-outline btn-sm" id="btn-new-shift-same-day" style="display:none;" onclick="openNewShiftOnDate(document.getElementById('shift-date').value)">＋ 新規シフトを追加</button>
+        </div>
+      </form>
+
+      <!-- 支出フォーム -->
+      <form id="expense-form" style="display: none;">
+        <input type="hidden" id="expense-id">
+        <div class="form-row">
+          <div class="form-group" style="flex:1; min-width:0;">
+            <label>日付</label>
+            <input type="date" id="expense-date" class="form-control" required>
+          </div>
+          <div class="form-group" style="flex:1; min-width:0;">
+            <label>カテゴリ</label>
+            <select id="expense-category" class="form-control">
+              <option value="食費">🍔 食費</option>
+              <option value="交通費">🚃 交通費</option>
+              <option value="旅費">🛫 旅費</option>
+              <option value="交際費">🎉 交際費</option>
+              <option value="日用品">🛒 日用品</option>
+              <option value="趣味">🎮 趣味</option>
+              <option value="固定費">🏠 固定費</option>
+              <option value="クレカ">💳 クレカ引き落とし</option>
+              <option value="貯金">🪙 小銭貯金</option>
+              <option value="その他">📦 その他</option>
+            </select>
+          </div>
+        </div>
+        <div class="form-group">
+          <label>メモ (任意)</label>
+          <input type="text" id="expense-memo" class="form-control" placeholder="例: 新幹線代 (空欄でもOK)">
+        </div>
+        <div class="form-group">
+          <label>金額 (計算式可 例: 500+300)</label>
+          <input type="text" id="expense-amount" class="form-control calc-input" placeholder="0" readonly required>
+          <div class="input-error-text" style="font-size:9.5px; color:var(--danger); display:none; margin-top:2px;">⚠️ 計算式が不完全です</div>
+        </div>
+        <div style="display:flex; gap:6px;">
+          <button type="submit" class="btn btn-danger" style="flex:1;">支出を記録</button>
+        </div>
+      </form>
+
+      <!-- その他収入フォーム -->
+      <form id="income-form" style="display: none;">
+        <input type="hidden" id="income-id">
+        <div class="form-row">
+          <div class="form-group" style="flex:1; min-width:0;">
+            <label>日付</label>
+            <input type="date" id="income-date" class="form-control" required>
+          </div>
+          <div class="form-group" style="flex:1; min-width:0;">
+            <label>区分</label>
+            <select id="income-category" class="form-control">
+              <option value="お小遣い">🎁 お小遣い・仕送り</option>
+              <option value="フリマ売上">📦 フリマ・売却</option>
+              <option value="副業・臨時収入">💻 副業・単発ワーク</option>
+              <option value="利子・キャッシュバック">🪙 キャッシュバック</option>
+              <option value="その他収入">✨ その他</option>
+            </select>
+          </div>
+        </div>
+        <div class="form-group">
+          <label>メモ (任意)</label>
+          <input type="text" id="income-memo" class="form-control" placeholder="例: メルカリ (空欄でもOK)">
+        </div>
+        <div class="form-group">
+          <label>金額 (計算式可)</label>
+          <input type="text" id="income-amount" class="form-control calc-input" placeholder="0" readonly required>
+          <div class="input-error-text" style="font-size:9.5px; color:var(--danger); display:none; margin-top:2px;">⚠️ 計算式が不完全です</div>
+        </div>
+        <div style="display:flex; gap:6px;">
+          <button type="submit" class="btn btn-good" style="flex:1;">収入を記録</button>
+        </div>
+      </form>
+
+      <div id="day-items-container" style="margin-top: 10px; border-top: 1px solid var(--line); padding-top: 6px;">
+        <div style="font-size: 10.5px; font-weight: 700; color: var(--muted); margin-bottom: 4px;">この日の登録データ</div>
+        <div id="day-items-list"></div>
+      </div>
+    </div>
+  </div>
+
+  <!-- モーダル: テンプレート編集用 -->
+  <div class="modal-overlay" id="pin-edit-modal">
+    <div class="modal-content" style="max-width:380px; padding-bottom:20px;">
+      <div class="modal-header">
+        <div class="modal-title">✏️ テンプレートの編集</div>
+        <button class="icon-btn" onclick="closePinEditModal()" style="color:var(--ink);">✕</button>
+      </div>
+      <input type="hidden" id="edit-pin-id">
+      <div class="form-group">
+        <label>テンプレート名</label>
+        <input type="text" id="edit-pin-label" class="form-control">
+      </div>
+      <div class="form-group">
+        <label>勤務先</label>
+        <select id="edit-pin-job" class="form-control"></select>
+      </div>
+      <div class="form-row">
+        <div class="form-group"><label>開始時間</label><input type="time" id="edit-pin-start" class="form-control"></div>
+        <div class="form-group"><label>終了時間</label><input type="time" id="edit-pin-end" class="form-control"></div>
+      </div>
+      <div class="form-row">
+        <div class="form-group">
+          <label>休憩 (分)</label>
+          <select id="edit-pin-break" class="form-control">
+            <option value="0">0分</option><option value="15">15分</option><option value="30">30分</option>
+            <option value="45">45分</option><option value="60">60分</option><option value="75">75分</option><option value="90">90分</option>
+          </select>
+        </div>
+        <div class="form-group"><label>交通費 (円)</label><input type="text" id="edit-pin-transport" class="form-control calc-input" readonly></div>
+      </div>
+      <div style="display:flex; gap:8px; margin-top:10px;">
+        <button class="btn" style="flex:1;" onclick="saveEditedPin()">保存する</button>
+        <button class="btn btn-danger" onclick="deletePinFromModal()">削除</button>
+      </div>
+    </div>
+  </div>
+
+  <div class="modal-overlay" id="cc-modal">
+    <div class="modal-content" style="padding-bottom:20px;">
+      <div class="modal-header">
+        <div class="modal-title">💳 クレカ引き落としの登録</div>
+        <button class="icon-btn" id="close-cc-modal-btn" style="color:var(--ink);">✕</button>
+      </div>
+      <form id="cc-form">
+        <div class="form-group">
+          <label>カード会社</label>
+          <select id="cc-company-select" class="form-control"></select>
+        </div>
+        <div class="form-row">
+          <div class="form-group">
+            <label>引き落とし日</label>
+            <input type="date" id="cc-date-input" class="form-control" required>
+          </div>
+          <div class="form-group">
+            <label>金額 (円)</label>
+            <input type="text" id="cc-amount-input" class="form-control calc-input" placeholder="0" readonly required>
+            <div class="input-error-text" style="font-size:9.5px; color:var(--danger); display:none; margin-top:2px;">⚠️ 計算式が不完全です</div>
+          </div>
+        </div>
+        <button type="submit" class="btn" style="width:100%;">支出として保存</button>
+      </form>
+    </div>
+  </div>
+
+  <div class="modal-overlay" id="repeat-modal">
+    <div class="modal-content" style="padding-bottom:20px;">
+      <div class="modal-header">
+        <div class="modal-title">🔁 シフトの繰り返し一括登録</div>
+        <button class="icon-btn" id="close-repeat-modal-btn" style="color:var(--ink);">✕</button>
+      </div>
+      <form id="repeat-form">
+        <div class="form-group">
+          <label>テンプレート選択</label>
+          <select id="repeat-pin-id" class="form-control" required></select>
+        </div>
+        <div class="form-row">
+          <div class="form-group">
+            <label>開始日</label>
+            <input type="date" id="repeat-start-date" class="form-control" required>
+          </div>
+          <div class="form-group">
+            <label>終了日</label>
+            <input type="date" id="repeat-end-date" class="form-control" required>
+          </div>
+        </div>
+        <div class="form-group">
+          <label>対象の曜日</label>
+          <div style="display: flex; gap: 4px; flex-wrap: wrap;">
+            <label><input type="checkbox" class="repeat-dow" value="0"> 日</label>
+            <label><input type="checkbox" class="repeat-dow" value="1" checked> 月</label>
+            <label><input type="checkbox" class="repeat-dow" value="2" checked> 火</label>
+            <label><input type="checkbox" class="repeat-dow" value="3" checked> 水</label>
+            <label><input type="checkbox" class="repeat-dow" value="4" checked> 木</label>
+            <label><input type="checkbox" class="repeat-dow" value="5" checked> 金</label>
+            <label><input type="checkbox" class="repeat-dow" value="6"> 土</label>
+          </div>
+        </div>
+        <button type="submit" class="btn" style="width:100%;">一括登録実行</button>
+      </form>
+    </div>
+  </div>
+
+  <!-- ✏️ 実際の振込額（手取り）の補正・確定モーダル -->
+  <div class="modal-overlay" id="override-pay-modal">
+    <div class="modal-content" style="padding-bottom:20px;">
+      <div class="modal-header">
+        <div class="modal-title">✏️ 実際の支給・振込額を入力</div>
+        <button class="icon-btn" id="close-override-modal-btn" style="color:var(--ink);">✕</button>
+      </div>
+      <form id="override-pay-form">
+        <input type="hidden" id="override-pay-key">
+        <div class="form-group">
+          <label>対象の項目</label>
+          <input type="text" id="override-pay-name" class="form-control" readonly style="background:var(--bg); font-weight:bold;">
+        </div>
+        <div class="form-group">
+          <label>実際の振込・支給額 (円)</label>
+          <input type="text" id="override-amount" class="form-control calc-input" placeholder="空欄でシフト計算値に戻す" readonly>
+          <div style="font-size:10px; color:var(--muted); margin-top:3px;">※ 入力すると統計やサマリーもこの金額で計算されます。</div>
+        </div>
+        <div style="display:flex; gap:6px; margin-top:10px;">
+          <button type="submit" class="btn" style="flex:1;">確定保存</button>
+          <button type="button" class="btn btn-outline" id="clear-override-btn">計算値に戻す</button>
+        </div>
+      </form>
+    </div>
+  </div>
+
+  <!-- ⌨️ 専用電卓キーボード -->
+  <div class="calc-keyboard-drawer" id="calc-keyboard-drawer">
+    <div class="calc-keyboard-header">
+      <span>🔢 計算・入力キーボード</span>
+      <button type="button" class="btn btn-sm btn-good" id="calc-done-btn">完了</button>
+    </div>
+    <div class="calc-keyboard-display" id="calc-display-val">0</div>
+    <div class="calc-keyboard-grid">
+      <button type="button" class="calc-btn clear" data-val="AC">AC</button>
+      <button type="button" class="calc-btn op" data-val="⌫">⌫</button>
+      <button type="button" class="calc-btn op" data-val="/">÷</button>
+      <button type="button" class="calc-btn op" data-val="*">×</button>
+
+      <button type="button" class="calc-btn" data-val="7">7</button>
+      <button type="button" class="calc-btn" data-val="8">8</button>
+      <button type="button" class="calc-btn" data-val="9">9</button>
+      <button type="button" class="calc-btn op" data-val="-">-</button>
+
+      <button type="button" class="calc-btn" data-val="4">4</button>
+      <button type="button" class="calc-btn" data-val="5">5</button>
+      <button type="button" class="calc-btn" data-val="6">6</button>
+      <button type="button" class="calc-btn op" data-val="+">+</button>
+
+      <button type="button" class="calc-btn" data-val="1">1</button>
+      <button type="button" class="calc-btn" data-val="2">2</button>
+      <button type="button" class="calc-btn" data-val="3">3</button>
+      <button type="button" class="calc-btn" data-val=".">.</button>
+
+      <button type="button" class="calc-btn" data-val="0">0</button>
+      <button type="button" class="calc-btn" data-val="00">00</button>
+      <button type="button" class="calc-btn action" style="grid-column: span 2;" id="calc-enter-btn">確定</button>
+    </div>
+  </div>
+
+  <script>
+    const DEFAULT_DB = {
+      jobs: [
+        {
+          id: 1,
+          name: "ベストテン",
+          hourlyWage: 1250,
+          nightWage: 1562,
+          transport: 0,
+          type: "monthly",
+          cutoffDay: 31,
+          payMonthOffset: 1,
+          payDay: 15,
+          holidayAdjust: "before",
+          color: "#f97316"
+        },
+        {
+          id: 2,
+          name: "海ふね",
+          hourlyWage: 1300,
+          nightWage: 1625,
+          transport: 0,
+          type: "monthly",
+          cutoffDay: 31,
+          payMonthOffset: 1,
+          payDay: 15,
+          holidayAdjust: "after",
+          color: "#6366f1"
+        },
+        {
+          id: 3,
+          name: "協栄",
+          hourlyWage: 1250,
+          nightWage: 1562,
+          transport: 2068,
+          type: "multi_period",
+          color: "#0ea5e9",
+          periods: [
+            {
+              id: 1786779126658,
+              label: "前半払い(1〜15日)",
+              startDay: 1,
+              startMonthOffset: 0,
+              endDay: 15,
+              endMonthOffset: 0,
+              payMonthOffset: 0,
+              payDay: "end",
+              holidayAdjust: "before"
+            },
+            {
+              id: 1786779126659,
+              label: "後半払い(16〜末日)",
+              startDay: 16,
+              startMonthOffset: 0,
+              endDay: "end",
+              endMonthOffset: 0,
+              payMonthOffset: 1,
+              payDay: 15,
+              holidayAdjust: "before"
+            }
+          ]
+        }
+      ],
+      pins: [],
+      shifts: [],
+      expenses: [],
+      otherIncomes: [],
+      fixedExpenses: [],
+      actualPay: {},
+      baseAsset: 119661,
+      baseAssetDate: "2026-08-07",
+      budgets: { monthly: 50000, savingsGoal: 0 },
+      wallTarget: 1780000,
+      creditCompanies: ["ビューカード", "セゾンカード", "楽天カード", "三井住友カード"],
+      reminder: { enabled: false, time: "21:00" },
+      settings: { 
+        theme: "light",
+        selectedStatsCategories: ["食費", "交通費", "クレカ", "貯金", "その他", "日用品", "交際費", "趣味", "固定費"]
+      }
+    };
+
+    let DB = JSON.parse(localStorage.getItem("SHIFT_PRO_DB")) || DEFAULT_DB;
+    if (!DB.jobs || DB.jobs.length === 0) DB.jobs = DEFAULT_DB.jobs;
+    if (!DB.actualPay) DB.actualPay = {};
+    if (!DB.settings) DB.settings = DEFAULT_DB.settings;
+    if (!DB.settings.selectedStatsCategories) {
+      DB.settings.selectedStatsCategories = DEFAULT_DB.settings.selectedStatsCategories;
+    }
+
+    function saveDB() {
+      localStorage.setItem("SHIFT_PRO_DB", JSON.stringify(DB));
+    }
+
+    let undoStack = [];
+    function pushUndoState() {
+      undoStack.push({ dbState: JSON.stringify(DB) });
+      if (undoStack.length > 5) undoStack.shift();
+    }
+
+    function getLocalDateString(d) {
+      const y = d.getFullYear();
+      const m = String(d.getMonth() + 1).padStart(2, '0');
+      const day = String(d.getDate()).padStart(2, '0');
+      return `${y}-${m}-${day}`;
+    }
+
+    function formatCalBadgeAmount(amt, isPlus) {
+      const sign = isPlus ? "+" : "-";
+      if (amt >= 10000) {
+        const val = amt / 10000;
+        const formatted = val % 1 === 0 ? val.toFixed(0) : val.toFixed(1);
+        return `${sign}${formatted}万`;
+      }
+      return `${sign}${amt.toLocaleString()}`;
+    }
+
+    function evaluateMath(expr) {
+      if (typeof expr === 'number') return isNaN(expr) ? null : expr;
+      if (!expr && expr !== 0) return 0;
+      const str = String(expr).trim();
+      if (str === "") return 0;
+
+      if (/[^0-9+\-*/().]/.test(str)) return null;
+
+      try {
+        const result = Function(`"use strict"; return (${str})`)();
+        if (typeof result !== 'number' || isNaN(result) || !isFinite(result)) return null;
+        return Math.max(0, Math.round(result));
+      } catch (e) {
+        return null;
+      }
+    }
+
+    function isJapaneseHoliday(year, month, day) {
+      if (month === 1 && day === 1) return true;
+      if (month === 2 && day === 11) return true;
+      if (month === 2 && day === 23) return true;
+      if (month === 4 && day === 29) return true;
+      if (month === 5 && day === 3) return true;
+      if (month === 5 && day === 4) return true;
+      if (month === 5 && day === 5) return true;
+      if (month === 8 && day === 11) return true;
+      if (month === 11 && day === 3) return true;
+      if (month === 11 && day === 23) return true;
+
+      const dayOfWeek = new Date(year, month - 1, day).getDay();
+      const nthWeek = Math.ceil(day / 7);
+      if (dayOfWeek === 1) {
+        if (month === 1 && nthWeek === 2) return true;
+        if (month === 7 && nthWeek === 3) return true;
+        if (month === 9 && nthWeek === 3) return true;
+        if (month === 10 && nthWeek === 2) return true;
+      }
+
+      if (month === 3) {
+        const Shunbun = Math.floor(20.8431 + 0.242194 * (year - 1980) - Math.floor((year - 1980) / 4));
+        if (day === Shunbun) return true;
+      }
+      if (month === 9) {
+        const Shubun = Math.floor(23.2488 + 0.242194 * (year - 1980) - Math.floor((year - 1980) / 4));
+        if (day === Shubun) return true;
+      }
+
+      const yesterday = new Date(year, month - 1, day - 1);
+      if (yesterday.getDay() === 0 && isJapaneseHoliday(yesterday.getFullYear(), yesterday.getMonth() + 1, yesterday.getDate())) {
+        return true;
+      }
+
+      return false;
+    }
+
+    function adjustPayDate(year, month, day, adjustType) {
+      let dt = new Date(year, month - 1, day);
+      if (adjustType === "none") return dt;
+      while (dt.getDay() === 0 || dt.getDay() === 6) {
+        if (adjustType === "before") dt.setDate(dt.getDate() - 1);
+        else if (adjustType === "after") dt.setDate(dt.getDate() + 1);
+      }
+      return dt;
+    }
+
+    function calculateShiftPay(shift) {
+      const job = DB.jobs.find(j => String(j.id) === String(shift.jobId));
+      if (!job) return { totalPay: 0, dayMins: 0, nightMins: 0, transport: 0, totalHours: 0 };
+
+      const [sH, sM] = shift.startTime.split(":").map(Number);
+      let [eH, eM] = shift.endTime.split(":").map(Number);
+
+      const isKyoei = (job.name && job.name.includes("協栄")) || (job.customRules && job.customRules.includes("kyoei_15m_min5h"));
+      if (isKyoei && eM % 15 !== 0) {
+        eM = Math.ceil(eM / 15) * 15;
+        if (eM === 60) { eM = 0; eH += 1; }
+      }
+
+      let startMins = sH * 60 + sM;
+      let endMins = eH * 60 + eM;
+      if (endMins <= startMins) endMins += 24 * 60;
+
+      let grossMins = endMins - startMins;
+      const breakMin = Number(shift.breakMin) || 0;
+      let netMins = grossMins - breakMin;
+
+      if (isKyoei && netMins < 300) {
+        netMins = 300;
+      }
+      if (netMins <= 0) return { totalPay: 0, dayMins: 0, nightMins: 0, transport: 0, totalHours: 0 };
+
+      const nightStart = 22 * 60;
+      const nightEnd = 29 * 60;
+      let nightGross = 0;
+      const overlapStart = Math.max(startMins, nightStart);
+      const overlapEnd = Math.min(endMins, nightEnd);
+      if (overlapEnd > overlapStart) {
+        nightGross = overlapEnd - overlapStart;
+      }
+
+      const breakRatio = (grossMins > 0) ? (breakMin / grossMins) : 0;
+      const realNightMins = Math.max(0, nightGross * (1 - breakRatio));
+      const realDayMins = Math.max(0, netMins - realNightMins);
+
+      const hourlyWage = Number(job.hourlyWage) || 0;
+      const nightWage = job.nightWage ? Number(job.nightWage) : Math.floor(hourlyWage * 1.25);
+
+      const dayPay = Math.floor(realDayMins * (hourlyWage / 60));
+      const nightPay = Math.floor(realNightMins * (nightWage / 60));
+
+      const evalTrans = evaluateMath(shift.transport);
+      const transport = (evalTrans !== null) ? evalTrans : (Number(job.transport) || 0);
+
+      return {
+        totalPay: dayPay + nightPay + transport,
+        dayMins: realDayMins,
+        nightMins: realNightMins,
+        transport,
+        totalHours: netMins / 60
+      };
+    }
+
+    function calculateTotalAssetOnDate(targetDateStr) {
+      const baseDate = DB.baseAssetDate || "2026-08-07";
+      const baseAsset = Number(DB.baseAsset) || 0;
+
+      if (targetDateStr === baseDate) {
+        return baseAsset;
+      } else if (targetDateStr > baseDate) {
+        let shiftsPay = DB.shifts.filter(s => s.date > baseDate && s.date <= targetDateStr)
+                          .reduce((acc, s) => acc + calculateShiftPay(s).totalPay, 0);
+        let otherInc = DB.otherIncomes.filter(inc => inc.date > baseDate && inc.date <= targetDateStr)
+                          .reduce((acc, inc) => acc + inc.amount, 0);
+        let exp = DB.expenses.filter(e => e.date > baseDate && e.date <= targetDateStr)
+                    .reduce((acc, e) => acc + e.amount, 0);
+        return baseAsset + shiftsPay + otherInc - exp;
+      } else {
+        let shiftsPay = DB.shifts.filter(s => s.date > targetDateStr && s.date <= baseDate)
+                          .reduce((acc, s) => acc + calculateShiftPay(s).totalPay, 0);
+        let otherInc = DB.otherIncomes.filter(inc => inc.date > targetDateStr && inc.date <= baseDate)
+                          .reduce((acc, inc) => acc + inc.amount, 0);
+        let exp = DB.expenses.filter(e => e.date > targetDateStr && e.date <= baseDate)
+                    .reduce((acc, e) => acc + e.amount, 0);
+        return baseAsset - shiftsPay - otherInc + exp;
+      }
+    }
+
+    function addMonthOffset(targetMonthStr, offset) {
+      const [y, m] = targetMonthStr.split("-").map(Number);
+      let newM = m + offset;
+      let newY = y;
+      while (newM > 12) { newM -= 12; newY += 1; }
+      while (newM < 1) { newM += 12; newY -= 1; }
+      return { year: newY, month: newM };
+    }
+
+    function resolveDateStr(year, month, dayOrEnd) {
+      let day;
+      if (dayOrEnd === 'end' || dayOrEnd === null || dayOrEnd === undefined || dayOrEnd === '') {
+        day = new Date(year, month, 0).getDate();
+      } else {
+        day = Math.min(Number(dayOrEnd), new Date(year, month, 0).getDate());
+      }
+      return `${year}-${String(month).padStart(2, '0')}-${String(day).padStart(2, '0')}`;
+    }
+
+    function getJobPeriodIncomeList(job, targetMonthStr) {
+      const [year, month] = targetMonthStr.split("-").map(Number);
+
+      if (job.type === "multi_period" && Array.isArray(job.periods) && job.periods.length > 0) {
+        return job.periods.map(period => {
+          const startYM = addMonthOffset(targetMonthStr, Number(period.startMonthOffset) || 0);
+          const endYM = addMonthOffset(targetMonthStr, Number(period.endMonthOffset) || 0);
+          const startDateStr = resolveDateStr(startYM.year, startYM.month, period.startDay);
+          const endDateStr = resolveDateStr(endYM.year, endYM.month, period.endDay);
+
+          const periodShifts = DB.shifts.filter(s => String(s.jobId) === String(job.id) && s.date >= startDateStr && s.date <= endDateStr);
+          const calcIncome = periodShifts.reduce((acc, s) => acc + calculateShiftPay(s).totalPay, 0);
+
+          const payYM = addMonthOffset(targetMonthStr, Number(period.payMonthOffset) || 0);
+          let payDay = period.payDay;
+          if (payDay === 'end') {
+            payDay = new Date(payYM.year, payYM.month, 0).getDate();
+          } else {
+            payDay = Number(payDay) || 1;
+          }
+          const adjustedPayDate = adjustPayDate(payYM.year, payYM.month, payDay, period.holidayAdjust || "before");
+
+          const key = `${job.id}_${targetMonthStr}_${period.id}`;
+          const income = (DB.actualPay && DB.actualPay[key] !== undefined) ? DB.actualPay[key] : calcIncome;
+
+          return {
+            jobId: job.id,
+            key,
+            name: `${job.name} (${period.label || '支給'})`,
+            labelPeriod: `${startDateStr.slice(5)} 〜 ${endDateStr.slice(5)}`,
+            income,
+            calcIncome,
+            isActual: (DB.actualPay && DB.actualPay[key] !== undefined),
+            payDateStr: getLocalDateString(adjustedPayDate)
+          };
+        });
+      } else if (job.type === "kyoei_double") {
+        const prevM1 = month - 1 === 0 ? 12 : month - 1;
+        const prevY1 = month - 1 === 0 ? year - 1 : year;
+        const start1 = `${prevY1}-${String(prevM1).padStart(2, '0')}-16`;
+        const end1 = `${targetMonthStr}-15`;
+        const shifts1 = DB.shifts.filter(s => String(s.jobId) === String(job.id) && s.date >= start1 && s.date <= end1);
+        const calc1 = shifts1.reduce((acc, s) => acc + calculateShiftPay(s).totalPay, 0);
+        const payDate1 = adjustPayDate(year, month, 25, "before");
+        const key1 = `${job.id}_${targetMonthStr}_1`;
+        const inc1 = (DB.actualPay && DB.actualPay[key1] !== undefined) ? DB.actualPay[key1] : calc1;
+
+        const prevM2 = month - 1 === 0 ? 12 : month - 1;
+        const prevY2 = month - 1 === 0 ? year - 1 : year;
+        const start2 = `${prevY2}-${String(prevM2).padStart(2, '0')}-06`;
+        const end2 = `${targetMonthStr}-05`;
+        const shifts2 = DB.shifts.filter(s => String(s.jobId) === String(job.id) && s.date >= start2 && s.date <= end2);
+        const calc2 = shifts2.reduce((acc, s) => acc + calculateShiftPay(s).totalPay, 0);
+        const payDate2 = adjustPayDate(year, month, 15, "before");
+        const key2 = `${job.id}_${targetMonthStr}_2`;
+        const inc2 = (DB.actualPay && DB.actualPay[key2] !== undefined) ? DB.actualPay[key2] : calc2;
+
+        return [
+          { jobId: job.id, key: key1, name: `${job.name} (15日締め25日払)`, labelPeriod: `${start1.slice(5)} 〜 ${end1.slice(5)}`, income: inc1, calcIncome: calc1, isActual: (DB.actualPay && DB.actualPay[key1] !== undefined), payDateStr: getLocalDateString(payDate1) },
+          { jobId: job.id, key: key2, name: `${job.name} (5日締め15日払)`, labelPeriod: `${start2.slice(5)} 〜 ${end2.slice(5)}`, income: inc2, calcIncome: calc2, isActual: (DB.actualPay && DB.actualPay[key2] !== undefined), payDateStr: getLocalDateString(payDate2) }
+        ];
+      } else {
+        const cutoff = Number(job.cutoffDay || 31);
+        let startDateStr = "", endDateStr = "";
+        if (cutoff === 31) {
+          const lastDay = new Date(year, month, 0).getDate();
+          startDateStr = `${targetMonthStr}-01`;
+          endDateStr = `${targetMonthStr}-${String(lastDay).padStart(2, '0')}`;
+        } else {
+          let pY = year, pM = month - 1;
+          if (pM === 0) { pM = 12; pY -= 1; }
+          startDateStr = `${pY}-${String(pM).padStart(2, '0')}-${String(cutoff + 1).padStart(2, '0')}`;
+          endDateStr = `${targetMonthStr}-${String(cutoff).padStart(2, '0')}`;
+        }
+        const jobShifts = DB.shifts.filter(s => String(s.jobId) === String(job.id) && s.date >= startDateStr && s.date <= endDateStr);
+        const calcIncome = jobShifts.reduce((acc, s) => acc + calculateShiftPay(s).totalPay, 0);
+        let payM = month + Number(job.payMonthOffset || 0);
+        let payY = year;
+        if (payM > 12) { payM -= 12; payY += 1; }
+        let payD = Number(job.payDay || 15);
+        if (payD === 31) payD = new Date(payY, payM, 0).getDate();
+        const adjustedPayDate = adjustPayDate(payY, payM, payD, job.holidayAdjust || "before");
+
+        const key = `${job.id}_${targetMonthStr}`;
+        const income = (DB.actualPay && DB.actualPay[key] !== undefined) ? DB.actualPay[key] : calcIncome;
+
+        return [{ jobId: job.id, key, name: job.name, labelPeriod: `${startDateStr.slice(5)} 〜 ${endDateStr.slice(5)}`, income, calcIncome, isActual: (DB.actualPay && DB.actualPay[key] !== undefined), payDateStr: getLocalDateString(adjustedPayDate) }];
+      }
+    }
+
+    let currentDate = new Date();
+    let payrollDate = new Date();
+    let statsDate = new Date();
+    let multiSelectMode = false;
+    let selectedDates = new Set();
+    let historyLimit = 10;
+    let quickMode = false;
+    let quickTemplateId = null;
+    let selectedShortcutKey = null;
+    let currentGachaVal = null;
+    let activeCalcInput = null;
+
+    const TABS_ORDER = ["home", "payroll", "stats", "settings"];
+
+    function renderAll() {
+      applyTheme();
+      renderInfoBanner();
+      renderHeaderAsset();
+      renderCalendar();
+      renderSummaryAndPayroll();
+      renderHistory();
+      renderCreditCardList();
+      renderStatsTab();
+      renderSettingsTab();
+      renderPinSelects();
+      runTaxDiagnosis();
+    }
+
+    function applyTheme() {
+      document.documentElement.setAttribute("data-theme", DB.settings.theme);
+      const themeBtn = document.getElementById("theme-toggle-btn");
+      if (themeBtn) themeBtn.textContent = DB.settings.theme === "dark" ? "☀️" : "🌙";
+    }
+
+    function renderInfoBanner() {
+      const banner = document.getElementById("info-banner-card");
+      if (!banner) return;
+      const todayStr = getLocalDateString(new Date());
+      const tomorrowObj = new Date();
+      tomorrowObj.setDate(tomorrowObj.getDate() + 1);
+      const tomorrowStr = getLocalDateString(tomorrowObj);
+
+      const todayShifts = DB.shifts.filter(s => s.date === todayStr);
+      const tomorrowShifts = DB.shifts.filter(s => s.date === tomorrowStr);
+
+      const formatShift = s => {
+        const job = DB.jobs.find(j => String(j.id) === String(s.jobId));
+        return `<span>${job ? job.name : ''} ${s.startTime}〜${s.endTime}</span>`;
+      };
+
+      let nextPay = null;
+      const monthStr = `${currentDate.getFullYear()}-${String(currentDate.getMonth() + 1).padStart(2, '0')}`;
+      DB.jobs.forEach(job => {
+        getJobPeriodIncomeList(job, monthStr).forEach(p => {
+          if (p.payDateStr >= todayStr) {
+            if (!nextPay || p.payDateStr < nextPay.payDateStr) nextPay = p;
+          }
+        });
+      });
+
+      banner.innerHTML = `
+        <div class="info-banner-row">
+          <div class="info-banner-lbl">📅 本日のシフト</div>
+          <div class="info-banner-val">${todayShifts.length ? todayShifts.map(formatShift).join("<br>") : '<span class="info-empty">予定なし</span>'}</div>
+        </div>
+        <div class="info-banner-row">
+          <div class="info-banner-lbl">📅 明日のシフト</div>
+          <div class="info-banner-val">${tomorrowShifts.length ? tomorrowShifts.map(formatShift).join("<br>") : '<span class="info-empty">予定なし</span>'}</div>
+        </div>
+        ${nextPay ? `
+        <div class="info-banner-row">
+          <div class="info-banner-lbl">💴 次回給料日</div>
+          <div class="info-banner-val">${nextPay.payDateStr} ${nextPay.name} (¥${nextPay.income.toLocaleString()})</div>
+        </div>` : ''}
+      `;
+
+      const todayExp = DB.expenses.filter(e => e.date === todayStr).length;
+      const alertCard = document.getElementById("reminder-alert-card");
+      if (alertCard) alertCard.style.display = (todayExp === 0 && DB.reminder.enabled) ? "flex" : "none";
+    }
+
+    function renderHeaderAsset() {
+      const todayStr = getLocalDateString(new Date());
+      const assetVal = calculateTotalAssetOnDate(todayStr);
+      document.getElementById("header-base-asset").textContent = `¥${assetVal.toLocaleString()}`;
+      document.getElementById("total-asset-val").textContent = `¥${assetVal.toLocaleString()}`;
+    }
+
+    function renderCalendar() {
+      const year = currentDate.getFullYear();
+      const month = currentDate.getMonth();
+      const monthStr = `${year}-${String(month + 1).padStart(2, "0")}`;
+
+      const picker = document.getElementById("calendar-month-picker");
+      if (picker) picker.value = monthStr;
+
+      const container = document.getElementById("calendar-days-container");
+      if (!container) return;
+      container.innerHTML = "";
+
+      const firstDayObj = new Date(year, month, 1);
+      const firstDayOfWeek = firstDayObj.getDay();
+      const lastDate = new Date(year, month + 1, 0).getDate();
+
+      let paydayMap = {};
+      DB.jobs.forEach(job => {
+        for(let offset = -3; offset <= 3; offset++) {
+          const mObj = new Date(year, month + offset, 1);
+          const mStr = `${mObj.getFullYear()}-${String(mObj.getMonth() + 1).padStart(2, "0")}`;
+          getJobPeriodIncomeList(job, mStr).forEach(p => {
+            if (p.payDateStr && p.income > 0) {
+              paydayMap[p.payDateStr] = true;
+            }
+          });
+        }
+      });
+
+      const startDate = new Date(year, month, 1 - firstDayOfWeek);
+      const totalCells = Math.ceil((firstDayOfWeek + lastDate) / 7) * 7;
+      const calendarDates = [];
+      for (let i = 0; i < totalCells; i++) {
+        const d = new Date(startDate);
+        d.setDate(startDate.getDate() + i);
+        calendarDates.push(d);
+      }
+
+      const todayStr = getLocalDateString(new Date());
+
+      for (let i = 0; i < calendarDates.length; i += 7) {
+        const weekDates = calendarDates.slice(i, i + 7);
+        let weekInc = 0, weekExp = 0;
+
+        weekDates.forEach(dt => {
+          const dateStr = getLocalDateString(dt);
+          const isCurrentMonth = dt.getMonth() === month;
+
+          const cell = document.createElement("div");
+          cell.className = "day-cell";
+          if (!isCurrentMonth) cell.classList.add("other-month");
+          if (dateStr === todayStr) cell.classList.add("today");
+          if (selectedDates.has(dateStr)) cell.classList.add("selected");
+
+          const dayOfWeek = dt.getDay();
+          const holiday = isJapaneseHoliday(dt.getFullYear(), dt.getMonth() + 1, dt.getDate());
+
+          let dayClass = "";
+          if (dayOfWeek === 0 || holiday) {
+            dayClass = "sunday";
+          } else if (dayOfWeek === 6) {
+            dayClass = "saturday";
+          }
+
+          let dayIncTotal = 0;
+          let badgesHtml = '<div class="cal-badge-container">';
+
+          const prevDateObj = new Date(dt);
+          prevDateObj.setDate(dt.getDate() - 1);
+          const prevDateStr = getLocalDateString(prevDateObj);
+          const prevShifts = DB.shifts.filter(s => s.date === prevDateStr);
+          prevShifts.forEach(s => {
+            const [sH, sM] = s.startTime.split(":").map(Number);
+            let [eH, eM] = s.endTime.split(":").map(Number);
+            let startMins = sH * 60 + sM;
+            let endMins = eH * 60 + eM;
+            if (endMins <= startMins) endMins += 24 * 60;
+            if (endMins > 24 * 60) {
+              const endH = Math.floor((endMins - 24 * 60) / 60);
+              const endM = (endMins - 24 * 60) % 60;
+              badgesHtml += `<div class="cal-badge overnight">🌙 〜${String(endH).padStart(2,'0')}:${String(endM).padStart(2,'0')}</div>`;
+            }
+          });
+
+          const dayShifts = DB.shifts.filter(s => s.date === dateStr);
+          dayShifts.forEach(s => {
+            const job = DB.jobs.find(j => String(j.id) === String(s.jobId));
+            const pay = calculateShiftPay(s).totalPay;
+            dayIncTotal += pay;
+            const jobColor = job ? job.color : 'var(--good)';
+            badgesHtml += `<div class="cal-badge shift-pay" style="border-left-color:${jobColor}; border-color:${jobColor}44; border-left-color:${jobColor};">${formatCalBadgeAmount(pay, true)}</div>`;
+          });
+
+          const dayIncomes = DB.otherIncomes.filter(inc => inc.date === dateStr);
+          const otherIncSum = dayIncomes.reduce((acc, inc) => acc + inc.amount, 0);
+          dayIncTotal += otherIncSum;
+          if (otherIncSum > 0) badgesHtml += `<div class="cal-badge other-income">${formatCalBadgeAmount(otherIncSum, true)}</div>`;
+
+          const dayExpenses = DB.expenses.filter(e => e.date === dateStr);
+          const dayExpSum = dayExpenses.reduce((acc, e) => acc + e.amount, 0);
+          if (dayExpSum > 0) badgesHtml += `<div class="cal-badge expense">${formatCalBadgeAmount(dayExpSum, false)}</div>`;
+
+          badgesHtml += '</div>';
+
+          weekInc += dayIncTotal;
+          weekExp += dayExpSum;
+
+          // 💴 給料日マークを1行で日付の横に表示
+          const paydayLabel = paydayMap[dateStr] ? `<span style="font-size:7.5px; color:#8b5cf6; font-weight:bold; white-space:nowrap; margin-left:1px; flex-shrink:0;">💴給料</span>` : '';
+
+          cell.innerHTML = `
+            <div class="day-number ${dayClass}">
+              <div class="day-number-left">
+                <span>${dt.getDate()}</span>
+                ${paydayLabel}
+              </div>
+              <div>${selectedDates.has(dateStr) ? '☑' : ''}</div>
+            </div>
+            ${badgesHtml}
+          `;
+
+          cell.addEventListener("click", () => {
+            if (multiSelectMode) {
+              if (selectedDates.has(dateStr)) selectedDates.delete(dateStr);
+              else selectedDates.add(dateStr);
+              document.getElementById("selected-count").textContent = selectedDates.size;
+              renderCalendar();
+            } else if (quickMode && quickTemplateId) {
+              applyQuickTemplateToDate(dateStr);
+            } else {
+              handleDateCellClick(dateStr);
+            }
+          });
+
+          container.appendChild(cell);
+        });
+
+        const sumRow = document.createElement("div");
+        sumRow.className = "cal-week-summary";
+        sumRow.innerHTML = `週合計 <b style="color:var(--good)">+¥${weekInc.toLocaleString()}</b> <b style="color:var(--danger)">-¥${weekExp.toLocaleString()}</b>`;
+        container.appendChild(sumRow);
+      }
+    }
+
+    function handleDateCellClick(dateStr) {
+      const todayStr = getLocalDateString(new Date());
+
+      if (dateStr <= todayStr) {
+        openEntryModal(dateStr, "expense");
+      } else {
+        const dayShifts = DB.shifts.filter(s => s.date === dateStr);
+        if (dayShifts.length > 0) {
+          const targetShift = dayShifts[dayShifts.length - 1];
+          openEditModalById("shift", targetShift.id);
+        } else {
+          openEntryModal(dateStr, "shift");
+        }
+      }
+    }
+
+    window.openOverrideModal = function(key, name, currentActual, currentCalc) {
+      document.getElementById("override-pay-key").value = key;
+      document.getElementById("override-pay-name").value = name;
+      const amountInput = document.getElementById("override-amount");
+      amountInput.value = currentActual ? currentActual : "";
+      openModalWithLock("override-pay-modal");
+    };
+
+    function renderSummaryAndPayroll() {
+      const year = payrollDate.getFullYear();
+      const monthStr = `${year}-${String(payrollDate.getMonth() + 1).padStart(2, "0")}`;
+
+      const lbl = document.getElementById("payroll-month-label");
+      if (lbl) lbl.textContent = `${year}年${payrollDate.getMonth() + 1}月`;
+
+      let monthIncTotal = 0;
+      let jobPayHtml = "";
+
+      DB.jobs.forEach(job => {
+        const periods = getJobPeriodIncomeList(job, monthStr);
+        periods.forEach(p => {
+          monthIncTotal += p.income;
+          // 確定なら緑、見込みならグレーで金額を表示
+          const payColorStyle = p.isActual ? "color:var(--good);" : "color:var(--muted);";
+
+          jobPayHtml += `
+            <div class="credit-card-box" style="border-left-color:${job.color || 'var(--brand)'};">
+              <div style="display:flex; justify-content:space-between; align-items:center;">
+                <div>
+                  <strong>${p.name}</strong>
+                  ${p.isActual ? '<span class="badge" style="background:var(--good); margin-left:4px;">確定</span>' : '<span class="badge" style="background:var(--muted); margin-left:4px;">見込み</span>'}
+                </div>
+                <div style="text-align:right;">
+                  <span style="font-size:14px; font-weight:bold; ${payColorStyle}">¥${p.income.toLocaleString()}</span>
+                </div>
+              </div>
+              <div style="display:flex; justify-content:space-between; align-items:center; margin-top:4px; font-size:10px; color:var(--muted);">
+                <div>集計: ${p.labelPeriod} | 給与日: <strong>${p.payDateStr}</strong></div>
+                <button class="btn btn-outline btn-sm" style="padding:2px 5px;" onclick="openOverrideModal('${p.key}', '${p.name}', ${p.isActual ? p.income : "null"}, ${p.calcIncome})">
+                  ${p.isActual ? '✏️ 実額修正' : '✏️ 実際の振込額を入力'}
+                </button>
+              </div>
+              ${p.isActual ? `<div style="font-size:9.5px; color:var(--muted); margin-top:2px;">(シフト計算値: ¥${p.calcIncome.toLocaleString()})</div>` : ''}
+            </div>`;
+        });
+      });
+
+      const otherIncTotal = DB.otherIncomes.filter(i => i.date.startsWith(monthStr)).reduce((acc, i) => acc + i.amount, 0);
+      monthIncTotal += otherIncTotal;
+
+      const expTotal = DB.expenses.filter(e => e.date.startsWith(monthStr)).reduce((acc, e) => acc + e.amount, 0);
+      const balance = monthIncTotal - expTotal;
+
+      document.getElementById("sum-income").textContent = `¥${monthIncTotal.toLocaleString()}`;
+      document.getElementById("sum-expense").textContent = `¥${expTotal.toLocaleString()}`;
+      document.getElementById("sum-balance").textContent = `¥${balance.toLocaleString()}`;
+
+      const now = new Date();
+      let remainDays = 1;
+      if (now.getFullYear() === year && now.getMonth() === payrollDate.getMonth()) {
+        const daysInMonth = new Date(year, payrollDate.getMonth() + 1, 0).getDate();
+        remainDays = Math.max(1, daysInMonth - now.getDate() + 1);
+      } else if (now < payrollDate) {
+        remainDays = new Date(year, payrollDate.getMonth() + 1, 0).getDate();
+      }
+      
+      const dailyBudget = balance > 0 ? Math.floor(balance / remainDays) : 0;
+      document.getElementById("daily-budget-text").textContent = `残 ${remainDays}日：1日あたり 約 ¥${dailyBudget.toLocaleString()}`;
+
+      document.getElementById("job-pay-details-list").innerHTML = jobPayHtml || '<div style="font-size:11px; color:var(--muted); text-align:center; padding:6px;">登録されている勤務先がありません</div>';
+
+      const currentYear = currentDate.getFullYear();
+      let yearTotal = 0;
+      for (let m = 1; m <= 12; m++) {
+        const mStr = `${currentYear}-${String(m).padStart(2, "0")}`;
+        DB.jobs.forEach(j => getJobPeriodIncomeList(j, mStr).forEach(p => yearTotal += p.income));
+        yearTotal += DB.otherIncomes.filter(i => i.date.startsWith(mStr)).reduce((acc, i) => acc + i.amount, 0);
+      }
+
+      document.getElementById("year-income-total").textContent = `累計 ¥${yearTotal.toLocaleString()}`;
+      const targetWall = DB.wallTarget || 1780000;
+      const wallPct = Math.min(100, Math.round((yearTotal / targetWall) * 100));
+
+      const wallBar = document.getElementById("wall-progress-bar");
+      if (wallBar) {
+        wallBar.style.width = `${wallPct}%`;
+        wallBar.style.background = wallPct >= 100 ? "var(--danger)" : "var(--good)";
+      }
+      document.getElementById("wall-target-badge").textContent = `${(targetWall / 10000).toLocaleString()}万円の壁`;
+      const remainWall = targetWall - yearTotal;
+      document.getElementById("wall-sub-text").textContent = remainWall > 0 ? `壁まで あと ¥${remainWall.toLocaleString()}` : `⚠️ 年収の壁を超えています！ (+¥${Math.abs(remainWall).toLocaleString()})`;
+
+      const summaryList = document.getElementById("yearly-summary-list");
+      if (summaryList) {
+        let html = "";
+        for (let m = 1; m <= 12; m++) {
+          const mStr = `${currentYear}-${String(m).padStart(2, "0")}`;
+          let inc = 0;
+          DB.jobs.forEach(j => getJobPeriodIncomeList(j, mStr).forEach(p => inc += p.income));
+          inc += DB.otherIncomes.filter(i => i.date.startsWith(mStr)).reduce((acc, i) => acc + i.amount, 0);
+          const exp = DB.expenses.filter(e => e.date.startsWith(mStr)).reduce((acc, e) => acc + e.amount, 0);
+          const bal = inc - exp;
+          html += `
+            <div class="list-item">
+              <div class="list-item-left">
+                <strong>${m}月</strong>
+              </div>
+              <div class="list-item-right">
+                <span style="color:var(--good); font-size:10px;">+¥${inc.toLocaleString()}</span>
+                <span style="color:var(--danger); font-size:10px;">-¥${exp.toLocaleString()}</span>
+                <span style="font-weight:bold; font-size:11px; color:${bal >= 0 ? 'var(--good)' : 'var(--danger)'}; margin-left:4px; width:45px; text-align:right;">¥${bal.toLocaleString()}</span>
+              </div>
+            </div>`;
+        }
+        summaryList.innerHTML = html;
+      }
+    }
+
+    function renderHistory() {
+      const container = document.getElementById("recent-history-list");
+      if (!container) return;
+
+      const monthStr = `${currentDate.getFullYear()}-${String(currentDate.getMonth() + 1).padStart(2, "0")}`;
+      const query = (document.getElementById("history-search-input").value || "").trim().toLowerCase();
+      const filter = document.getElementById("history-filter-select").value;
+
+      let items = [];
+      DB.shifts.filter(s => s.date.startsWith(monthStr)).forEach(s => {
+        const job = DB.jobs.find(j => String(j.id) === String(s.jobId));
+        const pay = calculateShiftPay(s).totalPay;
+        items.push({ id: s.id, type: "shift", date: s.date, title: `${job ? job.name : 'シフト'} (${s.startTime}~${s.endTime})`, amount: pay, color: job ? job.color : 'var(--brand)' });
+      });
+      DB.otherIncomes.filter(i => i.date.startsWith(monthStr)).forEach(i => {
+        const displayTitle = (i.memo && i.memo !== i.category) ? `[${i.category}] ${i.memo}` : `[${i.category}]`;
+        items.push({ id: i.id, type: "income", date: i.date, title: displayTitle, amount: i.amount, color: 'var(--good)' });
+      });
+      DB.expenses.filter(e => e.date.startsWith(monthStr)).forEach(e => {
+        const displayTitle = (e.memo && e.memo !== e.category) ? `[${e.category}] ${e.memo}` : `[${e.category}]`;
+        items.push({ id: e.id, type: "expense", date: e.date, title: displayTitle, amount: -e.amount, color: 'var(--danger)' });
+      });
+
+      items.sort((a, b) => {
+        if (a.date !== b.date) {
+          return b.date.localeCompare(a.date);
+        }
+        return b.id - a.id;
+      });
+
+      if (filter !== "all") items = items.filter(i => i.type === filter);
+      if (query) items = items.filter(i => i.title.toLowerCase().includes(query));
+
+      const sliced = items.slice(0, historyLimit);
+      
+      const loadMoreBtn = document.getElementById("load-more-history-btn");
+      if (items.length > historyLimit) {
+        loadMoreBtn.style.display = "block";
+      } else {
+        loadMoreBtn.style.display = "none";
+      }
+
+      if (sliced.length === 0) {
+        container.innerHTML = `<div style="font-size: 12px; color: var(--muted); text-align: center; padding: 10px;">データがありません</div>`;
+        return;
+      }
+
+      container.innerHTML = sliced.map(item => `
+        <div class="list-item" onclick="openEditModalById('${item.type}', ${item.id})">
+          <div class="list-item-left">
+            <span class="badge" style="background:${item.color};">${item.type === 'shift' ? '給料' : item.type === 'income' ? '収入' : '支出'}</span>
+            <strong>${item.date.slice(5)}</strong>
+            <span style="overflow:hidden; text-overflow:ellipsis;">${item.title}</span>
+          </div>
+          <div class="list-item-right" style="color:${item.color};">
+            ${item.amount > 0 ? "+" : ""}¥${item.amount.toLocaleString()}
+          </div>
+        </div>
+      `).join("");
+    }
+
+    function renderCreditCardList() {
+      const container = document.getElementById("credit-card-list");
+      if (!container) return;
+      const monthStr = `${payrollDate.getFullYear()}-${String(payrollDate.getMonth() + 1).padStart(2, "0")}`;
+      const ccList = DB.expenses.filter(e => e.category === "クレカ" && e.date.startsWith(monthStr));
+
+      if (ccList.length === 0) {
+        container.innerHTML = `<div style="font-size:12px; color:var(--muted); text-align:center; padding:8px;">該当月の引き落とし予定はありません</div>`;
+        return;
+      }
+
+      container.innerHTML = ccList.map(item => `
+        <div class="credit-card-box" onclick="openEditModalById('expense', ${item.id})">
+          <div style="display:flex; justify-content:space-between; font-weight:bold;">
+            <span>💳 ${item.memo}</span>
+            <span style="color:var(--danger);">-¥${item.amount.toLocaleString()}</span>
+          </div>
+          <div style="font-size:11px; color:var(--muted); margin-top:2px;">予定日: ${item.date}</div>
+        </div>
+      `).join("");
+    }
+
+    function runTaxDiagnosis() {
+      const box = document.getElementById("diag-result-box");
+      if (!box) return;
+
+      const year = currentDate.getFullYear();
+      let yearInc = 0;
+      for (let m = 1; m <= 12; m++) {
+        const mStr = `${year}-${String(m).padStart(2, "0")}`;
+        DB.jobs.forEach(j => getJobPeriodIncomeList(j, mStr).forEach(p => yearInc += p.income));
+        yearInc += DB.otherIncomes.filter(i => i.date.startsWith(mStr)).reduce((acc, i) => acc + i.amount, 0);
+      }
+
+      const inputEl = document.getElementById("diag-income-input");
+      let estInc = evaluateMath(inputEl ? inputEl.value : "") || yearInc;
+      if (inputEl && !inputEl.value) inputEl.value = estInc;
+
+      const isStudent = document.getElementById("diag-student-select").value === "yes";
+
+      const taxLimit = 1780000;
+      const hasTax = estInc > taxLimit;
+      const taxVal = hasTax ? Math.floor((estInc - taxLimit) * 0.05) : 0;
+
+      const socialLimit = 1300000;
+      const hasSocial = estInc > socialLimit;
+      const socialVal = hasSocial ? Math.floor(estInc * 0.15) : 0;
+
+      box.innerHTML = `
+        <div style="font-weight:bold; margin-bottom:4px;">📊 診断結果 (見込み年収: ¥${estInc.toLocaleString()})</div>
+        <div>${!hasTax ? '🟢 <b>所得税</b>: <span style="color:var(--good); font-weight:bold;">非課税 (178万円枠内)</span>' : `🔴 <b>所得税</b>: 概算 <b>約 ¥${taxVal.toLocaleString()} / 年</b>`}</div>
+        ${isStudent && !hasTax ? '<div style="font-size:11px; color:var(--muted);">🎓 勤労学生控除の対象内です</div>' : ''}
+        <div>${!hasSocial ? '🟢 <b>社会保険料</b>: <span style="color:var(--good); font-weight:bold;">対象外 (扶養内)</span>' : `🔴 <b>社会保険料</b>: 概算 <b>約 ¥${socialVal.toLocaleString()} / 年</b>`}</div>
+      `;
+    }
+
+    let chartJobs = null, chartTrend = null, chartDaily = null, chartPie = null, chartBudgetLine = null;
+
+    function renderStatsTab() {
+      const statsPicker = document.getElementById("stats-month-picker");
+      const statsMonthStr = `${statsDate.getFullYear()}-${String(statsDate.getMonth() + 1).padStart(2, "0")}`;
+      if (statsPicker) statsPicker.value = statsMonthStr;
+
+      const budgetTotal = DB.budgets.monthly || 50000;
+
+      const expTotal = DB.expenses.filter(e => e.date.startsWith(statsMonthStr)).reduce((acc, e) => acc + e.amount, 0);
+      document.getElementById("stats-budget-used").textContent = `¥${expTotal.toLocaleString()}`;
+      document.getElementById("stats-budget-total").textContent = `¥${budgetTotal.toLocaleString()}`;
+      const bBar = document.getElementById("budget-progress-bar");
+      if (bBar) {
+        const pct = Math.min(100, Math.round((expTotal / budgetTotal) * 100));
+        bBar.style.width = `${pct}%`;
+        bBar.style.background = pct > 90 ? "var(--danger)" : "var(--good)";
+      }
+
+      const expNoTravel = DB.expenses.filter(e => e.date.startsWith(statsMonthStr) && e.category !== "旅費").reduce((acc, e) => acc + e.amount, 0);
+      document.getElementById("stats-budget-used-no-travel").textContent = `¥${expNoTravel.toLocaleString()}`;
+      document.getElementById("stats-budget-total-no-travel").textContent = `¥${budgetTotal.toLocaleString()}`;
+      const bBarNoTravel = document.getElementById("budget-progress-bar-no-travel");
+      if (bBarNoTravel) {
+        const pctNT = Math.min(100, Math.round((expNoTravel / budgetTotal) * 100));
+        bBarNoTravel.style.width = `${pctNT}%`;
+        bBarNoTravel.style.background = pctNT > 90 ? "var(--danger)" : "var(--good)";
+      }
+
+      renderStatsCategoryChips(statsMonthStr, budgetTotal);
+      renderCharts();
+    }
+
+    function renderStatsCategoryChips(statsMonthStr, budgetTotal) {
+      const container = document.getElementById("stats-category-chips");
+      if (!container) return;
+
+      const allCategories = ["食費", "交通費", "旅費", "交際費", "日用品", "趣味", "固定費", "クレカ", "貯金", "その他"];
+      let selectedCats = DB.settings.selectedStatsCategories || [];
+
+      container.innerHTML = allCategories.map(cat => {
+        const isSelected = selectedCats.includes(cat);
+        return `<div class="pin-chip ${isSelected ? 'active' : ''}" onclick="toggleStatsCategory('${cat}')">${cat}</div>`;
+      }).join("");
+
+      const customTotal = DB.expenses
+        .filter(e => e.date.startsWith(statsMonthStr) && selectedCats.includes(e.category))
+        .reduce((acc, e) => acc + e.amount, 0);
+
+      document.getElementById("stats-custom-used").textContent = `¥${customTotal.toLocaleString()}`;
+      document.getElementById("stats-custom-budget").textContent = `¥${budgetTotal.toLocaleString()}`;
+
+      const customBar = document.getElementById("stats-custom-progress-bar");
+      if (customBar) {
+        const customPct = Math.min(100, Math.round((customTotal / budgetTotal) * 100));
+        customBar.style.width = `${customPct}%`;
+        customBar.style.background = customPct > 90 ? "var(--danger)" : "var(--good)";
+      }
+    }
+
+    window.toggleStatsCategory = function(cat) {
+      let selected = DB.settings.selectedStatsCategories || [];
+      if (selected.includes(cat)) {
+        selected = selected.filter(c => c !== cat);
+      } else {
+        selected.push(cat);
+      }
+      DB.settings.selectedStatsCategories = selected;
+      saveDB();
+      renderStatsTab();
+    };
+
+    function renderCharts() {
+      const currentYear = currentDate.getFullYear();
+      const statsYear = statsDate.getFullYear();
+      const statsMonth = statsDate.getMonth();
+      const statsMonthStr = `${statsYear}-${String(statsMonth + 1).padStart(2, "0")}`;
+      const labels12 = ["1月","2月","3月","4月","5月","6月","7月","8月","9月","10月","11月","12月"];
+
+      // 📈 総資産推移グラフ：常に「今日」が真ん中に来る（前後15日間）
+      const ctxBudgetLine = document.getElementById("chart-budget-line");
+      if (ctxBudgetLine) {
+        if (chartBudgetLine) chartBudgetLine.destroy();
+        
+        const todayObj = new Date();
+        todayObj.setHours(0, 0, 0, 0);
+        const todayStr = getLocalDateString(todayObj);
+
+        const dLabels = [];
+        const pastAssetData = [];
+        const futureAssetData = [];
+        const lastKnownAsset = calculateTotalAssetOnDate(todayStr);
+
+        // 前後15日間 (計31日間)
+        for (let i = -15; i <= 15; i++) {
+          const d = new Date(todayObj);
+          d.setDate(todayObj.getDate() + i);
+          const dateStr = getLocalDateString(d);
+
+          const m = d.getMonth() + 1;
+          const day = d.getDate();
+          const label = i === 0 ? `今日(${m}/${day})` : `${m}/${day}`;
+          dLabels.push(label);
+
+          if (dateStr <= todayStr) {
+            const currentAsset = calculateTotalAssetOnDate(dateStr);
+            pastAssetData.push(currentAsset);
+            if (dateStr === todayStr) {
+              futureAssetData.push(currentAsset);
+            } else {
+              futureAssetData.push(null);
+            }
+          } else {
+            pastAssetData.push(null);
+
+            let shiftsPay = DB.shifts.filter(s => s.date > todayStr && s.date <= dateStr)
+                              .reduce((acc, s) => acc + calculateShiftPay(s).totalPay, 0);
+            let otherInc = DB.otherIncomes.filter(inc => inc.date > todayStr && inc.date <= dateStr)
+                              .reduce((acc, inc) => acc + inc.amount, 0);
+            let exp = DB.expenses.filter(e => e.date > todayStr && e.date <= dateStr)
+                        .reduce((acc, e) => acc + e.amount, 0);
+
+            futureAssetData.push(lastKnownAsset + shiftsPay + otherInc - exp);
+          }
+        }
+
+        chartBudgetLine = new Chart(ctxBudgetLine, {
+          type: 'line',
+          data: {
+            labels: dLabels,
+            datasets: [
+              {
+                label: '実績 (円)',
+                data: pastAssetData,
+                borderColor: '#f97316',
+                backgroundColor: 'rgba(249, 115, 22, 0.1)',
+                fill: true,
+                tension: 0.2
+              },
+              {
+                label: '予測 (円)',
+                data: futureAssetData,
+                borderColor: '#3b82f6',
+                borderDash: [5, 5],
+                backgroundColor: 'rgba(59, 130, 246, 0.05)',
+                fill: true,
+                tension: 0.2
+              }
+            ]
+          },
+          options: {
+            responsive: true,
+            maintainAspectRatio: false
+          }
+        });
+      }
+
+      const ctxJobs = document.getElementById("chart-jobs");
+      if (ctxJobs) {
+        if (chartJobs) chartJobs.destroy();
+        const datasets = DB.jobs.map(job => {
+          const data = labels12.map((_, idx) => {
+            const mStr = `${currentYear}-${String(idx + 1).padStart(2, "0")}`;
+            return getJobPeriodIncomeList(job, mStr).reduce((acc, p) => acc + p.income, 0);
+          });
+          return { label: job.name, data, backgroundColor: job.color || '#f97316' };
+        });
+        chartJobs = new Chart(ctxJobs, { type: 'bar', data: { labels: labels12, datasets }, options: { responsive: true, maintainAspectRatio: false } });
+      }
+
+      const ctxTrend = document.getElementById("chart-trend");
+      if (ctxTrend) {
+        if (chartTrend) chartTrend.destroy();
+        const incData = [], expData = [];
+        labels12.forEach((_, idx) => {
+          const mStr = `${currentYear}-${String(idx + 1).padStart(2, "0")}`;
+          let inc = 0;
+          DB.jobs.forEach(j => getJobPeriodIncomeList(j, mStr).forEach(p => inc += p.income));
+          inc += DB.otherIncomes.filter(i => i.date.startsWith(mStr)).reduce((acc, i) => acc + i.amount, 0);
+          incData.push(inc);
+          expData.push(DB.expenses.filter(e => e.date.startsWith(mStr)).reduce((acc, e) => acc + e.amount, 0));
+        });
+        chartTrend = new Chart(ctxTrend, {
+          type: 'line',
+          data: {
+            labels: labels12,
+            datasets: [
+              { label: '収入', data: incData, borderColor: '#10b981', tension: 0.2 },
+              { label: '支出', data: expData, borderColor: '#ef4444', tension: 0.2 }
+            ]
+          },
+          options: { responsive: true, maintainAspectRatio: false }
+        });
+      }
+
+      const ctxDaily = document.getElementById("chart-daily-expense");
+      if (ctxDaily) {
+        if (chartDaily) chartDaily.destroy();
+        const daysInMonth = new Date(statsYear, statsMonth + 1, 0).getDate();
+        const dLabels = Array.from({ length: daysInMonth }, (_, i) => `${i + 1}日`);
+        const dData = dLabels.map((_, i) => {
+          const dateStr = `${statsMonthStr}-${String(i + 1).padStart(2, "0")}`;
+          return DB.expenses.filter(e => e.date === dateStr).reduce((acc, e) => acc + e.amount, 0);
+        });
+        chartDaily = new Chart(ctxDaily, {
+          type: 'bar',
+          data: { labels: dLabels, datasets: [{ label: '支出', data: dData, backgroundColor: '#ef4444' }] },
+          options: { responsive: true, maintainAspectRatio: false }
+        });
+      }
+
+      const ctxPie = document.getElementById("chart-expense-pie");
+      if (ctxPie) {
+        if (chartPie) chartPie.destroy();
+        const catMap = {};
+        DB.expenses.filter(e => e.date.startsWith(statsMonthStr)).forEach(e => {
+          catMap[e.category] = (catMap[e.category] || 0) + e.amount;
+        });
+        chartPie = new Chart(ctxPie, {
+          type: 'doughnut',
+          data: {
+            labels: Object.keys(catMap).length ? Object.keys(catMap) : ["なし"],
+            datasets: [{ data: Object.values(catMap).length ? Object.values(catMap) : [1], backgroundColor: ['#f97316','#6366f1','#0ea5e9','#10b981','#ec4899','#8b5cf6'] }]
+          },
+          options: { responsive: true, maintainAspectRatio: false }
+        });
+      }
+    }
+
+    window.openPinEditModal = function(pinId) {
+      const pin = DB.pins.find(p => String(p.id) === String(pinId));
+      if (!pin) return;
+      document.getElementById("edit-pin-id").value = pin.id;
+      document.getElementById("edit-pin-label").value = pin.label;
+      
+      const jobSelect = document.getElementById("edit-pin-job");
+      jobSelect.innerHTML = DB.jobs.map(j => `<option value="${j.id}">${j.name}</option>`).join("");
+      jobSelect.value = pin.jobId;
+
+      document.getElementById("edit-pin-start").value = pin.start;
+      document.getElementById("edit-pin-end").value = pin.end;
+      document.getElementById("edit-pin-break").value = pin.breakMin || 0;
+      document.getElementById("edit-pin-transport").value = pin.transport || 0;
+
+      openModalWithLock("pin-edit-modal");
+    };
+
+    function closePinEditModal() {
+      closeModalWithLock("pin-edit-modal");
+    }
+
+    function saveEditedPin() {
+      const pinId = document.getElementById("edit-pin-id").value;
+      const idx = DB.pins.findIndex(p => String(p.id) === String(pinId));
+      if (idx !== -1) {
+        DB.pins[idx] = {
+          id: Number(pinId) || pinId,
+          label: document.getElementById("edit-pin-label").value.trim() || "テンプレート",
+          jobId: document.getElementById("edit-pin-job").value,
+          start: document.getElementById("edit-pin-start").value,
+          end: document.getElementById("edit-pin-end").value,
+          breakMin: Number(document.getElementById("edit-pin-break").value) || 0,
+          transport: evaluateMath(document.getElementById("edit-pin-transport").value) || 0
+        };
+        saveDB();
+        renderAll();
+        closePinEditModal();
+      }
+    }
+
+    function deletePinFromModal() {
+      const pinId = document.getElementById("edit-pin-id").value;
+      if (confirm("このテンプレートを削除してもよろしいですか？")) {
+        DB.pins = DB.pins.filter(p => String(p.id) !== String(pinId));
+        saveDB();
+        renderAll();
+        closePinEditModal();
+      }
+    }
+
+    function renderSettingsTab() {
+      const jobsConfig = document.getElementById("jobs-config-list");
+      if (jobsConfig) {
+        jobsConfig.innerHTML = DB.jobs.map((j, idx) => {
+          const isMultiPeriod = j.type === "multi_period";
+          const periodsHtml = isMultiPeriod ? (j.periods || []).map((p, pIdx) => `
+            <div class="period-setting-card">
+              <div class="period-setting-head">
+                <strong>📌 ${p.label || `支給${pIdx + 1}`}</strong>
+                <button class="btn btn-danger btn-sm" onclick="deletePeriod(${idx}, ${pIdx})">削除</button>
+              </div>
+              <div class="form-group">
+                <label>この支給の名前</label>
+                <input type="text" value="${p.label || ''}" class="form-control" placeholder="例: 前半払い" onchange="updatePeriodConfig(${idx}, ${pIdx}, 'label', this.value)">
+              </div>
+              <div class="form-row">
+                <div class="form-group">
+                  <label>集計開始日</label>
+                  <div style="display:flex; gap:2px;">
+                    <select class="form-control" onchange="updatePeriodConfig(${idx}, ${pIdx}, 'startMonthOffset', Number(this.value))" style="flex:0.9;">
+                      <option value="-1" ${Number(p.startMonthOffset) === -1 ? 'selected' : ''}>前月</option>
+                      <option value="0" ${Number(p.startMonthOffset) === 0 ? 'selected' : ''}>当月</option>
+                    </select>
+                    <select class="form-control" onchange="updatePeriodConfig(${idx}, ${pIdx}, 'startDay', Number(this.value))">
+                      ${Array.from({length:31}, (_, d) => `<option value="${d+1}" ${Number(p.startDay) === d+1 ? 'selected' : ''}>${d+1}日</option>`).join("")}
+                    </select>
+                  </div>
+                </div>
+                <div class="form-group">
+                  <label>集計終了日</label>
+                  <div style="display:flex; gap:2px;">
+                    <select class="form-control" onchange="updatePeriodConfig(${idx}, ${pIdx}, 'endMonthOffset', Number(this.value))" style="flex:0.9;">
+                      <option value="-1" ${Number(p.endMonthOffset) === -1 ? 'selected' : ''}>前月</option>
+                      <option value="0" ${Number(p.endMonthOffset) === 0 ? 'selected' : ''}>当月</option>
+                    </select>
+                    <select class="form-control" onchange="updatePeriodConfig(${idx}, ${pIdx}, 'endDay', this.value === 'end' ? 'end' : Number(this.value))">
+                      <option value="end" ${p.endDay === 'end' ? 'selected' : ''}>末日</option>
+                      ${Array.from({length:31}, (_, d) => `<option value="${d+1}" ${Number(p.endDay) === d+1 ? 'selected' : ''}>${d+1}日</option>`).join("")}
+                    </select>
+                  </div>
+                </div>
+              </div>
+              <div class="form-row">
+                <div class="form-group">
+                  <label>支給月</label>
+                  <select class="form-control" onchange="updatePeriodConfig(${idx}, ${pIdx}, 'payMonthOffset', Number(this.value))">
+                    <option value="0" ${Number(p.payMonthOffset) === 0 ? 'selected' : ''}>当月</option>
+                    <option value="1" ${Number(p.payMonthOffset) === 1 ? 'selected' : ''}>翌月</option>
+                    <option value="2" ${Number(p.payMonthOffset) === 2 ? 'selected' : ''}>翌々月</option>
+                  </select>
+                </div>
+                <div class="form-group">
+                  <label>支給日</label>
+                  <select class="form-control" onchange="updatePeriodConfig(${idx}, ${pIdx}, 'payDay', this.value === 'end' ? 'end' : Number(this.value))">
+                    <option value="end" ${p.payDay === 'end' ? 'selected' : ''}>末日</option>
+                    ${Array.from({length:31}, (_, d) => `<option value="${d+1}" ${Number(p.payDay) === d+1 ? 'selected' : ''}>${d+1}日</option>`).join("")}
+                  </select>
+                </div>
+              </div>
+              <div class="form-group">
+                <label>土日祝の振込日調整</label>
+                <select class="form-control" onchange="updatePeriodConfig(${idx}, ${pIdx}, 'holidayAdjust', this.value)">
+                  <option value="before" ${p.holidayAdjust === 'before' ? 'selected' : ''}>前営業日（前倒し振込）</option>
+                  <option value="after" ${p.holidayAdjust === 'after' ? 'selected' : ''}>翌営業日（後ろ倒し）</option>
+                  <option value="none" ${p.holidayAdjust === 'none' ? 'selected' : ''}>調整なし（土日祝も当日）</option>
+                </select>
+              </div>
+            </div>
+          `).join("") : "";
+
+          return `
+          <div class="job-setting-card">
+            <div class="form-row" style="align-items:center;">
+              <input type="color" value="${j.color || '#f97316'}" onchange="updateJobConfig(${idx}, 'color', this.value)" style="width:36px; height:34px; border:none; cursor:pointer; padding:0; border-radius:4px;">
+              <input type="text" value="${j.name}" class="form-control" style="font-weight:bold;" onchange="updateJobConfig(${idx}, 'name', this.value)">
+              <button class="btn btn-danger btn-sm" onclick="deleteJob(${j.id})">削除</button>
+            </div>
+            
+            <div class="form-row" style="margin-top:6px;">
+              <div class="form-group"><label>時給 (円)</label><input type="text" value="${j.hourlyWage}" class="form-control" onchange="updateJobConfig(${idx}, 'hourlyWage', evaluateMath(this.value)||1200)"></div>
+              <div class="form-group"><label>深夜時給 (円)</label><input type="text" value="${j.nightWage || Math.floor(j.hourlyWage*1.25)}" class="form-control" onchange="updateJobConfig(${idx}, 'nightWage', evaluateMath(this.value))"></div>
+              <div class="form-group"><label>交通費/日 (円)</label><input type="text" value="${j.transport}" class="form-control" onchange="updateJobConfig(${idx}, 'transport', evaluateMath(this.value)||0)"></div>
+            </div>
+
+            <div class="form-row">
+              <div class="form-group">
+                <label>給与計算タイプ</label>
+                <select class="form-control" onchange="updateJobConfig(${idx}, 'type', this.value)">
+                  <option value="monthly" ${j.type !== 'multi_period' && j.type !== 'kyoei_double' ? 'selected' : ''}>通常 (月1回支給)</option>
+                  <option value="multi_period" ${j.type === 'multi_period' ? 'selected' : ''}>複数回払い (自由設定)</option>
+                  ${j.type === 'kyoei_double' ? `<option value="kyoei_double" selected>旧・協栄ルール（互換用・非推奨）</option>` : ''}
+                </select>
+              </div>
+            </div>
+
+            ${j.type === 'multi_period' ? `
+              <div style="font-size:10px; color:var(--brand-dark); background:var(--brand-light); padding:4px 6px; border-radius:4px; margin:4px 0;">
+                💡 支給回ごとに「集計期間」「支給月・支給日」「土日祝調整」を自由に設定できます。
+              </div>
+              <div id="periods-list-${idx}">
+                ${periodsHtml || '<div style="font-size:11px; color:var(--muted); text-align:center; padding:6px;">支給回が設定されていません</div>'}
+              </div>
+              <button class="btn btn-outline btn-sm" style="width:100%; margin-top:4px;" onclick="addPeriod(${idx})">＋ 支給回を追加</button>
+            ` : j.type === 'kyoei_double' ? `
+            <div style="font-size:10px; color:var(--brand-dark); background:var(--brand-light); padding:4px 6px; border-radius:4px; margin-top:4px;">
+              ※ 旧ルール（15日締め25日払 ＆ 5日締め15日払）です。
+            </div>
+            ` : `
+            <div class="form-row">
+              <div class="form-group">
+                <label>締め日</label>
+                <select class="form-control" onchange="updateJobConfig(${idx}, 'cutoffDay', Number(this.value))">
+                  <option value="31" ${Number(j.cutoffDay) === 31 ? 'selected' : ''}>末日</option>
+                  <option value="5" ${Number(j.cutoffDay) === 5 ? 'selected' : ''}>5日</option>
+                  <option value="10" ${Number(j.cutoffDay) === 10 ? 'selected' : ''}>10日</option>
+                  <option value="15" ${Number(j.cutoffDay) === 15 ? 'selected' : ''}>15日</option>
+                  <option value="20" ${Number(j.cutoffDay) === 20 ? 'selected' : ''}>20日</option>
+                  <option value="25" ${Number(j.cutoffDay) === 25 ? 'selected' : ''}>25日</option>
+                </select>
+              </div>
+              <div class="form-group">
+                <label>支給月</label>
+                <select class="form-control" onchange="updateJobConfig(${idx}, 'payMonthOffset', Number(this.value))">
+                  <option value="0" ${Number(j.payMonthOffset) === 0 ? 'selected' : ''}>当月</option>
+                  <option value="1" ${Number(j.payMonthOffset) === 1 ? 'selected' : ''}>翌月</option>
+                  <option value="2" ${Number(j.payMonthOffset) === 2 ? 'selected' : ''}>翌々月</option>
+                </select>
+              </div>
+              <div class="form-group">
+                <label>給料日</label>
+                <select class="form-control" onchange="updateJobConfig(${idx}, 'payDay', Number(this.value))">
+                  <option value="5" ${Number(j.payDay) === 5 ? 'selected' : ''}>5日</option>
+                  <option value="10" ${Number(j.payDay) === 10 ? 'selected' : ''}>10日</option>
+                  <option value="15" ${Number(j.payDay) === 15 ? 'selected' : ''}>15日</option>
+                  <option value="20" ${Number(j.payDay) === 20 ? 'selected' : ''}>20日</option>
+                  <option value="25" ${Number(j.payDay) === 25 ? 'selected' : ''}>25日</option>
+                  <option value="31" ${Number(j.payDay) === 31 ? 'selected' : ''}>末日</option>
+                </select>
+              </div>
+            </div>
+
+            <div class="form-group">
+              <label>土日祝の振込日調整</label>
+              <select class="form-control" onchange="updateJobConfig(${idx}, 'holidayAdjust', this.value)">
+                <option value="before" ${j.holidayAdjust === 'before' ? 'selected' : ''}>前営業日（前倒し振込）</option>
+                <option value="after" ${j.holidayAdjust === 'after' ? 'selected' : ''}>翌営業日（後ろ倒し）</option>
+                <option value="none" ${j.holidayAdjust === 'none' ? 'selected' : ''}>調整なし（土日祝も当日）</option>
+              </select>
+            </div>
+            `}
+          </div>
+        `;
+        }).join("");
+      }
+
+      const pinsConfig = document.getElementById("pins-config-list");
+      if (pinsConfig) {
+        pinsConfig.innerHTML = DB.pins.map(p => `
+          <div class="list-item" onclick="openPinEditModal(${p.id})">
+            <div class="list-item-left">
+              <strong>📌 ${p.label}</strong>
+              <span style="font-size:11px; color:var(--muted); margin-left:4px;">(${p.start} ~ ${p.end})</span>
+            </div>
+            <div class="list-item-right">
+              <button class="btn btn-outline btn-sm" onclick="event.stopPropagation(); openPinEditModal(${p.id})">✏️ 編集</button>
+            </div>
+          </div>
+        `).join("");
+      }
+
+      document.getElementById("setting-base-asset").value = DB.baseAsset || 0;
+      document.getElementById("setting-wall-target").value = [1780000, 1060000, 1300000, 1500000, 2010000].includes(DB.wallTarget) ? DB.wallTarget : "custom";
+      if (![1780000, 1060000, 1300000, 1500000, 2010000].includes(DB.wallTarget)) {
+        document.getElementById("custom-wall-group").style.display = "block";
+        document.getElementById("setting-wall-custom").value = DB.wallTarget;
+      }
+      document.getElementById("setting-savings-goal").value = DB.budgets.savingsGoal || 0;
+      document.getElementById("setting-monthly-budget").value = DB.budgets.monthly || 0;
+
+      const fixedConfig = document.getElementById("fixed-expenses-config-list");
+      if (fixedConfig) {
+        fixedConfig.innerHTML = DB.fixedExpenses.map(f => `
+          <div class="list-item">
+            <div class="list-item-left">
+              <strong>${f.memo}</strong>
+              <span style="font-size:11px; color:var(--muted); margin-left:4px;">(¥${f.amount.toLocaleString()}/月)</span>
+            </div>
+            <div class="list-item-right">
+              <button class="btn btn-danger btn-sm" onclick="deleteFixedConfig(${f.id})">削除</button>
+            </div>
+          </div>
+        `).join("");
+      }
+
+      const ccConfig = document.getElementById("credit-companies-config-list");
+      if (ccConfig) {
+        ccConfig.innerHTML = DB.creditCompanies.map((c, idx) => `
+          <div class="list-item">
+            <div class="list-item-left"><span>${c}</span></div>
+            <div class="list-item-right">
+              <button class="btn btn-danger btn-sm" onclick="deleteCardCompany(${idx})">削除</button>
+            </div>
+          </div>
+        `).join("");
+      }
+
+      document.getElementById("setting-reminder-enable").checked = DB.reminder.enabled;
+      document.getElementById("setting-reminder-time").value = DB.reminder.time || "21:00";
+    }
+
+    window.updateJobConfig = function(idx, key, val) {
+      if (DB.jobs[idx]) {
+        if (key === 'type' && val === 'multi_period' && (!DB.jobs[idx].periods || DB.jobs[idx].periods.length === 0)) {
+          DB.jobs[idx].periods = [
+            { id: Date.now(), label: "前半払い(1〜15日)", startDay: 1, startMonthOffset: 0, endDay: 15, endMonthOffset: 0, payMonthOffset: 0, payDay: 'end', holidayAdjust: 'before' },
+            { id: Date.now() + 1, label: "後半払い(16〜末日)", startDay: 16, startMonthOffset: 0, endDay: 'end', endMonthOffset: 0, payMonthOffset: 1, payDay: 15, holidayAdjust: 'before' }
+          ];
+        }
+        DB.jobs[idx][key] = val;
+        saveDB();
+        renderAll();
+      }
+    };
+
+    window.addPeriod = function(jobIdx) {
+      if (!DB.jobs[jobIdx]) return;
+      if (!DB.jobs[jobIdx].periods) DB.jobs[jobIdx].periods = [];
+      DB.jobs[jobIdx].periods.push({
+        id: Date.now(),
+        label: `支給${DB.jobs[jobIdx].periods.length + 1}`,
+        startDay: 1, startMonthOffset: 0,
+        endDay: 'end', endMonthOffset: 0,
+        payMonthOffset: 1, payDay: 15,
+        holidayAdjust: 'before'
+      });
+      saveDB();
+      renderAll();
+    };
+
+    window.updatePeriodConfig = function(jobIdx, periodIdx, key, val) {
+      if (DB.jobs[jobIdx] && DB.jobs[jobIdx].periods && DB.jobs[jobIdx].periods[periodIdx]) {
+        DB.jobs[jobIdx].periods[periodIdx][key] = val;
+        saveDB();
+        renderAll();
+      }
+    };
+
+    window.deletePeriod = function(jobIdx, periodIdx) {
+      if (DB.jobs[jobIdx] && DB.jobs[jobIdx].periods) {
+        if (confirm("この支給回を削除しますか？")) {
+          DB.jobs[jobIdx].periods.splice(periodIdx, 1);
+          saveDB();
+          renderAll();
+        }
+      }
+    };
+
+    function renderPinSelects() {
+      const pinSelects = [document.getElementById("quick-pin-select"), document.getElementById("repeat-pin-id")];
+      pinSelects.forEach(sel => {
+        if (!sel) return;
+        sel.innerHTML = `<option value="">テンプレートを選択...</option>` +
+          DB.pins.map(p => `<option value="${p.id}">${p.label}</option>`).join("");
+      });
+
+      const jobSelects = [document.getElementById("shift-job-id"), document.getElementById("edit-pin-job")];
+      jobSelects.forEach(sel => {
+        if (!sel) return;
+        sel.innerHTML = DB.jobs.map(j => `<option value="${j.id}">${j.name}</option>`).join("");
+      });
+
+      const ccSelect = document.getElementById("cc-company-select");
+      if (ccSelect) {
+        ccSelect.innerHTML = DB.creditCompanies.map(c => `<option value="${c}">${c}</option>`).join("");
+      }
+
+      const quickContainer = document.getElementById("quick-pin-list");
+      if (quickContainer) {
+        quickContainer.innerHTML = DB.pins.map(p => `
+          <div class="pin-chip ${quickTemplateId === p.id ? 'active' : ''}" onclick="selectQuickTemplate(${p.id})">📌 ${p.label}</div>
+        `).join("");
+      }
+
+      renderFormShortcuts();
+    }
+
+    function renderFormShortcuts() {
+      const pinContainer = document.getElementById("form-pin-shortcuts");
+      if (pinContainer) {
+        pinContainer.innerHTML = DB.pins.map(p => {
+          const key = `pin_${p.id}`;
+          return `<button type="button" class="pin-chip ${selectedShortcutKey === key ? 'active' : ''}" onclick="applyShortcutData({jobId:${p.jobId}, start:'${p.start}', end:'${p.end}', breakMin:${p.breakMin}, transport:${p.transport||0}}, '${key}')">📌 ${p.label}</button>`;
+        }).join("") || '<span style="font-size:10px; color:var(--muted);">テンプレートなし</span>';
+      }
+
+      const histContainer = document.getElementById("form-history-shortcuts");
+      if (histContainer) {
+        const historyMap = new Map();
+        [...DB.shifts].sort((a,b) => {
+          if (a.date !== b.date) return b.date.localeCompare(a.date);
+          return b.id - a.id;
+        }).forEach(s => {
+          const key = `${s.jobId}_${s.startTime}_${s.endTime}_${s.breakMin}`;
+          if (!historyMap.has(key)) {
+            const job = DB.jobs.find(j => String(j.id) === String(s.jobId));
+            historyMap.set(key, { jobId: s.jobId, start: s.startTime, end: s.endTime, breakMin: s.breakMin, transport: s.transport, jobName: job ? job.name : 'シフト' });
+          }
+        });
+        const recentShortcuts = Array.from(historyMap.values()).slice(0, 4);
+        histContainer.innerHTML = recentShortcuts.map((s, idx) => {
+          const key = `hist_${idx}_${s.jobId}`;
+          return `<button type="button" class="pin-chip ${selectedShortcutKey === key ? 'active' : ''}" style="${selectedShortcutKey !== key ? 'border-color:var(--muted); color:var(--ink);' : ''}" onclick="applyShortcutData({jobId:${s.jobId}, start:'${s.start}', end:'${s.end}', breakMin:${s.breakMin}, transport:${s.transport||0}}, '${key}')">↩️ ${s.jobName} ${s.start}~${s.end}</button>`;
+        }).join("") || '<span style="font-size:10px; color:var(--muted);">過去履歴なし</span>';
+      }
+    }
+
+    window.applyShortcutData = (data, key) => {
+      selectedShortcutKey = key;
+      document.getElementById("shift-job-id").value = data.jobId;
+      const [sH, sM] = data.start.split(":");
+      const [eH, eM] = data.end.split(":");
+      document.getElementById("shift-start-hour").value = sH;
+      document.getElementById("shift-start-min").value = sM;
+      document.getElementById("shift-end-hour").value = eH;
+      document.getElementById("shift-end-min").value = eM;
+      document.getElementById("shift-break-min").value = data.breakMin;
+      document.getElementById("shift-transport").value = (data.transport !== undefined && data.transport !== null) ? data.transport : 0;
+      updateShiftPreview();
+      renderFormShortcuts();
+    };
+
+    function switchTab(tabId) {
+      document.querySelectorAll(".tab-content").forEach(el => el.classList.remove("active"));
+      document.querySelectorAll(".tab-item").forEach(el => el.classList.remove("active"));
+
+      const target = document.getElementById(`tab-${tabId}`);
+      const btn = document.getElementById(`tab-btn-${tabId}`);
+
+      if (target) {
+        target.classList.add("active");
+        void target.offsetHeight;
+      }
+      if (btn) btn.classList.add("active");
+
+      if (tabId === "stats") renderStatsTab();
+      if (tabId === "payroll") renderSummaryAndPayroll();
+      if (tabId === "settings") renderSettingsTab();
+    }
+
+    function openModalWithLock(modalId) {
+      document.getElementById(modalId).classList.add("active");
+      document.body.classList.add("modal-open");
+    }
+
+    function closeModalWithLock(modalId) {
+      document.getElementById(modalId).classList.remove("active");
+      closeCalcKeyboard();
+      const activeModals = document.querySelectorAll(".modal-overlay.active");
+      if (activeModals.length === 0) {
+        document.body.classList.remove("modal-open");
+      }
+    }
+
+    function openEntryModal(dateStr, defaultType = "shift") {
+      selectedShortcutKey = null;
+      clearFormErrors();
+      document.getElementById("shift-id").value = "";
+      document.getElementById("expense-id").value = "";
+      document.getElementById("income-id").value = "";
+
+      document.getElementById("shift-date").value = dateStr;
+      document.getElementById("expense-date").value = dateStr;
+      document.getElementById("income-date").value = dateStr;
+
+      document.getElementById("expense-memo").value = "";
+      document.getElementById("expense-amount").value = "";
+      document.getElementById("income-memo").value = "";
+      document.getElementById("income-amount").value = "";
+
+      document.getElementById("btn-new-shift-same-day").style.display = "none";
+
+      renderFormShortcuts();
+      renderDayItemsList(dateStr);
+      openModalWithLock("entry-modal");
+      switchEntryForm(defaultType);
+      onJobChangeSync();
+      autoSelectBreakMin();
+      updateShiftPreview();
+    }
+
+    window.openNewShiftOnDate = (dateStr) => {
+      openEntryModal(dateStr, "shift");
+    };
+
+    window.openEditModalById = (type, id) => {
+      selectedShortcutKey = null;
+      clearFormErrors();
+      openModalWithLock("entry-modal");
+
+      if (type === "shift") {
+        const s = DB.shifts.find(x => String(x.id) === String(id));
+        if (!s) return;
+        document.getElementById("shift-id").value = s.id;
+        document.getElementById("shift-job-id").value = s.jobId;
+        document.getElementById("shift-date").value = s.date;
+
+        const [sH, sM] = s.startTime.split(":");
+        const [eH, eM] = s.endTime.split(":");
+        document.getElementById("shift-start-hour").value = sH;
+        document.getElementById("shift-start-min").value = sM;
+        document.getElementById("shift-end-hour").value = eH;
+        document.getElementById("shift-end-min").value = eM;
+        document.getElementById("shift-break-min").value = s.breakMin;
+        document.getElementById("shift-transport").value = (s.transport !== undefined && s.transport !== null) ? s.transport : 0;
+
+        document.getElementById("btn-new-shift-same-day").style.display = "inline-flex";
+
+        switchEntryForm("shift");
+        updateShiftPreview();
+      } else if (type === "expense") {
+        const e = DB.expenses.find(x => String(x.id) === String(id));
+        if (!e) return;
+        document.getElementById("expense-id").value = e.id;
+        document.getElementById("expense-date").value = e.date;
+        document.getElementById("expense-category").value = e.category || "食費";
+        document.getElementById("expense-memo").value = e.memo || "";
+        document.getElementById("expense-amount").value = e.amount;
+
+        document.getElementById("btn-new-shift-same-day").style.display = "none";
+        switchEntryForm("expense");
+      } else if (type === "income") {
+        const i = DB.otherIncomes.find(x => String(x.id) === String(id));
+        if (!i) return;
+        document.getElementById("income-id").value = i.id;
+        document.getElementById("income-date").value = i.date;
+        document.getElementById("income-category").value = i.category || "その他収入";
+        document.getElementById("income-memo").value = i.memo || "";
+        document.getElementById("income-amount").value = i.amount;
+
+        document.getElementById("btn-new-shift-same-day").style.display = "none";
+        switchEntryForm("income");
+      }
+      renderFormShortcuts();
+      renderDayItemsList(document.getElementById(`${type}-date`).value);
+    };
+
+    function closeEntryModal() {
+      closeModalWithLock("entry-modal");
+    }
+
+    function switchEntryForm(type) {
+      clearFormErrors();
+      closeCalcKeyboard();
+      const forms = { shift: document.getElementById("shift-form"), expense: document.getElementById("expense-form"), income: document.getElementById("income-form") };
+      const btns = { shift: document.getElementById("type-shift-btn"), expense: document.getElementById("type-expense-btn"), income: document.getElementById("type-income-btn") };
+
+      Object.keys(forms).forEach(k => {
+        forms[k].style.display = k === type ? "block" : "none";
+        btns[k].className = k === type ? "btn btn-sm" : "btn btn-outline btn-sm";
+      });
+
+      document.getElementById("shift-overlap-alert").style.display = "none";
+    }
+
+    function clearFormErrors() {
+      document.querySelectorAll(".form-control").forEach(el => el.classList.remove("input-error"));
+      document.querySelectorAll(".input-error-text").forEach(el => el.style.display = "none");
+    }
+
+    function showInputError(inputEl) {
+      if (!inputEl) return;
+      inputEl.classList.add("input-error");
+      const errText = inputEl.parentNode.querySelector(".input-error-text");
+      if (errText) errText.style.display = "block";
+    }
+
+    function updateCalcDisplay() {
+      const displayEl = document.getElementById("calc-display-val");
+      if (!displayEl) return;
+      if (activeCalcInput && activeCalcInput.value) {
+        displayEl.textContent = activeCalcInput.value;
+      } else {
+        displayEl.textContent = "0";
+      }
+    }
+
+    function openCalcKeyboard(inputEl) {
+      activeCalcInput = inputEl;
+      clearFormErrors();
+      updateCalcDisplay();
+      document.getElementById("calc-keyboard-drawer").classList.add("active");
+    }
+
+    function closeCalcKeyboard() {
+      activeCalcInput = null;
+      document.getElementById("calc-keyboard-drawer").classList.remove("active");
+    }
+
+    // 💡 記号が連続して押された場合に置換する電卓キー制御
+    function handleCalcKeyPress(val) {
+      if (!activeCalcInput) return;
+      let curr = activeCalcInput.value || "";
+      const ops = ['+', '-', '*', '/'];
+
+      if (val === "AC") {
+        curr = "";
+      } else if (val === "⌫") {
+        curr = curr.slice(0, -1);
+      } else if (ops.includes(val)) {
+        if (curr === "") {
+          if (val === "-") curr = "-";
+        } else {
+          const lastChar = curr.slice(-1);
+          if (ops.includes(lastChar)) {
+            curr = curr.slice(0, -1) + val;
+          } else {
+            curr += val;
+          }
+        }
+      } else {
+        curr += val;
+      }
+      activeCalcInput.value = curr;
+
+      updateCalcDisplay();
+
+      if (activeCalcInput.id === "shift-transport") {
+        updateShiftPreview();
+      }
+    }
+
+    function renderDayItemsList(dateStr) {
+      const container = document.getElementById("day-items-list");
+      if (!container) return;
+
+      let html = "";
+      
+      const dayItems = [];
+      DB.shifts.filter(s => s.date === dateStr).forEach(s => dayItems.push({ type: 'shift', ...s }));
+      DB.expenses.filter(e => e.date === dateStr).forEach(e => dayItems.push({ type: 'expense', ...e }));
+      DB.otherIncomes.filter(i => i.date === dateStr).forEach(i => dayItems.push({ type: 'income', ...i }));
+      
+      dayItems.sort((a, b) => b.id - a.id);
+
+      dayItems.forEach(item => {
+        if (item.type === 'shift') {
+          const job = DB.jobs.find(j => String(j.id) === String(item.jobId));
+          const pay = calculateShiftPay(item).totalPay;
+          html += `
+            <div class="list-item" onclick="openEditModalById('shift', ${item.id})">
+              <div class="list-item-left">
+                <span class="badge" style="background:${job ? job.color : 'var(--brand)'};">シフト</span>
+                <strong>${job ? job.name : ''}</strong>
+                <span style="font-size:10px; color:var(--muted); margin-left:2px;">(${item.startTime}~${item.endTime})</span>
+              </div>
+              <div class="list-item-right" style="color:${job ? job.color : 'var(--brand)'};">
+                <span>¥${pay.toLocaleString()}</span>
+                <button class="btn btn-danger btn-sm" onclick="event.stopPropagation(); deleteShift(${item.id})">削除</button>
+              </div>
+            </div>`;
+        } else if (item.type === 'expense') {
+          const displayTitle = (item.memo && item.memo !== item.category) ? `[${item.category}] ${item.memo}` : `[${item.category}]`;
+          html += `
+            <div class="list-item" onclick="openEditModalById('expense', ${item.id})">
+              <div class="list-item-left">
+                <span class="badge" style="background:var(--danger);">支出</span>
+                <span style="overflow:hidden; text-overflow:ellipsis;">${displayTitle}</span>
+              </div>
+              <div class="list-item-right" style="color:var(--danger);">
+                <span>-¥${item.amount.toLocaleString()}</span>
+                <button class="btn btn-danger btn-sm" onclick="event.stopPropagation(); deleteExpense(${item.id})">削除</button>
+              </div>
+            </div>`;
+        } else if (item.type === 'income') {
+          const displayTitle = (item.memo && item.memo !== item.category) ? `[${item.category}] ${item.memo}` : `[${item.category}]`;
+          html += `
+            <div class="list-item" onclick="openEditModalById('income', ${item.id})">
+              <div class="list-item-left">
+                <span class="badge" style="background:var(--good);">収入</span>
+                <span style="overflow:hidden; text-overflow:ellipsis;">${displayTitle}</span>
+              </div>
+              <div class="list-item-right" style="color:var(--good);">
+                <span>+¥${item.amount.toLocaleString()}</span>
+                <button class="btn btn-danger btn-sm" onclick="event.stopPropagation(); deleteIncome(${item.id})">削除</button>
+              </div>
+            </div>`;
+        }
+      });
+
+      container.innerHTML = html || `<div style="font-size:12px; color:var(--muted);">データなし</div>`;
+    }
+
+    function initTimeSelects() {
+      const sH = document.getElementById("shift-start-hour");
+      const eH = document.getElementById("shift-end-hour");
+      const sM = document.getElementById("shift-start-min");
+      const eM = document.getElementById("shift-end-min");
+
+      let hOpts = "", mOpts = "";
+      for (let i = 0; i < 24; i++) hOpts += `<option value="${String(i).padStart(2, '0')}">${String(i).padStart(2, '0')}</option>`;
+      for (let i = 0; i < 60; i += 5) mOpts += `<option value="${String(i).padStart(2, '0')}">${String(i).padStart(2, '0')}</option>`;
+
+      if (sH && eH && sM && eM) {
+        sH.innerHTML = hOpts; eH.innerHTML = hOpts;
+        sM.innerHTML = mOpts; eM.innerHTML = mOpts;
+        sH.value = "17"; eH.value = "22";
+      }
+    }
+
+    function nudgeTime(type, delta) {
+      const hEl = document.getElementById(type === 'start' ? "shift-start-hour" : "shift-end-hour");
+      const mEl = document.getElementById(type === 'start' ? "shift-start-min" : "shift-end-min");
+
+      let total = Number(hEl.value) * 60 + Number(mEl.value) + delta;
+      total = ((total % (24 * 60)) + 24 * 60) % (24 * 60);
+
+      const h = Math.floor(total / 60);
+      const m = Math.round((total % 60) / 5) * 5 % 60;
+
+      hEl.value = String(h).padStart(2, '0');
+      mEl.value = String(m).padStart(2, '0');
+      autoSelectBreakMin();
+      updateShiftPreview();
+    }
+
+    function autoSelectBreakMin() {
+      const jobId = document.getElementById("shift-job-id").value;
+      const job = DB.jobs.find(j => String(j.id) === String(jobId));
+      const sH = Number(document.getElementById("shift-start-hour").value);
+      const sM = Number(document.getElementById("shift-start-min").value);
+      const eH = Number(document.getElementById("shift-end-hour").value);
+      const eM = Number(document.getElementById("shift-end-min").value);
+
+      let startMin = sH * 60 + sM;
+      let endMin = eH * 60 + eM;
+      if (endMin <= startMin) endMin += 24 * 60;
+
+      const isKyoei = (job && job.name && job.name.includes("協栄")) || (job && job.customRules && job.customRules.includes("kyoei_15m_min5h"));
+
+      if (isKyoei && eM % 15 !== 0) {
+        let roundedEndM = Math.ceil(eM / 15) * 15;
+        let roundedEndH = eH;
+        if (roundedEndM === 60) { roundedEndM = 0; roundedEndH += 1; }
+        endMin = roundedEndH * 60 + roundedEndM;
+        if (endMin <= startMin) endMin += 24 * 60;
+      }
+
+      const grossMins = endMin - startMin;
+      const grossHours = grossMins / 60;
+      let autoBreak = 0;
+
+      if (isKyoei) {
+        if (grossHours >= 8.0) {
+          autoBreak = 60;
+        } else if (grossHours >= 6.0) {
+          autoBreak = 30;
+        } else {
+          autoBreak = 0;
+        }
+      } else {
+        if (grossHours > 8.0) {
+          autoBreak = 60;
+        } else if (grossMins === 360) {
+          autoBreak = 45;
+        } else if (grossHours > 6.0) {
+          autoBreak = 45;
+        } else {
+          autoBreak = 0;
+        }
+      }
+
+      document.getElementById("shift-break-min").value = autoBreak;
+
+      const hintEl = document.getElementById("legal-break-hint");
+      if (hintEl) {
+        hintEl.textContent = isKyoei ? `(協栄:${autoBreak}分自動)` : (grossMins === 360 ? `(6h特例:45分)` : `(自動:${autoBreak}分)`);
+      }
+    }
+
+    function onJobChangeSync() {
+      const jobId = document.getElementById("shift-job-id").value;
+      const job = DB.jobs.find(j => String(j.id) === String(jobId));
+      const isNewMode = !document.getElementById("shift-id").value;
+
+      if (job && isNewMode) {
+        document.getElementById("shift-transport").value = (job.transport !== undefined && job.transport !== null) ? job.transport : 0;
+      }
+    }
+
+    function updateShiftPreview() {
+      const shiftForm = document.getElementById("shift-form");
+      if (!shiftForm || shiftForm.style.display === "none") {
+        document.getElementById("shift-overlap-alert").style.display = "none";
+        return;
+      }
+
+      const jobId = document.getElementById("shift-job-id").value;
+      const job = DB.jobs.find(j => String(j.id) === String(jobId));
+      const sH = document.getElementById("shift-start-hour").value;
+      const sM = document.getElementById("shift-start-min").value;
+      const eH = document.getElementById("shift-end-hour").value;
+      const eM = document.getElementById("shift-end-min").value;
+      const breakMin = Number(document.getElementById("shift-break-min").value) || 0;
+      const transportInput = document.getElementById("shift-transport");
+      const evalTrans = evaluateMath(transportInput.value);
+
+      const tempShift = { jobId, startTime: `${sH}:${sM}`, endTime: `${eH}:${eM}`, breakMin, transport: evalTrans || 0 };
+      const calc = calculateShiftPay(tempShift);
+
+      document.getElementById("shift-pay-preview").textContent = `💡 見込み給料: 約 ¥${calc.totalPay.toLocaleString()} (実働 ${calc.totalHours.toFixed(1)}h)`;
+
+      const currentEditId = document.getElementById("shift-id").value;
+      const dateStr = document.getElementById("shift-date").value;
+
+      let startMins = Number(sH) * 60 + Number(sM);
+      let endMins = Number(eH) * 60 + Number(eM);
+      if (endMins <= startMins) endMins += 24 * 60;
+
+      const sameDayShifts = DB.shifts.filter(s => s.date === dateStr && String(s.id) !== String(currentEditId));
+      let hasOverlap = false;
+
+      sameDayShifts.forEach(s => {
+        const [sH0, sM0] = s.startTime.split(":").map(Number);
+        const [eH0, eM0] = s.endTime.split(":").map(Number);
+        let curStart = sH0 * 60 + sM0;
+        let curEnd = eH0 * 60 + eM0;
+        if (curEnd <= curStart) curEnd += 24 * 60;
+
+        if (Math.max(startMins, curStart) < Math.min(endMins, curEnd)) {
+          hasOverlap = true;
+        }
+      });
+
+      document.getElementById("shift-overlap-alert").style.display = hasOverlap ? "block" : "none";
+    }
+
+    window.deleteShift = id => {
+      const s = DB.shifts.find(x => String(x.id) === String(id));
+      if(!s) return;
+      const job = DB.jobs.find(j => String(j.id) === String(s.jobId));
+      const jName = job ? job.name : '';
+      if (confirm(`シフト「${jName} ${s.startTime}~${s.endTime}」を削除してもよろしいですか？`)) {
+        pushUndoState();
+        DB.shifts = DB.shifts.filter(x => String(x.id) !== String(id));
+        saveDB(); renderAll(); closeEntryModal();
+      }
+    };
+    window.deleteExpense = id => {
+      const e = DB.expenses.find(x => String(x.id) === String(id));
+      if(!e) return;
+      const name = e.memo || e.category;
+      if (confirm(`支出「${name}」を削除してもよろしいですか？`)) {
+        pushUndoState();
+        DB.expenses = DB.expenses.filter(x => String(x.id) !== String(id));
+        saveDB(); renderAll(); closeEntryModal();
+      }
+    };
+    window.deleteIncome = id => {
+      const i = DB.otherIncomes.find(x => String(x.id) === String(id));
+      if(!i) return;
+      const name = i.memo || i.category;
+      if (confirm(`収入「${name}」を削除してもよろしいですか？`)) {
+        pushUndoState();
+        DB.otherIncomes = DB.otherIncomes.filter(x => String(x.id) !== String(id));
+        saveDB(); renderAll(); closeEntryModal();
+      }
+    };
+    window.deleteJob = id => {
+      const j = DB.jobs.find(x => x.id === id);
+      const name = j ? j.name : '勤務先';
+      if (confirm(`勤務先「${name}」を削除しますか？`)) {
+        pushUndoState();
+        DB.jobs = DB.jobs.filter(x => x.id !== id);
+        saveDB(); renderAll();
+      }
+    };
+    window.deletePin = id => {
+      if (confirm("このテンプレートを削除しますか？")) {
+        pushUndoState();
+        DB.pins = DB.pins.filter(p => p.id !== id);
+        saveDB(); renderAll();
+      }
+    };
+    window.deleteFixedConfig = id => {
+      if (confirm("この固定費設定を削除しますか？")) {
+        pushUndoState();
+        DB.fixedExpenses = DB.fixedExpenses.filter(f => f.id !== id);
+        saveDB(); renderAll();
+      }
+    };
+    window.deleteCardCompany = idx => {
+      if (confirm("このカード会社テンプレートを削除しますか？")) {
+        pushUndoState();
+        DB.creditCompanies.splice(idx, 1);
+        saveDB(); renderAll();
+      }
+    };
+
+    window.selectQuickTemplate = pinId => {
+      quickTemplateId = quickTemplateId === pinId ? null : pinId;
+      renderPinSelects();
+    };
+
+    function applyQuickTemplateToDate(dateStr) {
+      const pin = DB.pins.find(p => p.id === quickTemplateId);
+      if (!pin) return;
+      pushUndoState();
+      DB.shifts.push({
+        id: Date.now() + Math.random(),
+        jobId: pin.jobId,
+        date: dateStr,
+        startTime: pin.start,
+        endTime: pin.end,
+        breakMin: pin.breakMin,
+        transport: pin.transport
+      });
+      saveDB();
+      renderAll();
+    }
+
+    function attachSwipeListener(element, onSwipeLeft, onSwipeRight) {
+      let touchStartX = 0;
+      let touchStartY = 0;
+
+      element.addEventListener("touchstart", e => {
+        if (e.touches && e.touches.length > 0) {
+          touchStartX = e.touches[0].clientX;
+          touchStartY = e.touches[0].clientY;
+        }
+      }, { passive: true });
+
+      element.addEventListener("touchend", e => {
+        if (!touchStartX) return;
+        let endX = touchStartX;
+        let endY = touchStartY;
+        if (e.changedTouches && e.changedTouches.length > 0) {
+          endX = e.changedTouches[0].clientX;
+          endY = e.changedTouches[0].clientY;
+        }
+        const diffX = touchStartX - endX;
+        const diffY = touchStartY - endY;
+
+        if (Math.abs(diffX) > 40 && Math.abs(diffX) > Math.abs(diffY) * 1.4) {
+          if (diffX > 0) {
+            if (typeof onSwipeLeft === "function") onSwipeLeft();
+          } else {
+            if (typeof onSwipeRight === "function") onSwipeRight();
+          }
+        }
+        touchStartX = 0;
+        touchStartY = 0;
+      }, { passive: true });
+    }
+
+    function bindEvents() {
+      document.getElementById("tab-btn-home").addEventListener("click", () => switchTab("home"));
+      document.getElementById("tab-btn-payroll").addEventListener("click", () => switchTab("payroll"));
+      document.getElementById("tab-btn-stats").addEventListener("click", () => switchTab("stats"));
+      document.getElementById("tab-btn-settings").addEventListener("click", () => switchTab("settings"));
+
+      document.getElementById("theme-toggle-btn").addEventListener("click", () => {
+        DB.settings.theme = DB.settings.theme === "dark" ? "light" : "dark";
+        saveDB(); applyTheme();
+      });
+
+      document.getElementById("spin-gacha-btn").addEventListener("click", () => {
+        currentGachaVal = Math.floor(Math.random() * 499) + 1;
+        document.getElementById("coin-gacha-val").textContent = `¥${currentGachaVal.toLocaleString()}`;
+        document.getElementById("coin-gacha-status").textContent = "今日の貯金提案額です！";
+        document.getElementById("save-gacha-btn").style.display = "inline-flex";
+      });
+
+      document.getElementById("save-gacha-btn").addEventListener("click", () => {
+        if (!currentGachaVal) return;
+        pushUndoState();
+        const todayStr = getLocalDateString(new Date());
+        DB.expenses.push({ id: Date.now(), date: todayStr, category: "貯金", memo: "🎲 小銭貯金ガチャ", amount: currentGachaVal });
+        saveDB(); renderAll();
+        document.getElementById("save-gacha-btn").style.display = "none";
+        document.getElementById("coin-gacha-status").textContent = "今日の貯金を完了しました🎉";
+      });
+
+      document.querySelectorAll(".calc-input").forEach(inputEl => {
+        inputEl.addEventListener("click", () => openCalcKeyboard(inputEl));
+      });
+
+      document.querySelectorAll(".calc-btn[data-val]").forEach(btn => {
+        btn.addEventListener("click", () => handleCalcKeyPress(btn.getAttribute("data-val")));
+      });
+
+      document.getElementById("calc-done-btn").addEventListener("click", closeCalcKeyboard);
+      document.getElementById("calc-enter-btn").addEventListener("click", closeCalcKeyboard);
+
+      document.getElementById("prev-month-btn").addEventListener("click", () => { currentDate.setMonth(currentDate.getMonth() - 1); renderAll(); });
+      document.getElementById("next-month-btn").addEventListener("click", () => { currentDate.setMonth(currentDate.getMonth() + 1); renderAll(); });
+      document.getElementById("today-btn").addEventListener("click", () => { currentDate = new Date(); renderAll(); });
+      document.getElementById("calendar-month-picker").addEventListener("change", (e) => {
+        const [y, m] = e.target.value.split("-").map(Number);
+        currentDate = new Date(y, m - 1, 1);
+        renderAll();
+      });
+
+      document.getElementById("payroll-prev-btn").addEventListener("click", () => { payrollDate.setMonth(payrollDate.getMonth() - 1); renderSummaryAndPayroll(); renderCreditCardList(); });
+      document.getElementById("payroll-next-btn").addEventListener("click", () => { payrollDate.setMonth(payrollDate.getMonth() + 1); renderSummaryAndPayroll(); renderCreditCardList(); });
+
+      document.getElementById("stats-prev-month-btn").addEventListener("click", () => { statsDate.setMonth(statsDate.getMonth() - 1); renderStatsTab(); });
+      document.getElementById("stats-next-month-btn").addEventListener("click", () => { statsDate.setMonth(statsDate.getMonth() + 1); renderStatsTab(); });
+      document.getElementById("stats-today-btn").addEventListener("click", () => { statsDate = new Date(); renderStatsTab(); });
+      document.getElementById("stats-month-picker").addEventListener("change", (e) => {
+        const [y, m] = e.target.value.split("-").map(Number);
+        statsDate = new Date(y, m - 1, 1);
+        renderStatsTab();
+      });
+
+      const calendarCardEl = document.getElementById("calendar-card");
+      if (calendarCardEl) {
+        attachSwipeListener(calendarCardEl, 
+          () => { currentDate.setMonth(currentDate.getMonth() + 1); renderAll(); },
+          () => { currentDate.setMonth(currentDate.getMonth() - 1); renderAll(); }
+        );
+      }
+
+      const payrollCardEl = document.getElementById("payroll-summary-card");
+      if (payrollCardEl) {
+        attachSwipeListener(payrollCardEl,
+          () => { payrollDate.setMonth(payrollDate.getMonth() + 1); renderSummaryAndPayroll(); renderCreditCardList(); },
+          () => { payrollDate.setMonth(payrollDate.getMonth() - 1); renderSummaryAndPayroll(); renderCreditCardList(); }
+        );
+      }
+
+      const statsTabEl = document.getElementById("tab-stats");
+      if (statsTabEl) {
+        attachSwipeListener(statsTabEl,
+          () => { statsDate.setMonth(statsDate.getMonth() + 1); renderStatsTab(); },
+          () => { statsDate.setMonth(statsDate.getMonth() - 1); renderStatsTab(); }
+        );
+      }
+
+      const mainWrapperEl = document.getElementById("main-content-wrapper");
+      if (mainWrapperEl) {
+        attachSwipeListener(mainWrapperEl,
+          () => {
+            if (document.body.classList.contains("modal-open") || activeCalcInput) return;
+            const currentTabEl = document.querySelector(".tab-content.active");
+            if (!currentTabEl) return;
+            const curId = currentTabEl.id.replace("tab-", "");
+            const curIdx = TABS_ORDER.indexOf(curId);
+            if (curIdx !== -1 && curIdx < TABS_ORDER.length - 1) {
+              switchTab(TABS_ORDER[curIdx + 1]);
+            }
+          },
+          () => {
+            if (document.body.classList.contains("modal-open") || activeCalcInput) return;
+            const currentTabEl = document.querySelector(".tab-content.active");
+            if (!currentTabEl) return;
+            const curId = currentTabEl.id.replace("tab-", "");
+            const curIdx = TABS_ORDER.indexOf(curId);
+            if (curIdx !== -1 && curIdx > 0) {
+              switchTab(TABS_ORDER[curIdx - 1]);
+            }
+          }
+        );
+      }
+
+      document.getElementById("multi-select-toggle-btn").addEventListener("click", () => {
+        multiSelectMode = !multiSelectMode;
+        selectedDates.clear();
+        document.getElementById("multi-select-actions").style.display = multiSelectMode ? "block" : "none";
+        renderCalendar();
+      });
+
+      document.getElementById("quick-mode-toggle-btn").addEventListener("click", () => {
+        quickMode = !quickMode;
+        if (!quickMode) quickTemplateId = null;
+        document.getElementById("quick-pin-section").style.display = quickMode ? "block" : "none";
+        renderPinSelects();
+      });
+
+      document.getElementById("cancel-quick-mode-btn").addEventListener("click", () => {
+        quickMode = false;
+        quickTemplateId = null;
+        document.getElementById("quick-pin-section").style.display = "none";
+        renderPinSelects();
+      });
+
+      document.getElementById("apply-pin-bulk-btn").addEventListener("click", () => {
+        const pinId = Number(document.getElementById("quick-pin-select").value);
+        const pin = DB.pins.find(p => p.id === pinId);
+        if (!pin || selectedDates.size === 0) return;
+
+        pushUndoState();
+        selectedDates.forEach(dateStr => {
+          DB.shifts.push({ id: Date.now() + Math.random(), jobId: pin.jobId, date: dateStr, startTime: pin.start, endTime: pin.end, breakMin: pin.breakMin, transport: pin.transport });
+        });
+        saveDB(); selectedDates.clear(); multiSelectMode = false;
+        document.getElementById("multi-select-actions").style.display = "none";
+        renderAll();
+      });
+
+      document.getElementById("delete-bulk-btn").addEventListener("click", () => {
+        if (selectedDates.size === 0) return;
+        if (confirm("選択した日付のデータを一括削除しますか？")) {
+          pushUndoState();
+          selectedDates.forEach(dStr => {
+            DB.shifts = DB.shifts.filter(s => s.date !== dStr);
+            DB.expenses = DB.expenses.filter(e => e.date !== dStr);
+            DB.otherIncomes = DB.otherIncomes.filter(i => i.date !== dStr);
+          });
+          saveDB(); selectedDates.clear(); multiSelectMode = false;
+          document.getElementById("multi-select-actions").style.display = "none";
+          renderAll();
+        }
+      });
+
+      document.getElementById("history-search-input").addEventListener("input", () => { historyLimit = 10; renderHistory(); });
+      document.getElementById("history-filter-select").addEventListener("change", () => { historyLimit = 10; renderHistory(); });
+      document.getElementById("load-more-history-btn").addEventListener("click", () => { historyLimit += 10; renderHistory(); });
+
+      document.getElementById("start-nudge-minus").addEventListener("click", () => nudgeTime('start', -15));
+      document.getElementById("start-nudge-plus").addEventListener("click", () => nudgeTime('start', 15));
+      document.getElementById("end-nudge-minus").addEventListener("click", () => nudgeTime('end', -15));
+      document.getElementById("end-nudge-plus").addEventListener("click", () => nudgeTime('end', 15));
+
+      document.getElementById("shift-job-id").addEventListener("change", () => {
+        onJobChangeSync();
+        autoSelectBreakMin();
+        updateShiftPreview();
+      });
+
+      ["shift-date", "shift-start-hour", "shift-start-min", "shift-end-hour", "shift-end-min"].forEach(id => {
+        const el = document.getElementById(id);
+        if (el) el.addEventListener("change", () => {
+          autoSelectBreakMin();
+          updateShiftPreview();
+        });
+      });
+      document.getElementById("shift-break-min").addEventListener("change", updateShiftPreview);
+
+      document.getElementById("save-as-pin-btn").addEventListener("click", () => {
+        const jobId = document.getElementById("shift-job-id").value;
+        const job = DB.jobs.find(j => String(j.id) === String(jobId));
+        const sH = document.getElementById("shift-start-hour").value;
+        const sM = document.getElementById("shift-start-min").value;
+        const eH = document.getElementById("shift-end-hour").value;
+        const eM = document.getElementById("shift-end-min").value;
+        const breakMin = Number(document.getElementById("shift-break-min").value) || 0;
+        const transportInput = document.getElementById("shift-transport");
+        const evalTrans = evaluateMath(transportInput.value);
+
+        if (evalTrans === null) {
+          showInputError(transportInput);
+          return;
+        }
+
+        const defaultLabel = `${job ? job.name : 'シフト'} ${sH}:${sM}〜${eH}:${eM}`;
+        const label = prompt("テンプレート名を入力してください:", defaultLabel);
+
+        if (label && label.trim()) {
+          pushUndoState();
+          DB.pins.push({
+            id: Date.now(),
+            label: label.trim(),
+            jobId: jobId,
+            start: `${sH}:${sM}`,
+            end: `${eH}:${eM}`,
+            breakMin: breakMin,
+            transport: evalTrans
+          });
+          saveDB();
+          renderPinSelects();
+          renderSettingsTab();
+        }
+      });
+
+      document.getElementById("shift-form").addEventListener("submit", e => {
+        e.preventDefault();
+        clearFormErrors();
+        const editId = document.getElementById("shift-id").value;
+        const sH = document.getElementById("shift-start-hour").value;
+        const sM = document.getElementById("shift-start-min").value;
+        const eH = document.getElementById("shift-end-hour").value;
+        const eM = document.getElementById("shift-end-min").value;
+
+        const transInput = document.getElementById("shift-transport");
+        const evalTrans = evaluateMath(transInput.value);
+
+        if (evalTrans === null) {
+          showInputError(transInput);
+          return;
+        }
+
+        const payload = {
+          jobId: document.getElementById("shift-job-id").value,
+          date: document.getElementById("shift-date").value,
+          startTime: `${sH}:${sM}`,
+          endTime: `${eH}:${eM}`,
+          breakMin: Number(document.getElementById("shift-break-min").value) || 0,
+          transport: evalTrans
+        };
+
+        if (editId) {
+          pushUndoState();
+          const idx = DB.shifts.findIndex(s => String(s.id) === String(editId));
+          if (idx !== -1) DB.shifts[idx] = { id: Number(editId) || editId, ...payload };
+        } else {
+          pushUndoState();
+          DB.shifts.push({ id: Date.now(), ...payload });
+        }
+        saveDB(); closeEntryModal(); renderAll();
+      });
+
+      document.getElementById("expense-form").addEventListener("submit", e => {
+        e.preventDefault();
+        clearFormErrors();
+        const editId = document.getElementById("expense-id").value;
+        const category = document.getElementById("expense-category").value;
+        const memoInput = document.getElementById("expense-memo").value.trim();
+        const amountInput = document.getElementById("expense-amount");
+        const evalAmount = evaluateMath(amountInput.value);
+
+        if (evalAmount === null) {
+          showInputError(amountInput);
+          return;
+        }
+
+        const payload = {
+          date: document.getElementById("expense-date").value,
+          category: category,
+          memo: memoInput,
+          amount: evalAmount
+        };
+
+        if (editId) {
+          pushUndoState();
+          const idx = DB.expenses.findIndex(e => String(e.id) === String(editId));
+          if (idx !== -1) DB.expenses[idx] = { id: Number(editId) || editId, ...payload };
+        } else {
+          pushUndoState();
+          DB.expenses.push({ id: Date.now(), ...payload });
+        }
+        saveDB(); closeEntryModal(); renderAll();
+      });
+
+      document.getElementById("income-form").addEventListener("submit", e => {
+        e.preventDefault();
+        clearFormErrors();
+        const editId = document.getElementById("income-id").value;
+        const category = document.getElementById("income-category").value;
+        const memoInput = document.getElementById("income-memo").value.trim();
+        const amountInput = document.getElementById("income-amount");
+        const evalAmount = evaluateMath(amountInput.value);
+
+        if (evalAmount === null) {
+          showInputError(amountInput);
+          return;
+        }
+
+        const payload = {
+          date: document.getElementById("income-date").value,
+          category: category,
+          memo: memoInput,
+          amount: evalAmount
+        };
+
+        if (editId) {
+          pushUndoState();
+          const idx = DB.otherIncomes.findIndex(i => String(i.id) === String(editId));
+          if (idx !== -1) DB.otherIncomes[idx] = { id: Number(editId) || editId, ...payload };
+        } else {
+          pushUndoState();
+          DB.otherIncomes.push({ id: Date.now(), ...payload });
+        }
+        saveDB(); closeEntryModal(); renderAll();
+      });
+
+      document.getElementById("open-cc-modal-btn").addEventListener("click", () => {
+        document.getElementById("cc-date-input").value = getLocalDateString(new Date());
+        openModalWithLock("cc-modal");
+      });
+      document.getElementById("close-cc-modal-btn").addEventListener("click", () => closeModalWithLock("cc-modal"));
+
+      document.getElementById("cc-form").addEventListener("submit", e => {
+        e.preventDefault();
+        clearFormErrors();
+        const amountInput = document.getElementById("cc-amount-input");
+        const evalAmount = evaluateMath(amountInput.value);
+
+        if (evalAmount === null) {
+          showInputError(amountInput);
+          return;
+        }
+
+        pushUndoState();
+        DB.expenses.push({
+          id: Date.now(),
+          date: document.getElementById("cc-date-input").value,
+          category: "クレカ",
+          memo: document.getElementById("cc-company-select").value,
+          amount: evalAmount
+        });
+        saveDB(); closeModalWithLock("cc-modal"); renderAll();
+      });
+
+      const fabBtn = document.getElementById("fab-main-btn");
+      const fabMenu = document.getElementById("fab-menu");
+      const fabOverlay = document.getElementById("fab-overlay");
+      const toggleFab = () => {
+        const active = fabBtn.classList.toggle("active");
+        fabMenu.classList.toggle("active", active);
+        fabOverlay.classList.toggle("active", active);
+      };
+
+      fabBtn.addEventListener("click", toggleFab);
+      fabOverlay.addEventListener("click", toggleFab);
+
+      document.getElementById("fab-add-shift").addEventListener("click", () => { toggleFab(); openEntryModal(getLocalDateString(new Date()), "shift"); });
+      document.getElementById("fab-add-expense").addEventListener("click", () => { toggleFab(); openEntryModal(getLocalDateString(new Date()), "expense"); });
+      document.getElementById("fab-add-income").addEventListener("click", () => { toggleFab(); openEntryModal(getLocalDateString(new Date()), "income"); });
+
+      document.getElementById("close-entry-modal-btn").addEventListener("click", closeEntryModal);
+      document.getElementById("type-shift-btn").addEventListener("click", () => switchEntryForm("shift"));
+      document.getElementById("type-expense-btn").addEventListener("click", () => switchEntryForm("expense"));
+      document.getElementById("type-income-btn").addEventListener("click", () => switchEntryForm("income"));
+
+      document.getElementById("run-tax-diag-btn").addEventListener("click", runTaxDiagnosis);
+
+      document.getElementById("close-override-modal-btn").addEventListener("click", () => closeModalWithLock("override-pay-modal"));
+      document.getElementById("override-pay-form").addEventListener("submit", e => {
+        e.preventDefault();
+        const key = document.getElementById("override-pay-key").value;
+        const raw = document.getElementById("override-amount").value;
+
+        if (!DB.actualPay) DB.actualPay = {};
+
+        pushUndoState();
+        if (raw === "") {
+          delete DB.actualPay[key];
+        } else {
+          const evalPay = evaluateMath(raw);
+          if (evalPay === null) return;
+          DB.actualPay[key] = evalPay;
+        }
+
+        saveDB();
+        closeModalWithLock("override-pay-modal");
+        renderAll();
+      });
+
+      document.getElementById("clear-override-btn").addEventListener("click", () => {
+        const key = document.getElementById("override-pay-key").value;
+        if (DB.actualPay && DB.actualPay[key] !== undefined) {
+          pushUndoState();
+          delete DB.actualPay[key];
+          saveDB();
+        }
+        closeModalWithLock("override-pay-modal");
+        renderAll();
+      });
+
+      document.getElementById("repeat-modal-open-btn").addEventListener("click", () => openModalWithLock("repeat-modal"));
+      document.getElementById("close-repeat-modal-btn").addEventListener("click", () => closeModalWithLock("repeat-modal"));
+
+      document.getElementById("repeat-form").addEventListener("submit", e => {
+        e.preventDefault();
+        const pinId = Number(document.getElementById("repeat-pin-id").value);
+        const pin = DB.pins.find(p => p.id === pinId);
+        if (!pin) return;
+
+        const start = new Date(document.getElementById("repeat-start-date").value);
+        const end = new Date(document.getElementById("repeat-end-date").value);
+        const dows = Array.from(document.querySelectorAll(".repeat-dow:checked")).map(cb => Number(cb.value));
+
+        pushUndoState();
+        let curr = new Date(start);
+        while (curr <= end) {
+          if (dows.includes(curr.getDay())) {
+            DB.shifts.push({ id: Date.now() + Math.random(), jobId: pin.jobId, date: getLocalDateString(curr), startTime: pin.start, endTime: pin.end, breakMin: pin.breakMin, transport: pin.transport });
+          }
+          curr.setDate(curr.getDate() + 1);
+        }
+        saveDB(); closeModalWithLock("repeat-modal"); renderAll();
+      });
+
+      const accs = ["acc-jobs", "acc-pins", "acc-wall", "acc-fixed", "acc-cards", "acc-reminder", "acc-data"];
+      accs.forEach(id => {
+        const btn = document.getElementById(`${id}-btn`);
+        const body = document.getElementById(`${id}-body`);
+        if (btn && body) {
+          btn.addEventListener("click", () => {
+            const active = btn.classList.contains("active");
+            btn.classList.toggle("active", !active);
+            body.classList.toggle("active", !active);
+          });
+        }
+      });
+
+      document.getElementById("add-job-btn").addEventListener("click", () => {
+        const name = prompt("勤務先名を入力:"); if (!name) return;
+        pushUndoState();
+        DB.jobs.push({
+          id: Date.now(),
+          name,
+          color: "#f97316",
+          hourlyWage: 1200,
+          nightWage: 1500,
+          transport: 0,
+          type: "monthly",
+          cutoffDay: 31,
+          payMonthOffset: 1,
+          payDay: 15,
+          holidayAdjust: "before"
+        });
+        saveDB();
+        renderAll();
+      });
+
+      document.getElementById("add-pin-btn").addEventListener("click", () => {
+        const label = prompt("テンプレート名:"); if (!label) return;
+        pushUndoState();
+        DB.pins.push({ id: Date.now(), label, jobId: DB.jobs[0]?.id || 1, start: "17:00", end: "22:00", breakMin: 0, transport: 0 });
+        saveDB(); renderAll();
+      });
+
+      document.getElementById("add-fixed-btn").addEventListener("click", () => {
+        const memo = prompt("固定費の項目名:"); if (!memo) return;
+        const amount = Number(prompt("金額 (円):", "50000")) || 0;
+        pushUndoState();
+        DB.fixedExpenses.push({ id: Date.now(), memo, amount, autoApply: true });
+        saveDB(); renderAll();
+      });
+
+      document.getElementById("add-card-btn").addEventListener("click", () => {
+        const input = document.getElementById("new-card-name");
+        if (input.value.trim()) {
+          pushUndoState();
+          DB.creditCompanies.push(input.value.trim());
+          input.value = ""; saveDB(); renderAll();
+        }
+      });
+
+      document.getElementById("save-asset-settings-btn").addEventListener("click", () => {
+        const baseAssetEval = evaluateMath(document.getElementById("setting-base-asset").value);
+        if (baseAssetEval === null) return;
+        pushUndoState();
+        DB.baseAsset = baseAssetEval;
+        const wallVal = document.getElementById("setting-wall-target").value;
+        DB.wallTarget = wallVal === "custom" ? (evaluateMath(document.getElementById("setting-wall-custom").value) || 1780000) : Number(wallVal);
+        DB.budgets.savingsGoal = evaluateMath(document.getElementById("setting-savings-goal").value) || 0;
+        DB.budgets.monthly = evaluateMath(document.getElementById("setting-monthly-budget").value) || 0;
+        saveDB(); renderAll();
+      });
+
+      document.getElementById("save-reminder-btn").addEventListener("click", () => {
+        pushUndoState();
+        DB.reminder.enabled = document.getElementById("setting-reminder-enable").checked;
+        DB.reminder.time = document.getElementById("setting-reminder-time").value;
+        saveDB(); renderAll();
+      });
+
+      document.getElementById("export-csv-btn").addEventListener("click", () => {
+        let csv = "\uFEFF日付/キー,種別,内容,金額\n";
+        DB.shifts.forEach(s => csv += `${s.date},シフト,${s.startTime}-${s.endTime},${calculateShiftPay(s).totalPay}\n`);
+        DB.expenses.forEach(e => csv += `${e.date},支出,${e.memo},-${e.amount}\n`);
+        DB.otherIncomes.forEach(i => csv += `${i.date},収入,${i.memo},${i.amount}\n`);
+        if (DB.actualPay) {
+          Object.entries(DB.actualPay).forEach(([key, amt]) => {
+            csv += `${key},実給料補正,確定振込額,${amt}\n`;
+          });
+        }
+        const blob = new Blob([csv], { type: "text/csv;charset=utf-8;" });
+        const a = document.createElement("a"); a.href = URL.createObjectURL(blob);
+        a.download = `shift_pro_export_${getLocalDateString(new Date())}.csv`; a.click();
+      });
+
+      document.getElementById("export-json-btn").addEventListener("click", () => {
+        const backupData = Object.assign({}, DB, { actualPay: DB.actualPay || {} });
+        const blob = new Blob([JSON.stringify(backupData, null, 2)], { type: "application/json" });
+        const a = document.createElement("a"); a.href = URL.createObjectURL(blob);
+        a.download = `shift_pro_backup_${getLocalDateString(new Date())}.json`; a.click();
+      });
+
+      const fileInput = document.getElementById("json-file-input");
+      document.getElementById("import-json-trigger-btn").addEventListener("click", () => fileInput.click());
+      fileInput.addEventListener("change", e => {
+        const file = e.target.files[0]; if (!file) return;
+        const reader = new FileReader();
+        reader.onload = evt => {
+          try {
+            const data = JSON.parse(evt.target.result);
+            if (confirm("既存データが上書きされます。復元しますか？")) {
+              pushUndoState();
+              DB = Object.assign({}, DEFAULT_DB, data);
+              if (!DB.actualPay) DB.actualPay = {};
+              saveDB(); renderAll();
+            }
+          } catch (err) { alert("JSONファイルの形式が不正です。"); }
+        };
+        reader.readAsText(file);
+      });
+
+      document.getElementById("reset-data-btn").addEventListener("click", () => {
+        if (confirm("全データを削除し初期化しますか？")) {
+          localStorage.removeItem("SHIFT_PRO_DB");
+          DB = JSON.parse(JSON.stringify(DEFAULT_DB));
+          saveDB(); renderAll();
+        }
+      });
+    }
+
+    window.addEventListener("DOMContentLoaded", () => {
+      initTimeSelects();
+      bindEvents();
+      renderAll();
+    });
+  </script>
+</body>
+</html>
