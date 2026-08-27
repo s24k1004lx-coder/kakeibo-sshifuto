@@ -273,11 +273,11 @@
 
     .day-cell {
       background: var(--card);
-      min-height: 64px;
+      min-height: 66px;
       padding: 2px 1px;
       display: flex;
       flex-direction: column;
-      justify-content: flex-start;
+      justify-content: space-between;
       gap: 2px;
       cursor: pointer;
       position: relative;
@@ -372,6 +372,22 @@
       color: #cbd5e1 !important;
       border-color: #475569 !important;
     }
+
+    /* 🪙 その日の収支差額（日別プラマイ）極小表示 */
+    .cal-day-diff {
+      font-size: 7.5px;
+      line-height: 1;
+      font-weight: 700;
+      text-align: right;
+      padding: 1px 2px;
+      white-space: nowrap;
+      overflow: hidden;
+      text-overflow: ellipsis;
+      opacity: 0.85;
+      letter-spacing: -0.3px;
+    }
+    .cal-day-diff.plus { color: var(--good); }
+    .cal-day-diff.minus { color: var(--danger); }
 
     .cal-week-summary {
       grid-column: 1 / -1;
@@ -1574,6 +1590,19 @@
       return `${sign}${amt.toLocaleString()}`;
     }
 
+    function formatDiffAmount(amt) {
+      if (amt === 0) return "";
+      const isPlus = amt > 0;
+      const absVal = Math.abs(amt);
+      const sign = isPlus ? "+" : "-";
+      if (absVal >= 10000) {
+        const val = absVal / 10000;
+        const formatted = val % 1 === 0 ? val.toFixed(0) : val.toFixed(1);
+        return `${sign}¥${formatted}万`;
+      }
+      return `${sign}¥${absVal.toLocaleString()}`;
+    }
+
     function evaluateMath(expr) {
       if (typeof expr === 'number') return isNaN(expr) ? null : expr;
       if (!expr && expr !== 0) return 0;
@@ -2023,17 +2052,27 @@
           weekInc += dayIncTotal;
           weekExp += dayExpSum;
 
+          const dayDiff = dayIncTotal - dayExpSum;
+          let dayDiffHtml = '';
+          if (dayDiff !== 0) {
+            const diffClass = dayDiff > 0 ? 'plus' : 'minus';
+            dayDiffHtml = `<div class="cal-day-diff ${diffClass}">${formatDiffAmount(dayDiff)}</div>`;
+          }
+
           const paydayLabel = paydayMap[dateStr] ? `<span style="font-size:7.5px; color:#8b5cf6; font-weight:bold; white-space:nowrap; margin-left:1px; flex-shrink:0;">💴給料</span>` : '';
 
           cell.innerHTML = `
-            <div class="day-number ${dayClass}">
-              <div class="day-number-left">
-                <span>${dt.getDate()}</span>
-                ${paydayLabel}
+            <div>
+              <div class="day-number ${dayClass}">
+                <div class="day-number-left">
+                  <span>${dt.getDate()}</span>
+                  ${paydayLabel}
+                </div>
+                <div>${selectedDates.has(dateStr) ? '☑' : ''}</div>
               </div>
-              <div>${selectedDates.has(dateStr) ? '☑' : ''}</div>
+              ${badgesHtml}
             </div>
-            ${badgesHtml}
+            ${dayDiffHtml}
           `;
 
           cell.addEventListener("click", () => {
@@ -3080,6 +3119,22 @@
       document.getElementById("calc-keyboard-drawer").classList.add("active");
     }
 
+    // 💡 完了・確定時に計算式を評価して数値をフォームとキーボードに反映する
+    function commitAndCloseCalcKeyboard() {
+      if (activeCalcInput) {
+        const val = activeCalcInput.value;
+        const evaluated = evaluateMath(val);
+        if (evaluated !== null) {
+          activeCalcInput.value = evaluated;
+          updateCalcDisplay();
+          if (activeCalcInput.id === "shift-transport") {
+            updateShiftPreview();
+          }
+        }
+      }
+      closeCalcKeyboard();
+    }
+
     function closeCalcKeyboard() {
       activeCalcInput = null;
       document.getElementById("calc-keyboard-drawer").classList.remove("active");
@@ -3476,8 +3531,8 @@
         btn.addEventListener("click", () => handleCalcKeyPress(btn.getAttribute("data-val")));
       });
 
-      document.getElementById("calc-done-btn").addEventListener("click", closeCalcKeyboard);
-      document.getElementById("calc-enter-btn").addEventListener("click", closeCalcKeyboard);
+      document.getElementById("calc-done-btn").addEventListener("click", commitAndCloseCalcKeyboard);
+      document.getElementById("calc-enter-btn").addEventListener("click", commitAndCloseCalcKeyboard);
 
       document.getElementById("prev-month-btn").addEventListener("click", () => { currentDate.setMonth(currentDate.getMonth() - 1); renderAll(); });
       document.getElementById("next-month-btn").addEventListener("click", () => { currentDate.setMonth(currentDate.getMonth() + 1); renderAll(); });
@@ -3500,7 +3555,6 @@
         renderStatsTab();
       });
 
-      // 📱 カレンダーカード スライド（月切り替え）
       const calendarCardEl = document.getElementById("calendar-card");
       if (calendarCardEl) {
         attachSwipeListener(calendarCardEl, 
@@ -3509,7 +3563,6 @@
         );
       }
 
-      // 📱 給料見込み＆収支詳細カード スライド（月切り替え）
       const payrollCardEl = document.getElementById("payroll-summary-card");
       if (payrollCardEl) {
         attachSwipeListener(payrollCardEl,
@@ -3518,7 +3571,6 @@
         );
       }
 
-      // 📱 統計タブ スライド（統計月切り替え）
       const statsTabEl = document.getElementById("tab-stats");
       if (statsTabEl) {
         attachSwipeListener(statsTabEl,
