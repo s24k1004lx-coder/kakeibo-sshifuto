@@ -3,7 +3,7 @@
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover">
-  <title>ShiftWallet</title>
+  <title>シフト給料＆家計簿 PRO</title>
 
   <!-- 📱 スマホホーム画面用アイコン -->
   <link rel="apple-touch-icon" href="https://img.icons8.com/color/192/calculator--v1.png">
@@ -69,7 +69,6 @@
       overflow: hidden !important;
     }
 
-    /* 🛑 キーボード表示中は背面のタブバーへのタップ突き抜けを完全遮断 */
     body.calc-open .tab-bar,
     body.modal-open .tab-bar {
       pointer-events: none !important;
@@ -230,7 +229,17 @@
       font-size: 11px;
     }
 
-    /* カレンダー */
+    /* 📱 カレンダーカード：画面横幅いっぱいに拡大 */
+    #calendar-card {
+      margin-left: -8px;
+      margin-right: -8px;
+      width: calc(100% + 16px);
+      border-radius: 0;
+      border-left: none;
+      border-right: none;
+      padding: 8px 0;
+    }
+
     .calendar-header {
       display: flex;
       justify-content: space-between;
@@ -238,6 +247,7 @@
       margin-bottom: 6px;
       gap: 4px;
       flex-wrap: wrap;
+      padding: 0 8px;
     }
     .cal-nav-btns { display: flex; align-items: center; gap: 4px; }
     .cal-nav-btn {
@@ -260,8 +270,10 @@
       grid-template-columns: repeat(7, 1fr);
       gap: 1px;
       background: var(--line);
-      border: 1px solid var(--line);
-      border-radius: 8px;
+      border-top: 1px solid var(--line);
+      border-bottom: 1px solid var(--line);
+      border-left: none;
+      border-right: none;
       overflow: hidden;
       width: 100%;
     }
@@ -280,11 +292,11 @@
     .day-cell {
       background: var(--card);
       min-height: 66px;
-      padding: 2px 1px;
+      padding: 2px 0.5px;
       display: flex;
       flex-direction: column;
       justify-content: space-between;
-      gap: 2px;
+      gap: 1.5px;
       cursor: pointer;
       position: relative;
       overflow: hidden;
@@ -323,10 +335,11 @@
       width: 100%;
     }
     
+    /* 🎨 5桁金額でもはみ出さない最適化バッジスタイル */
     .cal-badge {
-      font-size: 8.5px;
-      padding: 1.5px 1px;
-      border-radius: 3px;
+      font-size: 7.8px;
+      padding: 1.5px 0.5px;
+      border-radius: 2.5px;
       font-weight: 800;
       white-space: nowrap;
       overflow: hidden;
@@ -335,13 +348,14 @@
       width: 100%;
       text-align: center;
       box-sizing: border-box;
-      letter-spacing: -0.2px;
+      letter-spacing: -0.4px;
+      font-variant-numeric: tabular-nums;
     }
     .cal-badge.shift-pay {
       background: var(--good-light);
       color: #065f46;
       border: 1px solid var(--good);
-      border-left-width: 3.5px;
+      border-left-width: 3px;
     }
     [data-theme="dark"] .cal-badge.shift-pay {
       background: #064e3b;
@@ -371,7 +385,7 @@
       background: #f1f5f9 !important;
       color: #475569 !important;
       border: 1px dashed #94a3b8 !important;
-      font-size: 8px;
+      font-size: 7.5px;
     }
     [data-theme="dark"] .cal-badge.overnight {
       background: #1e293b !important;
@@ -399,7 +413,7 @@
       background: var(--bg);
       font-size: 9.5px;
       color: var(--muted);
-      padding: 2px 4px;
+      padding: 2px 6px;
       display: flex;
       justify-content: flex-end;
       gap: 6px;
@@ -579,7 +593,6 @@
       will-change: transform;
     }
     
-    /* 📱 モーダル上部のプルダウン用ハンドルバー */
     .modal-drag-handle {
       width: 40px;
       height: 5px;
@@ -667,7 +680,7 @@
     }
     .period-setting-head strong { font-size: 11px; }
 
-    /* ⌨️ 専用電卓キーボード（タップ貫通防止 & 最前面） */
+    /* ⌨️ 専用電卓キーボード（最前面 & ガード） */
     .calc-keyboard-drawer {
       position: fixed;
       bottom: 0; left: 0; right: 0;
@@ -803,7 +816,7 @@
         </div>
       </div>
 
-      <!-- カレンダーカード -->
+      <!-- カレンダーカード（全幅表示） -->
       <div class="card" id="calendar-card">
         <div class="calendar-header">
           <div class="cal-nav-btns">
@@ -824,15 +837,23 @@
           <div class="cal-day-head">土</div>
         </div>
 
-        <!-- 📱 指追従スワイプ対応ビューポート -->
-        <div id="calendar-viewport" style="overflow: hidden; width: 100%; position: relative;">
-          <div id="calendar-slider" style="width: 100%; will-change: transform;">
-            <div class="calendar-grid" id="calendar-days-container" style="margin-top: 2px;"></div>
+        <!-- 📱 前後月がリアルタイムに見える3面カルーセルスライダー -->
+        <div id="calendar-viewport" style="overflow: hidden; width: 100%; position: relative; touch-action: pan-y;">
+          <div id="calendar-slider" style="display: flex; width: 300%; transform: translateX(-33.333333%); will-change: transform;">
+            <div style="width: 33.333333%; flex-shrink: 0;">
+              <div class="calendar-grid" id="calendar-days-prev" style="margin-top: 2px;"></div>
+            </div>
+            <div style="width: 33.333333%; flex-shrink: 0;">
+              <div class="calendar-grid" id="calendar-days-container" style="margin-top: 2px;"></div>
+            </div>
+            <div style="width: 33.333333%; flex-shrink: 0;">
+              <div class="calendar-grid" id="calendar-days-next" style="margin-top: 2px;"></div>
+            </div>
           </div>
         </div>
       </div>
 
-      <!-- 明細リスト（2段階絞り込み対応） -->
+      <!-- 明細リスト -->
       <div class="card">
         <div class="card-title">📋 明細リスト (タップで修正)</div>
         <div class="form-row" style="margin-bottom: 6px; gap: 4px;">
@@ -1575,9 +1596,10 @@
       return `${y}-${m}-${day}`;
     }
 
+    // 💡 5桁（〜99,999円）まではフル桁表示、6桁（10万円以上）から万表記
     function formatCalBadgeAmount(amt, isPlus) {
       const sign = isPlus ? "+" : "-";
-      if (amt >= 10000) {
+      if (amt >= 100000) {
         const val = amt / 10000;
         const formatted = val % 1 === 0 ? val.toFixed(0) : val.toFixed(1);
         return `${sign}${formatted}万`;
@@ -1585,6 +1607,7 @@
       return `${sign}${amt.toLocaleString()}`;
     }
 
+    // 💡 日別プラマイ収支（1万円以上は万表記）
     function formatDiffAmount(amt) {
       if (amt === 0) return "";
       const isPlus = amt > 0;
@@ -1914,16 +1937,9 @@
       document.getElementById("total-asset-val").textContent = `¥${assetVal.toLocaleString()}`;
     }
 
-    function renderCalendar() {
-      const year = currentDate.getFullYear();
-      const month = currentDate.getMonth();
-      const monthStr = `${year}-${String(month + 1).padStart(2, "0")}`;
-
-      const picker = document.getElementById("calendar-month-picker");
-      if (picker) picker.value = monthStr;
-
-      const container = document.getElementById("calendar-days-container");
+    function renderCalendarGridForMonth(year, month, container, isInteractive = true) {
       if (!container) return;
+      const monthStr = `${year}-${String(month + 1).padStart(2, "0")}`;
       container.innerHTML = "";
 
       const firstDayObj = new Date(year, month, 1);
@@ -1966,7 +1982,7 @@
           cell.className = "day-cell";
           if (!isCurrentMonth) cell.classList.add("other-month");
           if (dateStr === todayStr) cell.classList.add("today");
-          if (selectedDates.has(dateStr)) cell.classList.add("selected");
+          if (isInteractive && selectedDates.has(dateStr)) cell.classList.add("selected");
 
           const dayOfWeek = dt.getDay();
           const holiday = isJapaneseHoliday(dt.getFullYear(), dt.getMonth() + 1, dt.getDate());
@@ -2037,28 +2053,29 @@
                   <span>${dt.getDate()}</span>
                   ${paydayLabel}
                 </div>
-                <div>${selectedDates.has(dateStr) ? '☑' : ''}</div>
+                <div>${isInteractive && selectedDates.has(dateStr) ? '☑' : ''}</div>
               </div>
               ${badgesHtml}
             </div>
             ${dayDiffHtml}
           `;
 
-          cell.addEventListener("click", () => {
-            // スライド中（ドラッグ移動）だった場合はタップを開かない
-            if (Math.abs(calCurrentTranslateX) > 10) return;
+          if (isInteractive) {
+            cell.addEventListener("click", () => {
+              if (Math.abs(calDiffX) > 8) return;
 
-            if (multiSelectMode) {
-              if (selectedDates.has(dateStr)) selectedDates.delete(dateStr);
-              else selectedDates.add(dateStr);
-              document.getElementById("selected-count").textContent = selectedDates.size;
-              renderCalendar();
-            } else if (quickMode && quickTemplateId) {
-              applyQuickTemplateToDate(dateStr);
-            } else {
-              handleDateCellClick(dateStr);
-            }
-          });
+              if (multiSelectMode) {
+                if (selectedDates.has(dateStr)) selectedDates.delete(dateStr);
+                else selectedDates.add(dateStr);
+                document.getElementById("selected-count").textContent = selectedDates.size;
+                renderCalendar();
+              } else if (quickMode && quickTemplateId) {
+                applyQuickTemplateToDate(dateStr);
+              } else {
+                handleDateCellClick(dateStr);
+              }
+            });
+          }
 
           container.appendChild(cell);
         });
@@ -2067,6 +2084,39 @@
         sumRow.className = "cal-week-summary";
         sumRow.innerHTML = `週合計 <b style="color:var(--good)">+¥${weekInc.toLocaleString()}</b> <b style="color:var(--danger)">-¥${weekExp.toLocaleString()}</b>`;
         container.appendChild(sumRow);
+      }
+    }
+
+    function renderCalendar() {
+      const year = currentDate.getFullYear();
+      const month = currentDate.getMonth();
+      const monthStr = `${year}-${String(month + 1).padStart(2, "0")}`;
+
+      const picker = document.getElementById("calendar-month-picker");
+      if (picker) picker.value = monthStr;
+
+      const currContainer = document.getElementById("calendar-days-container");
+      const prevContainer = document.getElementById("calendar-days-prev");
+      const nextContainer = document.getElementById("calendar-days-next");
+
+      if (!currContainer) return;
+
+      const prevDate = new Date(year, month - 1, 1);
+      renderCalendarGridForMonth(prevDate.getFullYear(), prevDate.getMonth(), prevContainer, false);
+
+      renderCalendarGridForMonth(year, month, currContainer, true);
+
+      const nextDate = new Date(year, month + 1, 1);
+      renderCalendarGridForMonth(nextDate.getFullYear(), nextDate.getMonth(), nextContainer, false);
+
+      resetCalendarSliderPosition();
+    }
+
+    function resetCalendarSliderPosition() {
+      const calSlider = document.getElementById("calendar-slider");
+      if (calSlider) {
+        calSlider.style.transition = "none";
+        calSlider.style.transform = "translateX(-33.333333%)";
       }
     }
 
@@ -3481,10 +3531,10 @@
       }, { passive: true });
     }
 
-    // 📱 カレンダーの指追従スワイプ（半分以上で月移動、半分未満で手放すと戻る）
+    // 📱 前後の月がリアルタイムに見える3面カルーセルスライダー
     let calTouchStartX = 0;
     let calTouchStartY = 0;
-    let calCurrentTranslateX = 0;
+    let calDiffX = 0;
     let isCalDragging = false;
 
     function initCalendarDragSwipe() {
@@ -3496,7 +3546,7 @@
         if (e.touches && e.touches.length > 0) {
           calTouchStartX = e.touches[0].clientX;
           calTouchStartY = e.touches[0].clientY;
-          calCurrentTranslateX = 0;
+          calDiffX = 0;
           isCalDragging = true;
           calSlider.style.transition = "none";
         }
@@ -3510,8 +3560,10 @@
         const diffY = currentY - calTouchStartY;
 
         if (Math.abs(diffX) > Math.abs(diffY)) {
-          calCurrentTranslateX = diffX;
-          calSlider.style.transform = `translateX(${calCurrentTranslateX}px)`;
+          calDiffX = diffX;
+          const viewportWidth = calViewport.offsetWidth || 300;
+          const baseOffset = -viewportWidth;
+          calSlider.style.transform = `translateX(${baseOffset + diffX}px)`;
         }
       }, { passive: true });
 
@@ -3519,37 +3571,32 @@
         if (!isCalDragging) return;
         isCalDragging = false;
         const viewportWidth = calViewport.offsetWidth || 300;
-        const threshold = viewportWidth * 0.45; // 画面幅の約半分
+        const threshold = viewportWidth * 0.5;
 
         calSlider.style.transition = "transform 0.22s cubic-bezier(0.25, 1, 0.5, 1)";
 
-        if (calCurrentTranslateX < -threshold) {
-          // 左へ半分以上スワイプ -> 翌月
-          calSlider.style.transform = `translateX(-${viewportWidth}px)`;
+        if (calDiffX < -threshold) {
+          calSlider.style.transform = `translateX(${-viewportWidth * 2}px)`;
           setTimeout(() => {
             currentDate.setMonth(currentDate.getMonth() + 1);
             renderAll();
-            calSlider.style.transition = "none";
-            calSlider.style.transform = "translateX(0px)";
           }, 220);
-        } else if (calCurrentTranslateX > threshold) {
-          // 右へ半分以上スワイプ -> 前月
-          calSlider.style.transform = `translateX(${viewportWidth}px)`;
+        } else if (calDiffX > threshold) {
+          calSlider.style.transform = `translateX(0px)`;
           setTimeout(() => {
             currentDate.setMonth(currentDate.getMonth() - 1);
             renderAll();
-            calSlider.style.transition = "none";
-            calSlider.style.transform = "translateX(0px)";
           }, 220);
         } else {
-          // 半分未満の場合は元に戻る
-          calSlider.style.transform = "translateX(0px)";
+          calSlider.style.transform = `translateX(${-viewportWidth}px)`;
         }
-        calCurrentTranslateX = 0;
+        setTimeout(() => {
+          calDiffX = 0;
+        }, 250);
       }, { passive: true });
     }
 
-    // 📱 モーダル上部を下にスライドして閉じる（Pull down to dismiss）
+    // 📱 モーダル上部を下にスライドして閉じる（しきい値160px）
     let modalTouchStartY = 0;
     let modalCurrentTranslateY = 0;
     let isModalDragging = false;
@@ -3582,7 +3629,7 @@
             modalCurrentTranslateY = diffY;
             entryModalContent.style.transform = `translateY(${diffY}px)`;
           } else {
-            modalCurrentTranslateY = diffY * 0.2;
+            modalCurrentTranslateY = diffY * 0.15;
             entryModalContent.style.transform = `translateY(${modalCurrentTranslateY}px)`;
           }
         }, { passive: true });
@@ -3593,8 +3640,7 @@
 
           entryModalContent.style.transition = "transform 0.22s cubic-bezier(0.25, 1, 0.5, 1)";
 
-          // 80px以上下に引っ張ると閉じる
-          if (modalCurrentTranslateY > 80) {
+          if (modalCurrentTranslateY > 160) {
             entryModalContent.style.transform = "translateY(100%)";
             setTimeout(() => {
               closeEntryModal();
@@ -3641,7 +3687,6 @@
         document.getElementById("coin-gacha-status").textContent = "今日の貯金を完了しました🎉";
       });
 
-      // 🛑 キーボード領域自体のタッチ・クリック突き抜けを遮断
       const calcDrawer = document.getElementById("calc-keyboard-drawer");
       if (calcDrawer) {
         calcDrawer.addEventListener("pointerdown", e => e.stopPropagation());
@@ -3707,7 +3752,6 @@
         renderStatsTab();
       });
 
-      // 📱 給料見込みカード スライド
       const payrollCardEl = document.getElementById("payroll-summary-card");
       if (payrollCardEl) {
         attachSwipeListener(payrollCardEl,
@@ -3716,7 +3760,6 @@
         );
       }
 
-      // 📱 統計タブ スライド
       const statsTabEl = document.getElementById("tab-stats");
       if (statsTabEl) {
         attachSwipeListener(statsTabEl,
