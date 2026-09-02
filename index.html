@@ -122,18 +122,6 @@
       backdrop-filter: blur(4px);
     }
 
-    .icon-btn {
-      background: none;
-      border: none;
-      color: #fff;
-      font-size: 18px;
-      cursor: pointer;
-      padding: 2px;
-      display: flex;
-      align-items: center;
-      justify-content: center;
-    }
-
     main {
       padding: 8px;
       max-width: 600px;
@@ -289,9 +277,12 @@
     .cal-day-head:nth-child(1) { color: var(--danger); }
     .cal-day-head:nth-child(7) { color: var(--sat-color); }
 
+    /* 📱 各マスの高さを完全に統一固定し、段差を防止 */
     .day-cell {
       background: var(--card);
-      min-height: 66px;
+      height: 64px;
+      min-height: 64px;
+      max-height: 64px;
       padding: 2px 0.5px;
       display: flex;
       flex-direction: column;
@@ -417,6 +408,8 @@
       justify-content: flex-end;
       gap: 6px;
       border-top: 1px dashed var(--line);
+      height: 18px;
+      box-sizing: border-box;
     }
 
     .btn {
@@ -758,7 +751,7 @@
   <input type="file" id="json-file-input" style="display:none;" accept=".json">
   <div id="calc-backdrop"></div>
 
-  <!-- ヘッダー（サイズ拡大＆ナイトモードボタン撤去） -->
+  <!-- ヘッダー -->
   <header>
     <div class="app-title">
       <span>💰</span>
@@ -784,10 +777,8 @@
         <button class="btn btn-sm btn-good" id="reminder-add-exp-btn">💸 記録する</button>
       </div>
 
-      <!-- 本日の予定インフォバナー -->
       <div class="card info-banner-card" id="info-banner-card"></div>
 
-      <!-- モード選択 -->
       <div class="mode-bar">
         <button class="btn btn-outline btn-sm" id="multi-select-toggle-btn">☑️ 複数選択</button>
         <button class="btn btn-outline btn-sm" id="repeat-modal-open-btn">🔁 リピート</button>
@@ -834,13 +825,13 @@
           <div class="cal-day-head">土</div>
         </div>
 
-        <!-- 📱 前後月が見える3面カルーセルスライダー -->
+        <!-- 📱 前後月がリアルタイムに見える3面カルーセルスライダー（境界区切り線付き） -->
         <div id="calendar-viewport" style="overflow: hidden; width: 100%; position: relative; touch-action: pan-y;">
           <div id="calendar-slider" style="display: flex; width: 300%; transform: translateX(-33.333333%); will-change: transform;">
-            <div style="width: 33.333333%; flex-shrink: 0;">
+            <div style="width: 33.333333%; flex-shrink: 0; border-right: 2.5px solid var(--brand);">
               <div class="calendar-grid" id="calendar-days-prev" style="margin-top: 2px;"></div>
             </div>
-            <div style="width: 33.333333%; flex-shrink: 0;">
+            <div style="width: 33.333333%; flex-shrink: 0; border-right: 2.5px solid var(--brand);">
               <div class="calendar-grid" id="calendar-days-container" style="margin-top: 2px;"></div>
             </div>
             <div style="width: 33.333333%; flex-shrink: 0;">
@@ -872,7 +863,6 @@
 
     <!-- 2. 給料・診断タブ -->
     <div id="tab-payroll" class="tab-content">
-      <!-- 🏦 総資産 & 小銭貯金ガチャ -->
       <div class="card">
         <div class="card-title">🏦 総資産 ＆ 🎲 今日の小銭貯金</div>
         <div class="asset-box">
@@ -930,7 +920,6 @@
         </div>
       </div>
 
-      <!-- 📱 給料見込みカード -->
       <div class="card" id="payroll-summary-card" style="touch-action: pan-y;">
         <div class="card-title">
           <span>💴 給料見込み ＆ 収支詳細</span>
@@ -1057,7 +1046,6 @@
       <div class="card">
         <div class="card-title">アプリ設定</div>
 
-        <!-- 🎨 テーマ設定項目（新設） -->
         <div class="accordion-item">
           <button class="accordion-header" id="acc-theme-btn">🎨 テーマ・外観設定</button>
           <div class="accordion-body" id="acc-theme-body">
@@ -1210,7 +1198,6 @@
         ⚠️ 警告: 同じ時間帯に別のシフトが登録されています！
       </div>
 
-      <!-- シフトフォーム -->
       <form id="shift-form">
         <input type="hidden" id="shift-id">
 
@@ -1287,7 +1274,6 @@
         </div>
       </form>
 
-      <!-- 支出フォーム -->
       <form id="expense-form" style="display: none;">
         <input type="hidden" id="expense-id">
         <div class="form-row">
@@ -1324,7 +1310,6 @@
         </div>
       </form>
 
-      <!-- その他収入フォーム -->
       <form id="income-form" style="display: none;">
         <input type="hidden" id="income-id">
         <div class="form-row">
@@ -1364,7 +1349,6 @@
     </div>
   </div>
 
-  <!-- モーダル: テンプレート編集用 -->
   <div class="modal-overlay" id="pin-edit-modal">
     <div class="modal-content" style="max-width:380px; padding-bottom:20px;">
       <div class="modal-header">
@@ -1439,7 +1423,6 @@
     </div>
   </div>
 
-  <!-- ✏️ 実際の振込額（手取り）の補正・確定モーダル -->
   <div class="modal-overlay" id="override-pay-modal">
     <div class="modal-content" style="padding-bottom:20px;">
       <div class="modal-header">
@@ -1944,6 +1927,7 @@
       document.getElementById("total-asset-val").textContent = `¥${assetVal.toLocaleString()}`;
     }
 
+    // 📱 全月共通で「常に6週（42セル）」に完全固定し、段差を完全に解消
     function renderCalendarGridForMonth(year, month, container, isInteractive = true) {
       if (!container) return;
       const monthStr = `${year}-${String(month + 1).padStart(2, "0")}`;
@@ -1951,7 +1935,6 @@
 
       const firstDayObj = new Date(year, month, 1);
       const firstDayOfWeek = firstDayObj.getDay();
-      const lastDate = new Date(year, month + 1, 0).getDate();
 
       let paydayMap = {};
       DB.jobs.forEach(job => {
@@ -1967,7 +1950,7 @@
       });
 
       const startDate = new Date(year, month, 1 - firstDayOfWeek);
-      const totalCells = Math.ceil((firstDayOfWeek + lastDate) / 7) * 7;
+      const totalCells = 42; // 常に6週間（42セル）に完全固定
       const calendarDates = [];
       for (let i = 0; i < totalCells; i++) {
         const d = new Date(startDate);
@@ -3539,6 +3522,7 @@
       }, { passive: true });
     }
 
+    // 📱 前後の月がリアルタイムに見える3面カルーセルスライダー
     let calTouchStartX = 0;
     let calTouchStartY = 0;
     let calDiffX = 0;
@@ -3603,6 +3587,7 @@
       }, { passive: true });
     }
 
+    // 📱 モーダル上部を下にスライドして閉じる
     let modalTouchStartY = 0;
     let modalCurrentTranslateY = 0;
     let isModalDragging = false;
@@ -4013,7 +3998,6 @@
 
       document.getElementById("run-tax-diag-btn").addEventListener("click", runTaxDiagnosis);
 
-      // テーマ選択の変更イベント
       document.getElementById("setting-theme-select").addEventListener("change", (e) => {
         DB.settings.theme = e.target.value;
         saveDB();
