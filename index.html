@@ -277,7 +277,6 @@
     .cal-day-head:nth-child(1) { color: var(--danger); }
     .cal-day-head:nth-child(7) { color: var(--sat-color); }
 
-    /* 📱 マス高さを74pxに拡張し、下部の±差額が押し出されない構造へ最適化 */
     .day-cell {
       background: var(--card);
       height: 74px;
@@ -396,7 +395,6 @@
       border-color: #475569 !important;
     }
 
-    /* 📱 flex-shrink: 0 を付与してバッジが多くても最下部に必ず残る */
     .cal-day-diff {
       font-size: 7.8px;
       line-height: 1.1;
@@ -1003,6 +1001,8 @@
       <div class="card">
         <div class="card-title">今月の予算状況</div>
 
+        <div id="recovery-notice-banner" style="display:none; background:#ecfdf5; border:1px solid #10b981; color:#065f46; font-size:10px; padding:4px 8px; border-radius:6px; margin-bottom:6px; font-weight:bold;"></div>
+
         <div style="font-size:10.5px; font-weight:bold; color:var(--muted); margin-bottom:2px;">📊 全体支出</div>
         <div style="display: flex; justify-content: space-between; font-size: 11px; margin-bottom: 2px;">
           <span>支出: <strong id="stats-budget-used">¥0</strong></span>
@@ -1335,6 +1335,7 @@
           <div class="form-group" style="flex:1; min-width:0;">
             <label>区分</label>
             <select id="income-category" class="form-control">
+              <option value="回収">🤝 立て替え回収</option>
               <option value="お小遣い">🎁 お小遣い・仕送り</option>
               <option value="フリマ売上">📦 フリマ・売却</option>
               <option value="副業・臨時収入">💻 副業・単発ワーク</option>
@@ -1345,7 +1346,7 @@
         </div>
         <div class="form-group">
           <label>メモ (任意)</label>
-          <input type="text" id="income-memo" class="form-control" placeholder="例: メルカリ (空欄でもOK)">
+          <input type="text" id="income-memo" class="form-control" placeholder="例: ご飯代回収 (空欄でもOK)">
         </div>
         <div class="form-group">
           <label>金額 (計算式可)</label>
@@ -2282,10 +2283,11 @@
         subSel.innerHTML = opts;
       } else if (filter === "income") {
         subSel.style.display = "block";
-        const incomeCategories = ["お小遣い", "フリマ売上", "副業・臨時収入", "利子・キャッシュバック", "その他収入"];
+        // 💡 区分に「回収」を追加
+        const incomeCategories = ["回収", "お小遣い", "フリマ売上", "副業・臨時収入", "利子・キャッシュバック", "その他収入"];
         let opts = `<option value="all">全区分</option>`;
         incomeCategories.forEach(c => {
-          opts += `<option value="${c}">${c}</option>`;
+          opts += `<option value="${c}">${c === '回収' ? '🤝 立て替え回収' : c}</option>`;
         });
         subSel.innerHTML = opts;
       }
@@ -2407,8 +2409,27 @@
 
       const budgetTotal = DB.budgets.monthly || 50000;
 
-      const expTotal = DB.expenses.filter(e => e.date.startsWith(statsMonthStr)).reduce((acc, e) => acc + e.amount, 0);
-      document.getElementById("stats-budget-used").textContent = `¥${expTotal.toLocaleString()}`;
+      // 💡 当月の「回収」合計額を算出
+      const recoveryTotal = DB.otherIncomes
+        .filter(i => i.date.startsWith(statsMonthStr) && i.category === "回収")
+        .reduce((acc, i) => acc + i.amount, 0);
+
+      // 回収額が存在する場合の案内バナー表示
+      const noticeBanner = document.getElementById("recovery-notice-banner");
+      if (noticeBanner) {
+        if (recoveryTotal > 0) {
+          noticeBanner.style.display = "block";
+          noticeBanner.textContent = `🤝 今月の回収分 ¥${recoveryTotal.toLocaleString()} を予算消費額から控除中`;
+        } else {
+          noticeBanner.style.display = "none";
+        }
+      }
+
+      // 1. 全体支出（回収分をマイナス）
+      const rawExpTotal = DB.expenses.filter(e => e.date.startsWith(statsMonthStr)).reduce((acc, e) => acc + e.amount, 0);
+      const expTotal = Math.max(0, rawExpTotal - recoveryTotal);
+
+      document.getElementById("stats-budget-used").textContent = `¥${expTotal.toLocaleString()}${recoveryTotal > 0 ? ' (実質)' : ''}`;
       document.getElementById("stats-budget-total").textContent = `¥${budgetTotal.toLocaleString()}`;
       const bBar = document.getElementById("budget-progress-bar");
       if (bBar) {
@@ -2417,8 +2438,11 @@
         bBar.style.background = pct > 90 ? "var(--danger)" : "var(--good)";
       }
 
-      const expNoTravel = DB.expenses.filter(e => e.date.startsWith(statsMonthStr) && e.category !== "旅費").reduce((acc, e) => acc + e.amount, 0);
-      document.getElementById("stats-budget-used-no-travel").textContent = `¥${expNoTravel.toLocaleString()}`;
+      // 2. 旅費を除く支出（回収分をマイナス）
+      const rawExpNoTravel = DB.expenses.filter(e => e.date.startsWith(statsMonthStr) && e.category !== "旅費").reduce((acc, e) => acc + e.amount, 0);
+      const expNoTravel = Math.max(0, rawExpNoTravel - recoveryTotal);
+
+      document.getElementById("stats-budget-used-no-travel").textContent = `¥${expNoTravel.toLocaleString()}${recoveryTotal > 0 ? ' (実質)' : ''}`;
       document.getElementById("stats-budget-total-no-travel").textContent = `¥${budgetTotal.toLocaleString()}`;
       const bBarNoTravel = document.getElementById("budget-progress-bar-no-travel");
       if (bBarNoTravel) {
@@ -2427,11 +2451,11 @@
         bBarNoTravel.style.background = pctNT > 90 ? "var(--danger)" : "var(--good)";
       }
 
-      renderStatsCategoryChips(statsMonthStr, budgetTotal);
+      renderStatsCategoryChips(statsMonthStr, budgetTotal, recoveryTotal);
       renderCharts();
     }
 
-    function renderStatsCategoryChips(statsMonthStr, budgetTotal) {
+    function renderStatsCategoryChips(statsMonthStr, budgetTotal, recoveryTotal = 0) {
       const container = document.getElementById("stats-category-chips");
       if (!container) return;
 
@@ -2443,11 +2467,13 @@
         return `<div class="pin-chip ${isSelected ? 'active' : ''}" onclick="toggleStatsCategory('${cat}')">${cat}</div>`;
       }).join("");
 
-      const customTotal = DB.expenses
+      // 3. カテゴリ選択合計（回収分をマイナス）
+      const rawCustomTotal = DB.expenses
         .filter(e => e.date.startsWith(statsMonthStr) && selectedCats.includes(e.category))
         .reduce((acc, e) => acc + e.amount, 0);
+      const customTotal = Math.max(0, rawCustomTotal - recoveryTotal);
 
-      document.getElementById("stats-custom-used").textContent = `¥${customTotal.toLocaleString()}`;
+      document.getElementById("stats-custom-used").textContent = `¥${customTotal.toLocaleString()}${recoveryTotal > 0 ? ' (実質)' : ''}`;
       document.getElementById("stats-custom-budget").textContent = `¥${budgetTotal.toLocaleString()}`;
 
       const customBar = document.getElementById("stats-custom-progress-bar");
@@ -3101,7 +3127,7 @@
         if (!i) return;
         document.getElementById("income-id").value = i.id;
         document.getElementById("income-date").value = i.date;
-        document.getElementById("income-category").value = i.category || "その他収入";
+        document.getElementById("income-category").value = i.category || "回収";
         document.getElementById("income-memo").value = i.memo || "";
         document.getElementById("income-amount").value = i.amount;
 
@@ -3267,7 +3293,7 @@
           html += `
             <div class="list-item" onclick="openEditModalById('income', ${item.id})">
               <div class="list-item-left">
-                <span class="badge" style="background:var(--good);">収入</span>
+                <span class="badge" style="background:var(--good);">${item.category === '回収' ? '🤝回収' : '収入'}</span>
                 <span style="overflow:hidden; text-overflow:ellipsis;">${displayTitle}</span>
               </div>
               <div class="list-item-right" style="color:var(--good);">
