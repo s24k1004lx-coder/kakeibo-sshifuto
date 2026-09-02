@@ -277,16 +277,17 @@
     .cal-day-head:nth-child(1) { color: var(--danger); }
     .cal-day-head:nth-child(7) { color: var(--sat-color); }
 
+    /* 📱 マス高さを74pxに拡張し、下部の±差額が押し出されない構造へ最適化 */
     .day-cell {
       background: var(--card);
-      height: 64px;
-      min-height: 64px;
-      max-height: 64px;
-      padding: 2px 0.5px;
+      height: 74px;
+      min-height: 74px;
+      max-height: 74px;
+      padding: 2px 1px;
       display: flex;
       flex-direction: column;
       justify-content: space-between;
-      gap: 1.5px;
+      gap: 1px;
       cursor: pointer;
       position: relative;
       overflow: hidden;
@@ -294,6 +295,14 @@
     .day-cell.other-month { opacity: 0.25; }
     .day-cell.today { background: var(--brand-light); border: 1.5px solid var(--brand); }
     .day-cell.selected { outline: 2px solid #f59e0b; outline-offset: -2px; }
+
+    .day-cell-top {
+      display: flex;
+      flex-direction: column;
+      overflow: hidden;
+      min-height: 0;
+      flex: 1;
+    }
 
     .day-number {
       font-size: 10px;
@@ -306,6 +315,7 @@
       color: var(--ink);
       white-space: nowrap;
       overflow: hidden;
+      flex-shrink: 0;
     }
     .day-number.sunday, .day-number.holiday { color: var(--danger); }
     .day-number.saturday { color: var(--sat-color); }
@@ -321,24 +331,28 @@
     .cal-badge-container {
       display: flex;
       flex-direction: column;
-      gap: 1px;
+      gap: 1.5px;
       width: 100%;
+      overflow: hidden;
+      min-height: 0;
+      padding-top: 1px;
     }
 
     .cal-badge {
       font-size: 7.8px;
-      padding: 1.5px 0.5px;
+      padding: 1px 0.5px;
       border-radius: 2.5px;
       font-weight: 800;
       white-space: nowrap;
       overflow: hidden;
       text-overflow: ellipsis;
-      line-height: 1.1;
+      line-height: 1.15;
       width: 100%;
       text-align: center;
       box-sizing: border-box;
       letter-spacing: -0.4px;
       font-variant-numeric: tabular-nums;
+      flex-shrink: 0;
     }
     .cal-badge.shift-pay {
       background: var(--good-light);
@@ -382,17 +396,19 @@
       border-color: #475569 !important;
     }
 
+    /* 📱 flex-shrink: 0 を付与してバッジが多くても最下部に必ず残る */
     .cal-day-diff {
-      font-size: 7.5px;
-      line-height: 1;
-      font-weight: 700;
+      font-size: 7.8px;
+      line-height: 1.1;
+      font-weight: 800;
       text-align: right;
-      padding: 1px 2px;
+      padding: 1px 2px 0 2px;
       white-space: nowrap;
       overflow: hidden;
       text-overflow: ellipsis;
-      opacity: 0.85;
+      opacity: 0.95;
       letter-spacing: -0.3px;
+      flex-shrink: 0;
     }
     .cal-day-diff.plus { color: var(--good); }
     .cal-day-diff.minus { color: var(--danger); }
@@ -2008,7 +2024,6 @@
             const pay = calculateShiftPay(s).totalPay;
             dayIncTotal += pay;
             const jobColor = job ? job.color : 'var(--good)';
-            // 💡 勤務先ごとの色枠を濃く強調（border-leftを3.5pxにし、全体枠も濃く調整）
             badgesHtml += `<div class="cal-badge shift-pay" style="border: 1px solid ${jobColor}bb; border-left: 3.5px solid ${jobColor} !important;">${formatCalBadgeAmount(pay, true)}</div>`;
           });
 
@@ -2036,7 +2051,7 @@
           const paydayLabel = paydayMap[dateStr] ? `<span style="font-size:7.5px; color:#8b5cf6; font-weight:bold; white-space:nowrap; margin-left:1px; flex-shrink:0;">💴給料</span>` : '';
 
           cell.innerHTML = `
-            <div>
+            <div class="day-cell-top">
               <div class="day-number ${dayClass}">
                 <div class="day-number-left">
                   <span>${dt.getDate()}</span>
