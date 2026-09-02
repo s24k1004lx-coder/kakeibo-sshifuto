@@ -69,6 +69,12 @@
       overflow: hidden !important;
     }
 
+    /* 🛑 キーボード表示中は背面のタブバーへのタップ突き抜けを完全遮断 */
+    body.calc-open .tab-bar,
+    body.modal-open .tab-bar {
+      pointer-events: none !important;
+    }
+
     input, select, textarea, button {
       font-family: inherit;
       font-size: 14px;
@@ -214,10 +220,10 @@
       color: var(--brand-dark);
     }
 
-    .credit-card-box {
+    .detail-card-box {
       background: var(--bg);
       border: 1px solid var(--line);
-      border-left: 4px solid #6366f1;
+      border-left: 4px solid var(--brand);
       border-radius: 8px;
       padding: 8px 10px;
       margin-bottom: 6px;
@@ -566,12 +572,24 @@
       width: 100%; max-width: 480px;
       max-height: 88vh;
       border-top-left-radius: 16px; border-top-right-radius: 16px;
-      padding: 12px; overflow-y: auto; overflow-x: hidden;
+      padding: 8px 12px 70px 12px;
+      overflow-y: auto; overflow-x: hidden;
       box-shadow: 0 -4px 20px rgba(0,0,0,0.2);
       touch-action: pan-y;
-      padding-bottom: 70px;
+      will-change: transform;
     }
-    .modal-header { display: flex; justify-content: space-between; align-items: center; margin-bottom: 8px; }
+    
+    /* 📱 モーダル上部のプルダウン用ハンドルバー */
+    .modal-drag-handle {
+      width: 40px;
+      height: 5px;
+      background: var(--line);
+      border-radius: 3px;
+      margin: 2px auto 8px auto;
+      cursor: grab;
+      touch-action: none;
+    }
+    .modal-header { display: flex; justify-content: space-between; align-items: center; margin-bottom: 8px; touch-action: none; }
     .modal-title { font-size: 14px; font-weight: 700; }
 
     .pin-chip {
@@ -649,14 +667,14 @@
     }
     .period-setting-head strong { font-size: 11px; }
 
-    /* ⌨️ 専用電卓キーボード（タップ貫通防止 & 高速化） */
+    /* ⌨️ 専用電卓キーボード（タップ貫通防止 & 最前面） */
     .calc-keyboard-drawer {
       position: fixed;
       bottom: 0; left: 0; right: 0;
       background: var(--card);
       border-top: 2px solid var(--brand);
       box-shadow: 0 -6px 25px rgba(0,0,0,0.3);
-      z-index: 500;
+      z-index: 1000;
       display: none;
       flex-direction: column;
       padding: 8px;
@@ -666,6 +684,16 @@
       touch-action: manipulation;
     }
     .calc-keyboard-drawer.active { display: flex; }
+    
+    #calc-backdrop {
+      position: fixed;
+      inset: 0;
+      background: transparent;
+      z-index: 999;
+      display: none;
+    }
+    #calc-backdrop.active { display: block; }
+
     .calc-keyboard-header {
       display: flex; justify-content: space-between; align-items: center;
       font-size: 11px; font-weight: bold; color: var(--muted);
@@ -717,6 +745,7 @@
 <body>
 
   <input type="file" id="json-file-input" style="display:none;" accept=".json">
+  <div id="calc-backdrop"></div>
 
   <!-- ヘッダー -->
   <header>
@@ -794,19 +823,28 @@
           <div class="cal-day-head">金</div>
           <div class="cal-day-head">土</div>
         </div>
-        <div class="calendar-grid" id="calendar-days-container" style="margin-top: 2px; touch-action: pan-y;"></div>
+
+        <!-- 📱 指追従スワイプ対応ビューポート -->
+        <div id="calendar-viewport" style="overflow: hidden; width: 100%; position: relative;">
+          <div id="calendar-slider" style="width: 100%; will-change: transform;">
+            <div class="calendar-grid" id="calendar-days-container" style="margin-top: 2px;"></div>
+          </div>
+        </div>
       </div>
 
-      <!-- 明細リスト -->
+      <!-- 明細リスト（2段階絞り込み対応） -->
       <div class="card">
         <div class="card-title">📋 明細リスト (タップで修正)</div>
-        <div class="form-row" style="margin-bottom: 6px;">
-          <input type="search" id="history-search-input" class="form-control" placeholder="🔍 メモ・勤務先で検索">
-          <select id="history-filter-select" class="form-control" style="width: 80px; flex: none;">
+        <div class="form-row" style="margin-bottom: 6px; gap: 4px;">
+          <input type="search" id="history-search-input" class="form-control" placeholder="🔍 検索" style="flex: 1.2; min-width: 80px;">
+          <select id="history-filter-select" class="form-control" style="flex: 0.9; min-width: 70px;">
             <option value="all">すべて</option>
             <option value="shift">給料</option>
             <option value="income">収入</option>
             <option value="expense">支出</option>
+          </select>
+          <select id="history-subfilter-select" class="form-control" style="flex: 1.1; min-width: 90px; display: none;">
+            <option value="all">全カテゴリ</option>
           </select>
         </div>
         <div id="recent-history-list"></div>
@@ -874,15 +912,7 @@
         </div>
       </div>
 
-      <div class="card">
-        <div class="card-title">
-          <span>💳 クレカ引き落とし管理</span>
-          <button class="btn btn-sm" id="open-cc-modal-btn">＋ 登録</button>
-        </div>
-        <div id="credit-card-list"></div>
-      </div>
-
-      <!-- 📱 左右スワイプ対応の給料見込みカード -->
+      <!-- 📱 給料見込みカード -->
       <div class="card" id="payroll-summary-card" style="touch-action: pan-y;">
         <div class="card-title">
           <span>💴 給料見込み ＆ 収支詳細</span>
@@ -1069,17 +1099,6 @@
         </div>
 
         <div class="accordion-item">
-          <button class="accordion-header" id="acc-cards-btn">💳 クレカ会社テンプレート管理</button>
-          <div class="accordion-body" id="acc-cards-body">
-            <div id="credit-companies-config-list"></div>
-            <div class="form-row" style="margin-top: 6px;">
-              <input type="text" id="new-card-name" class="form-control" placeholder="カード会社名">
-              <button class="btn btn-sm" id="add-card-btn" style="width: auto;">追加</button>
-            </div>
-          </div>
-        </div>
-
-        <div class="accordion-item">
           <button class="accordion-header" id="acc-reminder-btn">🔔 入力忘れ防止リマインダー</button>
           <div class="accordion-body" id="acc-reminder-body">
             <div class="form-group">
@@ -1142,8 +1161,11 @@
 
   <!-- モーダル: 入力/編集 -->
   <div class="modal-overlay" id="entry-modal">
-    <div class="modal-content">
-      <div class="modal-header">
+    <div class="modal-content" id="entry-modal-content">
+      <!-- 📱 引き下げて閉じる用ハンドルバー -->
+      <div class="modal-drag-handle" id="entry-modal-drag-handle"></div>
+
+      <div class="modal-header" id="entry-modal-header">
         <div class="modal-title" id="entry-modal-title">登録・編集</div>
         <button class="icon-btn" id="close-entry-modal-btn" style="color:var(--ink);">✕</button>
       </div>
@@ -1253,7 +1275,6 @@
               <option value="日用品">🛒 日用品</option>
               <option value="趣味">🎮 趣味</option>
               <option value="固定費">🏠 固定費</option>
-              <option value="クレカ">💳 クレカ引き落とし</option>
               <option value="貯金">🪙 小銭貯金</option>
               <option value="その他">📦 その他</option>
             </select>
@@ -1350,33 +1371,6 @@
     </div>
   </div>
 
-  <div class="modal-overlay" id="cc-modal">
-    <div class="modal-content" style="padding-bottom:20px;">
-      <div class="modal-header">
-        <div class="modal-title">💳 クレカ引き落としの登録</div>
-        <button class="icon-btn" id="close-cc-modal-btn" style="color:var(--ink);">✕</button>
-      </div>
-      <form id="cc-form">
-        <div class="form-group">
-          <label>カード会社</label>
-          <select id="cc-company-select" class="form-control"></select>
-        </div>
-        <div class="form-row">
-          <div class="form-group">
-            <label>引き落とし日</label>
-            <input type="date" id="cc-date-input" class="form-control" required>
-          </div>
-          <div class="form-group">
-            <label>金額 (円)</label>
-            <input type="text" id="cc-amount-input" class="form-control calc-input" placeholder="0" readonly required>
-            <div class="input-error-text" style="font-size:9.5px; color:var(--danger); display:none; margin-top:2px;">⚠️ 計算式が不完全です</div>
-          </div>
-        </div>
-        <button type="submit" class="btn" style="width:100%;">支出として保存</button>
-      </form>
-    </div>
-  </div>
-
   <div class="modal-overlay" id="repeat-modal">
     <div class="modal-content" style="padding-bottom:20px;">
       <div class="modal-header">
@@ -1467,7 +1461,7 @@
       <button type="button" class="calc-btn" data-val="1">1</button>
       <button type="button" class="calc-btn" data-val="2">2</button>
       <button type="button" class="calc-btn" data-val="3">3</button>
-      <button type="button" class="calc-btn" data-val=".">.</button>
+      <button type="button" class="calc-btn op" data-val=".">.</button>
 
       <button type="button" class="calc-btn" data-val="0">0</button>
       <button type="button" class="calc-btn" data-val="00">00</button>
@@ -1548,11 +1542,10 @@
       baseAssetDate: "2026-08-07",
       budgets: { monthly: 50000, savingsGoal: 0 },
       wallTarget: 1780000,
-      creditCompanies: ["ビューカード", "セゾンカード", "楽天カード", "三井住友カード"],
       reminder: { enabled: false, time: "21:00" },
       settings: { 
         theme: "light",
-        selectedStatsCategories: ["食費", "交通費", "クレカ", "貯金", "その他", "日用品", "交際費", "趣味", "固定費"]
+        selectedStatsCategories: ["食費", "交通費", "貯金", "その他", "日用品", "交際費", "趣味", "固定費"]
       }
     };
 
@@ -1563,6 +1556,7 @@
     if (!DB.settings.selectedStatsCategories) {
       DB.settings.selectedStatsCategories = DEFAULT_DB.settings.selectedStatsCategories;
     }
+    DB.settings.selectedStatsCategories = DB.settings.selectedStatsCategories.filter(c => c !== "クレカ");
 
     function saveDB() {
       localStorage.setItem("SHIFT_PRO_DB", JSON.stringify(DB));
@@ -1806,31 +1800,6 @@
             payDateStr: getLocalDateString(adjustedPayDate)
           };
         });
-      } else if (job.type === "kyoei_double") {
-        const prevM1 = month - 1 === 0 ? 12 : month - 1;
-        const prevY1 = month - 1 === 0 ? year - 1 : year;
-        const start1 = `${prevY1}-${String(prevM1).padStart(2, '0')}-16`;
-        const end1 = `${targetMonthStr}-15`;
-        const shifts1 = DB.shifts.filter(s => String(s.jobId) === String(job.id) && s.date >= start1 && s.date <= end1);
-        const calc1 = shifts1.reduce((acc, s) => acc + calculateShiftPay(s).totalPay, 0);
-        const payDate1 = adjustPayDate(year, month, 25, "before");
-        const key1 = `${job.id}_${targetMonthStr}_1`;
-        const inc1 = (DB.actualPay && DB.actualPay[key1] !== undefined) ? DB.actualPay[key1] : calc1;
-
-        const prevM2 = month - 1 === 0 ? 12 : month - 1;
-        const prevY2 = month - 1 === 0 ? year - 1 : year;
-        const start2 = `${prevY2}-${String(prevM2).padStart(2, '0')}-06`;
-        const end2 = `${targetMonthStr}-05`;
-        const shifts2 = DB.shifts.filter(s => String(s.jobId) === String(job.id) && s.date >= start2 && s.date <= end2);
-        const calc2 = shifts2.reduce((acc, s) => acc + calculateShiftPay(s).totalPay, 0);
-        const payDate2 = adjustPayDate(year, month, 15, "before");
-        const key2 = `${job.id}_${targetMonthStr}_2`;
-        const inc2 = (DB.actualPay && DB.actualPay[key2] !== undefined) ? DB.actualPay[key2] : calc2;
-
-        return [
-          { jobId: job.id, key: key1, name: `${job.name} (15日締め25日払)`, labelPeriod: `${start1.slice(5)} 〜 ${end1.slice(5)}`, income: inc1, calcIncome: calc1, isActual: (DB.actualPay && DB.actualPay[key1] !== undefined), payDateStr: getLocalDateString(payDate1) },
-          { jobId: job.id, key: key2, name: `${job.name} (5日締め15日払)`, labelPeriod: `${start2.slice(5)} 〜 ${end2.slice(5)}`, income: inc2, calcIncome: calc2, isActual: (DB.actualPay && DB.actualPay[key2] !== undefined), payDateStr: getLocalDateString(payDate2) }
-        ];
       } else {
         const cutoff = Number(job.cutoffDay || 31);
         let startDateStr = "", endDateStr = "";
@@ -1879,7 +1848,6 @@
       renderCalendar();
       renderSummaryAndPayroll();
       renderHistory();
-      renderCreditCardList();
       renderStatsTab();
       renderSettingsTab();
       renderPinSelects();
@@ -2077,6 +2045,9 @@
           `;
 
           cell.addEventListener("click", () => {
+            // スライド中（ドラッグ移動）だった場合はタップを開かない
+            if (Math.abs(calCurrentTranslateX) > 10) return;
+
             if (multiSelectMode) {
               if (selectedDates.has(dateStr)) selectedDates.delete(dateStr);
               else selectedDates.add(dateStr);
@@ -2140,7 +2111,7 @@
           const payColorStyle = p.isActual ? "color:var(--good);" : "color:var(--muted);";
 
           jobPayHtml += `
-            <div class="credit-card-box" style="border-left-color:${job.color || 'var(--brand)'};">
+            <div class="detail-card-box" style="border-left-color:${job.color || 'var(--brand)'};">
               <div style="display:flex; justify-content:space-between; align-items:center;">
                 <div>
                   <strong>${p.name}</strong>
@@ -2232,6 +2203,41 @@
       }
     }
 
+    function updateHistorySubfilterOptions() {
+      const filter = document.getElementById("history-filter-select").value;
+      const subSel = document.getElementById("history-subfilter-select");
+      if (!subSel) return;
+
+      if (filter === "all") {
+        subSel.style.display = "none";
+        subSel.innerHTML = `<option value="all">すべて</option>`;
+      } else if (filter === "shift") {
+        subSel.style.display = "block";
+        let opts = `<option value="all">全勤務先</option>`;
+        DB.jobs.forEach(j => {
+          opts += `<option value="${j.id}">${j.name}</option>`;
+        });
+        subSel.innerHTML = opts;
+      } else if (filter === "expense") {
+        subSel.style.display = "block";
+        const expenseCategories = ["食費", "交通費", "旅費", "交際費", "日用品", "趣味", "固定費", "貯金", "その他"];
+        let opts = `<option value="all">全カテゴリ</option>`;
+        expenseCategories.forEach(c => {
+          opts += `<option value="${c}">${c}</option>`;
+        });
+        subSel.innerHTML = opts;
+      } else if (filter === "income") {
+        subSel.style.display = "block";
+        const incomeCategories = ["お小遣い", "フリマ売上", "副業・臨時収入", "利子・キャッシュバック", "その他収入"];
+        let opts = `<option value="all">全区分</option>`;
+        incomeCategories.forEach(c => {
+          opts += `<option value="${c}">${c}</option>`;
+        });
+        subSel.innerHTML = opts;
+      }
+      subSel.value = "all";
+    }
+
     function renderHistory() {
       const container = document.getElementById("recent-history-list");
       if (!container) return;
@@ -2239,20 +2245,21 @@
       const monthStr = `${currentDate.getFullYear()}-${String(currentDate.getMonth() + 1).padStart(2, "0")}`;
       const query = (document.getElementById("history-search-input").value || "").trim().toLowerCase();
       const filter = document.getElementById("history-filter-select").value;
+      const subfilter = document.getElementById("history-subfilter-select") ? document.getElementById("history-subfilter-select").value : "all";
 
       let items = [];
       DB.shifts.filter(s => s.date.startsWith(monthStr)).forEach(s => {
         const job = DB.jobs.find(j => String(j.id) === String(s.jobId));
         const pay = calculateShiftPay(s).totalPay;
-        items.push({ id: s.id, type: "shift", date: s.date, title: `${job ? job.name : 'シフト'} (${s.startTime}~${s.endTime})`, amount: pay, color: job ? job.color : 'var(--brand)' });
+        items.push({ id: s.id, type: "shift", jobId: s.jobId, date: s.date, title: `${job ? job.name : 'シフト'} (${s.startTime}~${s.endTime})`, amount: pay, color: job ? job.color : 'var(--brand)' });
       });
       DB.otherIncomes.filter(i => i.date.startsWith(monthStr)).forEach(i => {
         const displayTitle = (i.memo && i.memo !== i.category) ? `[${i.category}] ${i.memo}` : `[${i.category}]`;
-        items.push({ id: i.id, type: "income", date: i.date, title: displayTitle, amount: i.amount, color: 'var(--good)' });
+        items.push({ id: i.id, type: "income", category: i.category, date: i.date, title: displayTitle, amount: i.amount, color: 'var(--good)' });
       });
       DB.expenses.filter(e => e.date.startsWith(monthStr)).forEach(e => {
         const displayTitle = (e.memo && e.memo !== e.category) ? `[${e.category}] ${e.memo}` : `[${e.category}]`;
-        items.push({ id: e.id, type: "expense", date: e.date, title: displayTitle, amount: -e.amount, color: 'var(--danger)' });
+        items.push({ id: e.id, type: "expense", category: e.category, date: e.date, title: displayTitle, amount: -e.amount, color: 'var(--danger)' });
       });
 
       items.sort((a, b) => {
@@ -2262,7 +2269,17 @@
         return b.id - a.id;
       });
 
-      if (filter !== "all") items = items.filter(i => i.type === filter);
+      if (filter !== "all") {
+        items = items.filter(i => i.type === filter);
+        if (subfilter !== "all") {
+          if (filter === "shift") {
+            items = items.filter(i => String(i.jobId) === String(subfilter));
+          } else if (filter === "expense" || filter === "income") {
+            items = items.filter(i => i.category === subfilter);
+          }
+        }
+      }
+
       if (query) items = items.filter(i => i.title.toLowerCase().includes(query));
 
       const sliced = items.slice(0, historyLimit);
@@ -2289,28 +2306,6 @@
           <div class="list-item-right" style="color:${item.color};">
             ${item.amount > 0 ? "+" : ""}¥${item.amount.toLocaleString()}
           </div>
-        </div>
-      `).join("");
-    }
-
-    function renderCreditCardList() {
-      const container = document.getElementById("credit-card-list");
-      if (!container) return;
-      const monthStr = `${payrollDate.getFullYear()}-${String(payrollDate.getMonth() + 1).padStart(2, "0")}`;
-      const ccList = DB.expenses.filter(e => e.category === "クレカ" && e.date.startsWith(monthStr));
-
-      if (ccList.length === 0) {
-        container.innerHTML = `<div style="font-size:12px; color:var(--muted); text-align:center; padding:8px;">該当月の引き落とし予定はありません</div>`;
-        return;
-      }
-
-      container.innerHTML = ccList.map(item => `
-        <div class="credit-card-box" onclick="openEditModalById('expense', ${item.id})">
-          <div style="display:flex; justify-content:space-between; font-weight:bold;">
-            <span>💳 ${item.memo}</span>
-            <span style="color:var(--danger);">-¥${item.amount.toLocaleString()}</span>
-          </div>
-          <div style="font-size:11px; color:var(--muted); margin-top:2px;">予定日: ${item.date}</div>
         </div>
       `).join("");
     }
@@ -2386,7 +2381,7 @@
       const container = document.getElementById("stats-category-chips");
       if (!container) return;
 
-      const allCategories = ["食費", "交通費", "旅費", "交際費", "日用品", "趣味", "固定費", "クレカ", "貯金", "その他"];
+      const allCategories = ["食費", "交通費", "旅費", "交際費", "日用品", "趣味", "固定費", "貯金", "その他"];
       let selectedCats = DB.settings.selectedStatsCategories || [];
 
       container.innerHTML = allCategories.map(cat => {
@@ -2715,9 +2710,8 @@
               <div class="form-group">
                 <label>給与計算タイプ</label>
                 <select class="form-control" onchange="updateJobConfig(${idx}, 'type', this.value)">
-                  <option value="monthly" ${j.type !== 'multi_period' && j.type !== 'kyoei_double' ? 'selected' : ''}>通常 (月1回支給)</option>
+                  <option value="monthly" ${j.type !== 'multi_period' ? 'selected' : ''}>通常 (月1回支給)</option>
                   <option value="multi_period" ${j.type === 'multi_period' ? 'selected' : ''}>複数回払い (自由設定)</option>
-                  ${j.type === 'kyoei_double' ? `<option value="kyoei_double" selected>旧・協栄ルール（互換用・非推奨）</option>` : ''}
                 </select>
               </div>
             </div>
@@ -2730,10 +2724,6 @@
                 ${periodsHtml || '<div style="font-size:11px; color:var(--muted); text-align:center; padding:6px;">支給回が設定されていません</div>'}
               </div>
               <button class="btn btn-outline btn-sm" style="width:100%; margin-top:4px;" onclick="addPeriod(${idx})">＋ 支給回を追加</button>
-            ` : j.type === 'kyoei_double' ? `
-            <div style="font-size:10px; color:var(--brand-dark); background:var(--brand-light); padding:4px 6px; border-radius:4px; margin-top:4px;">
-              ※ 旧ルール（15日締め25日払 ＆ 5日締め15日払）です。
-            </div>
             ` : `
             <div class="form-row">
               <div class="form-group">
@@ -2821,18 +2811,6 @@
         `).join("");
       }
 
-      const ccConfig = document.getElementById("credit-companies-config-list");
-      if (ccConfig) {
-        ccConfig.innerHTML = DB.creditCompanies.map((c, idx) => `
-          <div class="list-item">
-            <div class="list-item-left"><span>${c}</span></div>
-            <div class="list-item-right">
-              <button class="btn btn-danger btn-sm" onclick="deleteCardCompany(${idx})">削除</button>
-            </div>
-          </div>
-        `).join("");
-      }
-
       document.getElementById("setting-reminder-enable").checked = DB.reminder.enabled;
       document.getElementById("setting-reminder-time").value = DB.reminder.time || "21:00";
     }
@@ -2897,11 +2875,6 @@
         if (!sel) return;
         sel.innerHTML = DB.jobs.map(j => `<option value="${j.id}">${j.name}</option>`).join("");
       });
-
-      const ccSelect = document.getElementById("cc-company-select");
-      if (ccSelect) {
-        ccSelect.innerHTML = DB.creditCompanies.map(c => `<option value="${c}">${c}</option>`).join("");
-      }
 
       const quickContainer = document.getElementById("quick-pin-list");
       if (quickContainer) {
@@ -2993,6 +2966,12 @@
     function openEntryModal(dateStr, defaultType = "shift") {
       selectedShortcutKey = null;
       clearFormErrors();
+      const content = document.getElementById("entry-modal-content");
+      if (content) {
+        content.style.transition = "";
+        content.style.transform = "";
+      }
+
       document.getElementById("shift-id").value = "";
       document.getElementById("expense-id").value = "";
       document.getElementById("income-id").value = "";
@@ -3024,6 +3003,11 @@
     window.openEditModalById = (type, id) => {
       selectedShortcutKey = null;
       clearFormErrors();
+      const content = document.getElementById("entry-modal-content");
+      if (content) {
+        content.style.transition = "";
+        content.style.transform = "";
+      }
       openModalWithLock("entry-modal");
 
       if (type === "shift") {
@@ -3034,11 +3018,11 @@
         document.getElementById("shift-date").value = s.date;
 
         const [sH, sM] = s.startTime.split(":");
-        const [eH, eM] = s.endTime.split(":");
+        const [eH, eM] = s.endTime.split(":").map(Number);
         document.getElementById("shift-start-hour").value = sH;
         document.getElementById("shift-start-min").value = sM;
-        document.getElementById("shift-end-hour").value = eH;
-        document.getElementById("shift-end-min").value = eM;
+        document.getElementById("shift-end-hour").value = String(eH).padStart(2, '0');
+        document.getElementById("shift-end-min").value = s.endTime.split(":")[1];
         document.getElementById("shift-break-min").value = s.breakMin;
         document.getElementById("shift-transport").value = (s.transport !== undefined && s.transport !== null) ? s.transport : 0;
 
@@ -3075,6 +3059,11 @@
 
     function closeEntryModal() {
       closeModalWithLock("entry-modal");
+      const content = document.getElementById("entry-modal-content");
+      if (content) {
+        content.style.transition = "";
+        content.style.transform = "";
+      }
     }
 
     function switchEntryForm(type) {
@@ -3117,7 +3106,9 @@
       activeCalcInput = inputEl;
       clearFormErrors();
       updateCalcDisplay();
+      document.getElementById("calc-backdrop").classList.add("active");
       document.getElementById("calc-keyboard-drawer").classList.add("active");
+      document.body.classList.add("calc-open");
     }
 
     function commitAndCloseCalcKeyboard() {
@@ -3137,7 +3128,9 @@
 
     function closeCalcKeyboard() {
       activeCalcInput = null;
+      document.getElementById("calc-backdrop").classList.remove("active");
       document.getElementById("calc-keyboard-drawer").classList.remove("active");
+      document.body.classList.remove("calc-open");
     }
 
     function handleCalcKeyPress(val) {
@@ -3431,13 +3424,6 @@
         saveDB(); renderAll();
       }
     };
-    window.deleteCardCompany = idx => {
-      if (confirm("このカード会社テンプレートを削除しますか？")) {
-        pushUndoState();
-        DB.creditCompanies.splice(idx, 1);
-        saveDB(); renderAll();
-      }
-    };
 
     window.selectQuickTemplate = pinId => {
       quickTemplateId = quickTemplateId === pinId ? null : pinId;
@@ -3495,6 +3481,138 @@
       }, { passive: true });
     }
 
+    // 📱 カレンダーの指追従スワイプ（半分以上で月移動、半分未満で手放すと戻る）
+    let calTouchStartX = 0;
+    let calTouchStartY = 0;
+    let calCurrentTranslateX = 0;
+    let isCalDragging = false;
+
+    function initCalendarDragSwipe() {
+      const calSlider = document.getElementById("calendar-slider");
+      const calViewport = document.getElementById("calendar-viewport");
+      if (!calSlider || !calViewport) return;
+
+      calViewport.addEventListener("touchstart", (e) => {
+        if (e.touches && e.touches.length > 0) {
+          calTouchStartX = e.touches[0].clientX;
+          calTouchStartY = e.touches[0].clientY;
+          calCurrentTranslateX = 0;
+          isCalDragging = true;
+          calSlider.style.transition = "none";
+        }
+      }, { passive: true });
+
+      calViewport.addEventListener("touchmove", (e) => {
+        if (!isCalDragging || !e.touches || e.touches.length === 0) return;
+        const currentX = e.touches[0].clientX;
+        const currentY = e.touches[0].clientY;
+        const diffX = currentX - calTouchStartX;
+        const diffY = currentY - calTouchStartY;
+
+        if (Math.abs(diffX) > Math.abs(diffY)) {
+          calCurrentTranslateX = diffX;
+          calSlider.style.transform = `translateX(${calCurrentTranslateX}px)`;
+        }
+      }, { passive: true });
+
+      calViewport.addEventListener("touchend", () => {
+        if (!isCalDragging) return;
+        isCalDragging = false;
+        const viewportWidth = calViewport.offsetWidth || 300;
+        const threshold = viewportWidth * 0.45; // 画面幅の約半分
+
+        calSlider.style.transition = "transform 0.22s cubic-bezier(0.25, 1, 0.5, 1)";
+
+        if (calCurrentTranslateX < -threshold) {
+          // 左へ半分以上スワイプ -> 翌月
+          calSlider.style.transform = `translateX(-${viewportWidth}px)`;
+          setTimeout(() => {
+            currentDate.setMonth(currentDate.getMonth() + 1);
+            renderAll();
+            calSlider.style.transition = "none";
+            calSlider.style.transform = "translateX(0px)";
+          }, 220);
+        } else if (calCurrentTranslateX > threshold) {
+          // 右へ半分以上スワイプ -> 前月
+          calSlider.style.transform = `translateX(${viewportWidth}px)`;
+          setTimeout(() => {
+            currentDate.setMonth(currentDate.getMonth() - 1);
+            renderAll();
+            calSlider.style.transition = "none";
+            calSlider.style.transform = "translateX(0px)";
+          }, 220);
+        } else {
+          // 半分未満の場合は元に戻る
+          calSlider.style.transform = "translateX(0px)";
+        }
+        calCurrentTranslateX = 0;
+      }, { passive: true });
+    }
+
+    // 📱 モーダル上部を下にスライドして閉じる（Pull down to dismiss）
+    let modalTouchStartY = 0;
+    let modalCurrentTranslateY = 0;
+    let isModalDragging = false;
+
+    function initModalSwipeDown() {
+      const entryModalContent = document.getElementById("entry-modal-content");
+      const dragHandle = document.getElementById("entry-modal-drag-handle");
+      const modalHeader = document.getElementById("entry-modal-header");
+      if (!entryModalContent) return;
+
+      const dragTargets = [dragHandle, modalHeader];
+
+      dragTargets.forEach(target => {
+        if (!target) return;
+        target.addEventListener("touchstart", (e) => {
+          if (e.touches && e.touches.length > 0) {
+            modalTouchStartY = e.touches[0].clientY;
+            modalCurrentTranslateY = 0;
+            isModalDragging = true;
+            entryModalContent.style.transition = "none";
+          }
+        }, { passive: true });
+
+        target.addEventListener("touchmove", (e) => {
+          if (!isModalDragging || !e.touches || e.touches.length === 0) return;
+          const currentY = e.touches[0].clientY;
+          const diffY = currentY - modalTouchStartY;
+
+          if (diffY > 0) {
+            modalCurrentTranslateY = diffY;
+            entryModalContent.style.transform = `translateY(${diffY}px)`;
+          } else {
+            modalCurrentTranslateY = diffY * 0.2;
+            entryModalContent.style.transform = `translateY(${modalCurrentTranslateY}px)`;
+          }
+        }, { passive: true });
+
+        target.addEventListener("touchend", () => {
+          if (!isModalDragging) return;
+          isModalDragging = false;
+
+          entryModalContent.style.transition = "transform 0.22s cubic-bezier(0.25, 1, 0.5, 1)";
+
+          // 80px以上下に引っ張ると閉じる
+          if (modalCurrentTranslateY > 80) {
+            entryModalContent.style.transform = "translateY(100%)";
+            setTimeout(() => {
+              closeEntryModal();
+              entryModalContent.style.transition = "";
+              entryModalContent.style.transform = "";
+            }, 220);
+          } else {
+            entryModalContent.style.transform = "translateY(0)";
+            setTimeout(() => {
+              entryModalContent.style.transition = "";
+              entryModalContent.style.transform = "";
+            }, 220);
+          }
+          modalCurrentTranslateY = 0;
+        }, { passive: true });
+      });
+    }
+
     function bindEvents() {
       document.getElementById("tab-btn-home").addEventListener("click", () => switchTab("home"));
       document.getElementById("tab-btn-payroll").addEventListener("click", () => switchTab("payroll"));
@@ -3526,10 +3644,17 @@
       // 🛑 キーボード領域自体のタッチ・クリック突き抜けを遮断
       const calcDrawer = document.getElementById("calc-keyboard-drawer");
       if (calcDrawer) {
+        calcDrawer.addEventListener("pointerdown", e => e.stopPropagation());
         calcDrawer.addEventListener("click", e => e.stopPropagation());
         calcDrawer.addEventListener("touchstart", e => e.stopPropagation(), { passive: true });
         calcDrawer.addEventListener("touchend", e => e.stopPropagation(), { passive: true });
       }
+
+      document.getElementById("calc-backdrop").addEventListener("pointerdown", (e) => {
+        e.preventDefault();
+        e.stopPropagation();
+        commitAndCloseCalcKeyboard();
+      });
 
       document.querySelectorAll(".calc-input").forEach(inputEl => {
         inputEl.addEventListener("click", (e) => {
@@ -3539,17 +3664,24 @@
       });
 
       document.querySelectorAll(".calc-btn[data-val]").forEach(btn => {
-        btn.addEventListener("click", (e) => {
+        btn.addEventListener("pointerdown", (e) => {
+          e.preventDefault();
           e.stopPropagation();
           handleCalcKeyPress(btn.getAttribute("data-val"));
         });
+        btn.addEventListener("click", (e) => {
+          e.preventDefault();
+          e.stopPropagation();
+        });
       });
 
-      document.getElementById("calc-done-btn").addEventListener("click", (e) => {
+      document.getElementById("calc-done-btn").addEventListener("pointerdown", (e) => {
+        e.preventDefault();
         e.stopPropagation();
         commitAndCloseCalcKeyboard();
       });
-      document.getElementById("calc-enter-btn").addEventListener("click", (e) => {
+      document.getElementById("calc-enter-btn").addEventListener("pointerdown", (e) => {
+        e.preventDefault();
         e.stopPropagation();
         commitAndCloseCalcKeyboard();
       });
@@ -3563,8 +3695,8 @@
         renderAll();
       });
 
-      document.getElementById("payroll-prev-btn").addEventListener("click", () => { payrollDate.setMonth(payrollDate.getMonth() - 1); renderSummaryAndPayroll(); renderCreditCardList(); });
-      document.getElementById("payroll-next-btn").addEventListener("click", () => { payrollDate.setMonth(payrollDate.getMonth() + 1); renderSummaryAndPayroll(); renderCreditCardList(); });
+      document.getElementById("payroll-prev-btn").addEventListener("click", () => { payrollDate.setMonth(payrollDate.getMonth() - 1); renderSummaryAndPayroll(); });
+      document.getElementById("payroll-next-btn").addEventListener("click", () => { payrollDate.setMonth(payrollDate.getMonth() + 1); renderSummaryAndPayroll(); });
 
       document.getElementById("stats-prev-month-btn").addEventListener("click", () => { statsDate.setMonth(statsDate.getMonth() - 1); renderStatsTab(); });
       document.getElementById("stats-next-month-btn").addEventListener("click", () => { statsDate.setMonth(statsDate.getMonth() + 1); renderStatsTab(); });
@@ -3575,25 +3707,16 @@
         renderStatsTab();
       });
 
-      // 📱 カレンダーカード スライド（月切り替え）
-      const calendarCardEl = document.getElementById("calendar-card");
-      if (calendarCardEl) {
-        attachSwipeListener(calendarCardEl, 
-          () => { currentDate.setMonth(currentDate.getMonth() + 1); renderAll(); },
-          () => { currentDate.setMonth(currentDate.getMonth() - 1); renderAll(); }
-        );
-      }
-
-      // 📱 給料見込み＆収支詳細カード スライド（月切り替え）
+      // 📱 給料見込みカード スライド
       const payrollCardEl = document.getElementById("payroll-summary-card");
       if (payrollCardEl) {
         attachSwipeListener(payrollCardEl,
-          () => { payrollDate.setMonth(payrollDate.getMonth() + 1); renderSummaryAndPayroll(); renderCreditCardList(); },
-          () => { payrollDate.setMonth(payrollDate.getMonth() - 1); renderSummaryAndPayroll(); renderCreditCardList(); }
+          () => { payrollDate.setMonth(payrollDate.getMonth() + 1); renderSummaryAndPayroll(); },
+          () => { payrollDate.setMonth(payrollDate.getMonth() - 1); renderSummaryAndPayroll(); }
         );
       }
 
-      // 📱 統計タブ スライド（統計月切り替え）
+      // 📱 統計タブ スライド
       const statsTabEl = document.getElementById("tab-stats");
       if (statsTabEl) {
         attachSwipeListener(statsTabEl,
@@ -3653,7 +3776,17 @@
       });
 
       document.getElementById("history-search-input").addEventListener("input", () => { historyLimit = 10; renderHistory(); });
-      document.getElementById("history-filter-select").addEventListener("change", () => { historyLimit = 10; renderHistory(); });
+      
+      document.getElementById("history-filter-select").addEventListener("change", () => {
+        historyLimit = 10;
+        updateHistorySubfilterOptions();
+        renderHistory();
+      });
+      document.getElementById("history-subfilter-select").addEventListener("change", () => {
+        historyLimit = 10;
+        renderHistory();
+      });
+
       document.getElementById("load-more-history-btn").addEventListener("click", () => { historyLimit += 10; renderHistory(); });
 
       document.getElementById("start-nudge-minus").addEventListener("click", () => nudgeTime('start', -15));
@@ -3813,34 +3946,6 @@
         saveDB(); closeEntryModal(); renderAll();
       });
 
-      document.getElementById("open-cc-modal-btn").addEventListener("click", () => {
-        document.getElementById("cc-date-input").value = getLocalDateString(new Date());
-        openModalWithLock("cc-modal");
-      });
-      document.getElementById("close-cc-modal-btn").addEventListener("click", () => closeModalWithLock("cc-modal"));
-
-      document.getElementById("cc-form").addEventListener("submit", e => {
-        e.preventDefault();
-        clearFormErrors();
-        const amountInput = document.getElementById("cc-amount-input");
-        const evalAmount = evaluateMath(amountInput.value);
-
-        if (evalAmount === null) {
-          showInputError(amountInput);
-          return;
-        }
-
-        pushUndoState();
-        DB.expenses.push({
-          id: Date.now(),
-          date: document.getElementById("cc-date-input").value,
-          category: "クレカ",
-          memo: document.getElementById("cc-company-select").value,
-          amount: evalAmount
-        });
-        saveDB(); closeModalWithLock("cc-modal"); renderAll();
-      });
-
       const fabBtn = document.getElementById("fab-main-btn");
       const fabMenu = document.getElementById("fab-menu");
       const fabOverlay = document.getElementById("fab-overlay");
@@ -3921,7 +4026,7 @@
         saveDB(); closeModalWithLock("repeat-modal"); renderAll();
       });
 
-      const accs = ["acc-jobs", "acc-pins", "acc-wall", "acc-fixed", "acc-cards", "acc-reminder", "acc-data"];
+      const accs = ["acc-jobs", "acc-pins", "acc-wall", "acc-fixed", "acc-reminder", "acc-data"];
       accs.forEach(id => {
         const btn = document.getElementById(`${id}-btn`);
         const body = document.getElementById(`${id}-body`);
@@ -3967,15 +4072,6 @@
         pushUndoState();
         DB.fixedExpenses.push({ id: Date.now(), memo, amount, autoApply: true });
         saveDB(); renderAll();
-      });
-
-      document.getElementById("add-card-btn").addEventListener("click", () => {
-        const input = document.getElementById("new-card-name");
-        if (input.value.trim()) {
-          pushUndoState();
-          DB.creditCompanies.push(input.value.trim());
-          input.value = ""; saveDB(); renderAll();
-        }
       });
 
       document.getElementById("save-asset-settings-btn").addEventListener("click", () => {
@@ -4050,6 +4146,9 @@
     window.addEventListener("DOMContentLoaded", () => {
       initTimeSelects();
       bindEvents();
+      initCalendarDragSwipe();
+      initModalSwipeDown();
+      updateHistorySubfilterOptions();
       renderAll();
     });
   </script>
