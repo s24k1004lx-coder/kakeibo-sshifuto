@@ -344,7 +344,7 @@
       background: var(--good-light);
       color: #065f46;
       border: 1px solid var(--good);
-      border-left-width: 3px;
+      border-left-width: 3.5px;
     }
     [data-theme="dark"] .cal-badge.shift-pay {
       background: #064e3b;
@@ -824,13 +824,13 @@
           <div class="cal-day-head">土</div>
         </div>
 
-        <!-- 📱 前後月がリアルタイムに見える3面カルーセルスライダー（境界区切り線付き） -->
+        <!-- 📱 前後月がリアルタイムに見える3面カルーセルスライダー（薄い境界区切り線付き） -->
         <div id="calendar-viewport" style="overflow: hidden; width: 100%; position: relative; touch-action: pan-y;">
           <div id="calendar-slider" style="display: flex; width: 300%; transform: translateX(-33.333333%); will-change: transform;">
-            <div style="width: 33.333333%; flex-shrink: 0; border-right: 2.5px solid var(--brand);">
+            <div style="width: 33.333333%; flex-shrink: 0; border-right: 1.5px solid rgba(249, 115, 22, 0.3);">
               <div class="calendar-grid" id="calendar-days-prev" style="margin-top: 2px;"></div>
             </div>
-            <div style="width: 33.333333%; flex-shrink: 0; border-right: 2.5px solid var(--brand);">
+            <div style="width: 33.333333%; flex-shrink: 0; border-right: 1.5px solid rgba(249, 115, 22, 0.3);">
               <div class="calendar-grid" id="calendar-days-container" style="margin-top: 2px;"></div>
             </div>
             <div style="width: 33.333333%; flex-shrink: 0;">
@@ -2008,7 +2008,8 @@
             const pay = calculateShiftPay(s).totalPay;
             dayIncTotal += pay;
             const jobColor = job ? job.color : 'var(--good)';
-            badgesHtml += `<div class="cal-badge shift-pay" style="border-left-color:${jobColor}; border-color:${jobColor}44;">${formatCalBadgeAmount(pay, true)}</div>`;
+            // 💡 勤務先ごとの色枠を濃く強調（border-leftを3.5pxにし、全体枠も濃く調整）
+            badgesHtml += `<div class="cal-badge shift-pay" style="border: 1px solid ${jobColor}bb; border-left: 3.5px solid ${jobColor} !important;">${formatCalBadgeAmount(pay, true)}</div>`;
           });
 
           const dayIncomes = DB.otherIncomes.filter(inc => inc.date === dateStr);
@@ -3563,31 +3564,26 @@
         isCalDragging = false;
         const viewportWidth = calViewport.offsetWidth || 300;
         const duration = Date.now() - calTouchStartTime;
-        const velocity = Math.abs(calDiffX) / (duration || 1); // px/ms
+        const velocity = Math.abs(calDiffX) / (duration || 1);
 
-        // 1. 素早い弾き（フリック）: 300ms以内・40px以上・速度0.25px/ms以上
-        // 2. ゆっくりドラッグ: 画面幅の半分（50%）以上
         const isFlick = duration < 300 && Math.abs(calDiffX) > 40 && velocity > 0.25;
         const isHalfSwipe = Math.abs(calDiffX) >= viewportWidth * 0.5;
 
         calSlider.style.transition = "transform 0.22s cubic-bezier(0.25, 1, 0.5, 1)";
 
         if ((isFlick || isHalfSwipe) && calDiffX < 0) {
-          // 左スワイプ（翌月）
           calSlider.style.transform = `translateX(${-viewportWidth * 2}px)`;
           setTimeout(() => {
             currentDate.setMonth(currentDate.getMonth() + 1);
             renderAll();
           }, 220);
         } else if ((isFlick || isHalfSwipe) && calDiffX > 0) {
-          // 右スワイプ（前月）
           calSlider.style.transform = `translateX(0px)`;
           setTimeout(() => {
             currentDate.setMonth(currentDate.getMonth() - 1);
             renderAll();
           }, 220);
         } else {
-          // 基準に満たない場合は元に戻る
           calSlider.style.transform = `translateX(${-viewportWidth}px)`;
         }
         setTimeout(() => {
