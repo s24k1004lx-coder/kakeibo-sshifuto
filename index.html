@@ -95,30 +95,31 @@
     }
 
     .app-title {
-      font-size: 16px;
-      font-weight: 700;
+      font-size: 20px;
+      font-weight: 800;
       display: flex;
       align-items: center;
       gap: 6px;
+      letter-spacing: -0.5px;
     }
 
     .header-actions {
       display: flex;
       align-items: center;
-      gap: 8px;
     }
 
     .asset-badge {
-      background: rgba(255, 255, 255, 0.2);
+      background: rgba(255, 255, 255, 0.22);
       color: #fff;
-      padding: 4px 8px;
+      padding: 6px 12px;
       border-radius: 20px;
-      font-size: 11px;
-      font-weight: 600;
+      font-size: 13.5px;
+      font-weight: 700;
       display: flex;
       align-items: center;
-      gap: 4px;
+      gap: 5px;
       cursor: pointer;
+      backdrop-filter: blur(4px);
     }
 
     .icon-btn {
@@ -229,7 +230,6 @@
       font-size: 11px;
     }
 
-    /* 📱 カレンダーカード：画面横幅いっぱいに拡大 */
     #calendar-card {
       margin-left: -8px;
       margin-right: -8px;
@@ -335,7 +335,6 @@
       width: 100%;
     }
     
-    /* 🎨 5桁金額でもはみ出さない最適化バッジスタイル */
     .cal-badge {
       font-size: 7.8px;
       padding: 1.5px 0.5px;
@@ -680,7 +679,6 @@
     }
     .period-setting-head strong { font-size: 11px; }
 
-    /* ⌨️ 専用電卓キーボード（最前面 & ガード） */
     .calc-keyboard-drawer {
       position: fixed;
       bottom: 0; left: 0; right: 0;
@@ -760,18 +758,17 @@
   <input type="file" id="json-file-input" style="display:none;" accept=".json">
   <div id="calc-backdrop"></div>
 
-  <!-- ヘッダー -->
+  <!-- ヘッダー（サイズ拡大＆ナイトモードボタン撤去） -->
   <header>
     <div class="app-title">
       <span>💰</span>
       <span>PayCale</span>
     </div>
     <div class="header-actions">
-      <div class="asset-badge" id="asset-gacha-btn">
+      <div class="asset-badge" id="asset-gacha-btn" onclick="switchTab('payroll')">
         <span>🏦 資産:</span>
         <span id="header-base-asset">¥0</span>
       </div>
-      <button class="icon-btn" id="theme-toggle-btn">🌙</button>
     </div>
   </header>
 
@@ -837,7 +834,7 @@
           <div class="cal-day-head">土</div>
         </div>
 
-        <!-- 📱 前後月がリアルタイムに見える3面カルーセルスライダー -->
+        <!-- 📱 前後月が見える3面カルーセルスライダー -->
         <div id="calendar-viewport" style="overflow: hidden; width: 100%; position: relative; touch-action: pan-y;">
           <div id="calendar-slider" style="display: flex; width: 300%; transform: translateX(-33.333333%); will-change: transform;">
             <div style="width: 33.333333%; flex-shrink: 0;">
@@ -994,7 +991,6 @@
         </div>
       </div>
 
-      <!-- 📈 総資産の推移グラフ (常に今日が真ん中) -->
       <div class="card">
         <div class="card-title">📈 総資産の推移 (前後15日間・今日が中心)</div>
         <canvas id="chart-budget-line" style="max-height: 150px !important;"></canvas>
@@ -1060,6 +1056,20 @@
     <div id="tab-settings" class="tab-content">
       <div class="card">
         <div class="card-title">アプリ設定</div>
+
+        <!-- 🎨 テーマ設定項目（新設） -->
+        <div class="accordion-item">
+          <button class="accordion-header" id="acc-theme-btn">🎨 テーマ・外観設定</button>
+          <div class="accordion-body" id="acc-theme-body">
+            <div class="form-group">
+              <label>表示テーマ</label>
+              <select id="setting-theme-select" class="form-control">
+                <option value="light">☀️ ライトモード</option>
+                <option value="dark">🌙 ダークモード</option>
+              </select>
+            </div>
+          </div>
+        </div>
 
         <div class="accordion-item">
           <button class="accordion-header" id="acc-jobs-btn">🏢 勤務先・締め日・給料日設定</button>
@@ -1183,7 +1193,6 @@
   <!-- モーダル: 入力/編集 -->
   <div class="modal-overlay" id="entry-modal">
     <div class="modal-content" id="entry-modal-content">
-      <!-- 📱 引き下げて閉じる用ハンドルバー -->
       <div class="modal-drag-handle" id="entry-modal-drag-handle"></div>
 
       <div class="modal-header" id="entry-modal-header">
@@ -1596,7 +1605,6 @@
       return `${y}-${m}-${day}`;
     }
 
-    // 💡 5桁（〜99,999円）まではフル桁表示、6桁（10万円以上）から万表記
     function formatCalBadgeAmount(amt, isPlus) {
       const sign = isPlus ? "+" : "-";
       if (amt >= 100000) {
@@ -1607,7 +1615,6 @@
       return `${sign}${amt.toLocaleString()}`;
     }
 
-    // 💡 日別プラマイ収支（1万円以上は万表記）
     function formatDiffAmount(amt) {
       if (amt === 0) return "";
       const isPlus = amt > 0;
@@ -1879,8 +1886,8 @@
 
     function applyTheme() {
       document.documentElement.setAttribute("data-theme", DB.settings.theme);
-      const themeBtn = document.getElementById("theme-toggle-btn");
-      if (themeBtn) themeBtn.textContent = DB.settings.theme === "dark" ? "☀️" : "🌙";
+      const themeSelect = document.getElementById("setting-theme-select");
+      if (themeSelect) themeSelect.value = DB.settings.theme;
     }
 
     function renderInfoBanner() {
@@ -2837,6 +2844,7 @@
         `).join("");
       }
 
+      document.getElementById("setting-theme-select").value = DB.settings.theme || "light";
       document.getElementById("setting-base-asset").value = DB.baseAsset || 0;
       document.getElementById("setting-wall-target").value = [1780000, 1060000, 1300000, 1500000, 2010000].includes(DB.wallTarget) ? DB.wallTarget : "custom";
       if (![1780000, 1060000, 1300000, 1500000, 2010000].includes(DB.wallTarget)) {
@@ -3531,7 +3539,6 @@
       }, { passive: true });
     }
 
-    // 📱 前後の月がリアルタイムに見える3面カルーセルスライダー
     let calTouchStartX = 0;
     let calTouchStartY = 0;
     let calDiffX = 0;
@@ -3596,7 +3603,6 @@
       }, { passive: true });
     }
 
-    // 📱 モーダル上部を下にスライドして閉じる（しきい値160px）
     let modalTouchStartY = 0;
     let modalCurrentTranslateY = 0;
     let isModalDragging = false;
@@ -3664,11 +3670,6 @@
       document.getElementById("tab-btn-payroll").addEventListener("click", () => switchTab("payroll"));
       document.getElementById("tab-btn-stats").addEventListener("click", () => switchTab("stats"));
       document.getElementById("tab-btn-settings").addEventListener("click", () => switchTab("settings"));
-
-      document.getElementById("theme-toggle-btn").addEventListener("click", () => {
-        DB.settings.theme = DB.settings.theme === "dark" ? "light" : "dark";
-        saveDB(); applyTheme();
-      });
 
       document.getElementById("spin-gacha-btn").addEventListener("click", () => {
         currentGachaVal = Math.floor(Math.random() * 499) + 1;
@@ -4012,6 +4013,13 @@
 
       document.getElementById("run-tax-diag-btn").addEventListener("click", runTaxDiagnosis);
 
+      // テーマ選択の変更イベント
+      document.getElementById("setting-theme-select").addEventListener("change", (e) => {
+        DB.settings.theme = e.target.value;
+        saveDB();
+        applyTheme();
+      });
+
       document.getElementById("close-override-modal-btn").addEventListener("click", () => closeModalWithLock("override-pay-modal"));
       document.getElementById("override-pay-form").addEventListener("submit", e => {
         e.preventDefault();
@@ -4069,7 +4077,7 @@
         saveDB(); closeModalWithLock("repeat-modal"); renderAll();
       });
 
-      const accs = ["acc-jobs", "acc-pins", "acc-wall", "acc-fixed", "acc-reminder", "acc-data"];
+      const accs = ["acc-theme", "acc-jobs", "acc-pins", "acc-wall", "acc-fixed", "acc-reminder", "acc-data"];
       accs.forEach(id => {
         const btn = document.getElementById(`${id}-btn`);
         const body = document.getElementById(`${id}-body`);
@@ -4148,14 +4156,14 @@
         }
         const blob = new Blob([csv], { type: "text/csv;charset=utf-8;" });
         const a = document.createElement("a"); a.href = URL.createObjectURL(blob);
-        a.download = `shift_pro_export_${getLocalDateString(new Date())}.csv`; a.click();
+        a.download = `PayCale_export_${getLocalDateString(new Date())}.csv`; a.click();
       });
 
       document.getElementById("export-json-btn").addEventListener("click", () => {
         const backupData = Object.assign({}, DB, { actualPay: DB.actualPay || {} });
         const blob = new Blob([JSON.stringify(backupData, null, 2)], { type: "application/json" });
         const a = document.createElement("a"); a.href = URL.createObjectURL(blob);
-        a.download = `shift_pro_backup_${getLocalDateString(new Date())}.json`; a.click();
+        a.download = `PayCale_backup_${getLocalDateString(new Date())}.json`; a.click();
       });
 
       const fileInput = document.getElementById("json-file-input");
