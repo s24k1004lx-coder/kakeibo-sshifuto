@@ -277,7 +277,6 @@
     .cal-day-head:nth-child(1) { color: var(--danger); }
     .cal-day-head:nth-child(7) { color: var(--sat-color); }
 
-    /* 📱 各マスの高さを完全に統一固定し、段差を防止 */
     .day-cell {
       background: var(--card);
       height: 64px;
@@ -825,7 +824,7 @@
           <div class="cal-day-head">土</div>
         </div>
 
-        <!-- 📱 前後月がリアルタイムに見える3面カルーセルスライダー（境界区切り線付き） -->
+        <!-- 📱 前後月がリアルタイムに見える3面カルーセルスライダー -->
         <div id="calendar-viewport" style="overflow: hidden; width: 100%; position: relative; touch-action: pan-y;">
           <div id="calendar-slider" style="display: flex; width: 300%; transform: translateX(-33.333333%); will-change: transform;">
             <div style="width: 33.333333%; flex-shrink: 0; border-right: 2.5px solid var(--brand);">
@@ -1423,6 +1422,7 @@
     </div>
   </div>
 
+  <!-- ✏️ 実際の振込額（手取り）の補正・確定モーダル -->
   <div class="modal-overlay" id="override-pay-modal">
     <div class="modal-content" style="padding-bottom:20px;">
       <div class="modal-header">
@@ -1927,7 +1927,6 @@
       document.getElementById("total-asset-val").textContent = `¥${assetVal.toLocaleString()}`;
     }
 
-    // 📱 全月共通で「常に6週（42セル）」に完全固定し、段差を完全に解消
     function renderCalendarGridForMonth(year, month, container, isInteractive = true) {
       if (!container) return;
       const monthStr = `${year}-${String(month + 1).padStart(2, "0")}`;
@@ -1950,7 +1949,7 @@
       });
 
       const startDate = new Date(year, month, 1 - firstDayOfWeek);
-      const totalCells = 42; // 常に6週間（42セル）に完全固定
+      const totalCells = 42;
       const calendarDates = [];
       for (let i = 0; i < totalCells; i++) {
         const d = new Date(startDate);
@@ -3522,9 +3521,10 @@
       }, { passive: true });
     }
 
-    // 📱 前後の月がリアルタイムに見える3面カルーセルスライダー
+    // 📱 前後の月がリアルタイムに見える3面カルーセルスライダー（軽快なフリック対応）
     let calTouchStartX = 0;
     let calTouchStartY = 0;
+    let calTouchStartTime = 0;
     let calDiffX = 0;
     let isCalDragging = false;
 
@@ -3537,6 +3537,7 @@
         if (e.touches && e.touches.length > 0) {
           calTouchStartX = e.touches[0].clientX;
           calTouchStartY = e.touches[0].clientY;
+          calTouchStartTime = Date.now();
           calDiffX = 0;
           isCalDragging = true;
           calSlider.style.transition = "none";
@@ -3562,17 +3563,22 @@
         if (!isCalDragging) return;
         isCalDragging = false;
         const viewportWidth = calViewport.offsetWidth || 300;
-        const threshold = viewportWidth * 0.5;
+        const timeDiff = Date.now() - calTouchStartTime;
+
+        // 💡 素早いフリック（300ms以内かつ40px以上）または22%以上の移動で月切り替え
+        const isQuickFlick = timeDiff < 300 && Math.abs(calDiffX) > 40;
+        const isDistancePassed = Math.abs(calDiffX) > (viewportWidth * 0.22);
+        const shouldChange = isQuickFlick || isDistancePassed;
 
         calSlider.style.transition = "transform 0.22s cubic-bezier(0.25, 1, 0.5, 1)";
 
-        if (calDiffX < -threshold) {
+        if (shouldChange && calDiffX < 0) {
           calSlider.style.transform = `translateX(${-viewportWidth * 2}px)`;
           setTimeout(() => {
             currentDate.setMonth(currentDate.getMonth() + 1);
             renderAll();
           }, 220);
-        } else if (calDiffX > threshold) {
+        } else if (shouldChange && calDiffX > 0) {
           calSlider.style.transform = `translateX(0px)`;
           setTimeout(() => {
             currentDate.setMonth(currentDate.getMonth() - 1);
