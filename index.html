@@ -1115,6 +1115,158 @@
     @media (prefers-reduced-motion: reduce) {
       *, *::before, *::after { animation-duration: 0.001ms !important; animation-iteration-count: 1 !important; transition-duration: 0.001ms !important; }
     }
+
+    /* ============================================================
+       🌈 追加アップデート: 色が緩やかに動くレイヤー & 細部のマイクロ操作感
+       （うるさくなりすぎない程度に、あちこちにさりげない彩りと反応を追加）
+    ============================================================ */
+    :root {
+      --accent-2: #8b5cf6;
+      --accent-3: #06b6d4;
+    }
+    [data-theme="dark"] {
+      --accent-2: #a78bfa;
+      --accent-3: #22d3ee;
+    }
+
+    /* 3つ目の浮遊オーブ（紫〜シアン）を追加し、色の動きに奥行きを出す */
+    .bg-orb {
+      position: fixed;
+      border-radius: 50%;
+      filter: blur(70px);
+      z-index: -1;
+      pointer-events: none;
+    }
+    .bg-orb-3 {
+      width: 38vw; height: 38vw;
+      max-width: 340px; max-height: 340px;
+      top: 38%; right: -10%;
+      opacity: 0.13;
+      background: conic-gradient(from 0deg, var(--accent-2), var(--accent-3), var(--brand), var(--accent-2));
+      animation: orbDrift 22s linear infinite, floatGlow 14s ease-in-out infinite;
+    }
+    @keyframes orbDrift {
+      0% { transform: rotate(0deg) translate(0, 0); }
+      100% { transform: rotate(360deg) translate(0, 0); }
+    }
+
+    /* ヘッダーのロゴ周りに、ゆっくり色が巡る発光リング */
+    .app-title span:first-child {
+      position: relative;
+      display: inline-flex;
+      align-items: center;
+      justify-content: center;
+      width: 26px; height: 26px;
+      border-radius: 50%;
+    }
+    .app-title span:first-child::before {
+      content: "";
+      position: absolute;
+      inset: -5px;
+      border-radius: 50%;
+      background: conic-gradient(from 0deg, #fff, var(--accent-2), var(--accent-3), #fff);
+      opacity: 0.55;
+      filter: blur(3px);
+      animation: orbDrift 5s linear infinite;
+      z-index: -1;
+    }
+
+    /* タブバー: 現在地を示す、色が流れるインジケーター */
+    .tab-bar { position: relative; }
+    .tab-indicator {
+      position: absolute;
+      top: 0; left: 0;
+      width: 25%; height: 2.5px;
+      background: linear-gradient(90deg, var(--brand), var(--accent-3), var(--brand));
+      background-size: 220% 100%;
+      border-radius: 0 0 3px 3px;
+      transition: transform 0.38s var(--ease-pop);
+      animation: indicatorFlow 5s linear infinite;
+      box-shadow: 0 1px 8px var(--brand-glow-soft);
+    }
+    @keyframes indicatorFlow {
+      0% { background-position: 0% 0; }
+      100% { background-position: 220% 0; }
+    }
+
+    /* カードタイトルに、控えめに色が流れるアンダーライン（強調しすぎない太さ） */
+    .card-title {
+      position: relative;
+      padding-bottom: 6px;
+    }
+    .card-title::after {
+      content: "";
+      position: absolute;
+      left: 0; bottom: 0;
+      width: 30px; height: 2px;
+      border-radius: 2px;
+      background: linear-gradient(90deg, var(--brand), var(--accent-2), var(--accent-3));
+      background-size: 220% 100%;
+      animation: indicatorFlow 6s linear infinite;
+      opacity: 0.85;
+    }
+    .info-banner-card .card-title::after { background: rgba(255,255,255,0.6); animation: none; }
+
+    /* ボタン・チップ類のプレス感をより細かく（押した瞬間の沈み込み） */
+    .btn, .pin-chip, .cal-nav-btn, .accordion-header, .list-item, .tab-item, .asset-badge, .fab-item {
+      -webkit-tap-highlight-color: transparent;
+    }
+    .accordion-header { transition: transform 0.15s var(--ease-pop), color 0.2s ease; }
+    .accordion-header:active { transform: scale(0.985); }
+    .accordion-header::after { transition: transform 0.25s var(--ease-pop); display: inline-block; }
+    .accordion-header.active::after { transform: rotate(180deg); }
+    .list-item { transition: background 0.2s ease, transform 0.12s var(--ease-pop); }
+    .list-item:active { transform: scale(0.985); }
+    .pin-chip:active { transform: scale(0.92); }
+    .form-control:focus {
+      border-color: var(--brand);
+      box-shadow: 0 0 0 3px var(--brand-glow-soft);
+    }
+    input[type="checkbox"], input[type="radio"] {
+      accent-color: var(--brand);
+      transition: transform 0.15s var(--ease-pop);
+    }
+    input[type="checkbox"]:active, input[type="radio"]:active { transform: scale(1.15); }
+
+    /* 予算プログレスバーに、控えめな流れる光沢を追加（意味の色はそのまま維持） */
+    .progress-bar {
+      background-image: linear-gradient(90deg, rgba(255,255,255,0.35) 0%, rgba(255,255,255,0) 40%);
+      background-size: 200% 100%;
+      animation: progressShine 2.4s linear infinite;
+      transition: width 0.5s var(--ease-smooth), background-color 0.3s ease;
+    }
+    @keyframes progressShine {
+      0% { background-position: 200% 0; }
+      100% { background-position: -40% 0; }
+    }
+
+    /* --- 統計グラフ: 中央合計表示つきドーナツ、読みやすさ重視 --- */
+    .chart-donut-wrap { position: relative; }
+    .chart-donut-center {
+      position: absolute; inset: 0;
+      display: flex; flex-direction: column; align-items: center; justify-content: center;
+      pointer-events: none;
+    }
+    .chart-donut-center .dc-label { font-size: 9.5px; color: var(--muted); font-weight: 700; }
+    .chart-donut-center .dc-value { font-size: 15px; color: var(--ink); font-weight: 900; margin-top: 1px; }
+
+    /* --- 軽量トースト（細部の操作フィードバック用・小型版） --- */
+    .micro-toast {
+      background: var(--card);
+      color: var(--ink);
+      border: 1px solid var(--line);
+      border-left: 3px solid var(--brand);
+      padding: 6px 12px;
+      border-radius: 8px;
+      font-size: 11px;
+      font-weight: 700;
+      box-shadow: 0 4px 14px rgba(0,0,0,0.12);
+      pointer-events: auto;
+    }
+
+    @media (prefers-reduced-motion: reduce) {
+      *, *::before, *::after { animation-duration: 0.001ms !important; animation-iteration-count: 1 !important; transition-duration: 0.001ms !important; }
+    }
   </style>
 </head>
 <body>
@@ -1137,6 +1289,7 @@
 
   <div class="toast-container" id="toast-container"></div>
   <div class="register-pop-overlay" id="register-pop-overlay"></div>
+  <div class="bg-orb bg-orb-3" aria-hidden="true"></div>
 
   <main>
     <div id="tab-home" class="tab-content active">
@@ -1403,7 +1556,13 @@
 
       <div class="card">
         <div class="card-title">🍩 今月のカテゴリ別支出</div>
-        <canvas id="chart-expense-pie"></canvas>
+        <div class="chart-donut-wrap">
+          <canvas id="chart-expense-pie"></canvas>
+          <div class="chart-donut-center" id="chart-donut-center">
+            <span class="dc-label">合計</span>
+            <span class="dc-value" id="chart-donut-total">¥0</span>
+          </div>
+        </div>
       </div>
     </div>
 
@@ -1479,6 +1638,10 @@
           <div class="accordion-body" id="acc-fixed-body">
             <div id="fixed-expenses-config-list"></div>
             <button class="btn btn-outline btn-sm" id="add-fixed-btn" style="margin-top: 6px;">＋ 固定費を追加</button>
+            <div style="font-size:10.5px; color:var(--muted); margin-top:8px; line-height:1.5;">
+              💡 円以外の通貨（USD, EUR など）も登録できます。追加時・🔄ボタン押下時にその場で最新の為替レートを自動取得し、円換算額と取得日時を表示します（為替は毎月変動するため、参考表示は常にその時点のレートで再計算されます）。<br>
+              ※ この円換算額は「総資産・年収の壁」の自動計算には反映されません。為替レートで推定値がぶれて資産計算が不正確になるのを避けるため、実際に引き落とされた金額は都度「支出」として記録することをおすすめします。
+            </div>
           </div>
         </div>
 
@@ -1522,7 +1685,8 @@
     <button class="fab-main" id="fab-main-btn">＋</button>
   </div>
 
-  <nav class="tab-bar">
+  <nav class="tab-bar" id="tab-bar">
+    <div class="tab-indicator" id="tab-indicator"></div>
     <button class="tab-item active" id="tab-btn-home">
       <span class="tab-icon">🏠</span>
       <span>ホーム</span>
@@ -3177,16 +3341,21 @@
         DB.expenses.filter(e => e.date.startsWith(statsMonthStr)).forEach(e => {
           catMap[e.category] = (catMap[e.category] || 0) + e.amount;
         });
+        const pieTotal = Object.values(catMap).reduce((a, b) => a + b, 0);
+        const donutTotalEl = document.getElementById("chart-donut-total");
+        if (donutTotalEl) donutTotalEl.textContent = `¥${pieTotal.toLocaleString()}`;
+
         chartPie = new Chart(ctxPie, {
           type: 'doughnut',
           data: {
             labels: Object.keys(catMap).length ? Object.keys(catMap) : ["なし"],
             datasets: [{
               data: Object.values(catMap).length ? Object.values(catMap) : [1],
-              backgroundColor: ['#f97316', '#6366f1', '#0ea5e9', '#10b981', '#ec4899', '#8b5cf6'],
+              backgroundColor: ['#f97316', '#6366f1', '#0ea5e9', '#10b981', '#ec4899', '#8b5cf6', '#f43f5e', '#84cc16'],
               borderColor: getComputedStyle(document.documentElement).getPropertyValue('--card').trim() || '#fff',
               borderWidth: 2,
-              hoverOffset: 6
+              hoverOffset: 8,
+              spacing: 1.5
             }]
           },
           options: {
@@ -3195,7 +3364,7 @@
             cutout: '68%',
             plugins: {
               legend: { position: 'right', labels: { boxWidth: 8, boxHeight: 8 } },
-              tooltip: { callbacks: { label: (c) => ` ${c.label}: ¥${(c.raw ?? 0).toLocaleString()}` } }
+              tooltip: { callbacks: { label: (c) => ` ${c.label}: ¥${(c.raw ?? 0).toLocaleString()} (${pieTotal ? Math.round((c.raw / pieTotal) * 100) : 0}%)` } }
             }
           }
         });
@@ -3432,17 +3601,29 @@
 
       const fixedConfig = document.getElementById("fixed-expenses-config-list");
       if (fixedConfig) {
-        fixedConfig.innerHTML = DB.fixedExpenses.map(f => `
+        fixedConfig.innerHTML = DB.fixedExpenses.map(f => {
+          const cur = f.currency || "JPY";
+          const rate = cur === "JPY" ? 1 : (f.fxRate || 1);
+          const jpyAmount = Math.round(f.amount * rate);
+          const subText = cur === "JPY"
+            ? `¥${f.amount.toLocaleString()}/月`
+            : `${cur} ${f.amount.toLocaleString()} ≈ ¥${jpyAmount.toLocaleString()}/月 (${f.fxUpdatedAt ? f.fxUpdatedAt + "時点レート" : "レート未取得"})`;
+          const refreshBtn = cur !== "JPY"
+            ? `<button class="btn btn-outline btn-sm" onclick="refreshFixedFx(${f.id})" title="最新レートに更新">🔄</button>`
+            : "";
+          return `
           <div class="list-item">
             <div class="list-item-left">
               <strong>${f.memo}</strong>
-              <span style="font-size:11px; color:var(--muted); margin-left:4px;">(¥${f.amount.toLocaleString()}/月)</span>
+              <span style="font-size:11px; color:var(--muted); margin-left:4px;">(${subText})</span>
             </div>
             <div class="list-item-right">
+              ${refreshBtn}
               <button class="btn btn-danger btn-sm" onclick="deleteFixedConfig(${f.id})">削除</button>
             </div>
           </div>
-        `).join("");
+        `;
+        }).join("");
       }
 
       document.getElementById("setting-reminder-enable").checked = DB.reminder.enabled;
@@ -3577,10 +3758,21 @@
         void target.offsetHeight;
       }
       if (btn) btn.classList.add("active");
+      moveTabIndicator(tabId);
 
       if (tabId === "stats") renderStatsTab();
       if (tabId === "payroll") renderSummaryAndPayroll();
       if (tabId === "settings") renderSettingsTab();
+    }
+
+    // 🎯 タブ切り替え時に、下のインジケーターをタブ位置までなめらかに移動させる
+    function moveTabIndicator(tabId) {
+      const order = ["home", "payroll", "stats", "settings"];
+      const idx = order.indexOf(tabId);
+      const indicator = document.getElementById("tab-indicator");
+      if (indicator && idx !== -1) {
+        indicator.style.transform = `translateX(${idx * 100}%)`;
+      }
     }
 
     function openModalWithLock(modalId) {
@@ -4085,6 +4277,41 @@
         saveDB(); renderAll();
         showToast("🗑 固定費設定を削除しました", "danger");
       }
+    };
+
+    // 💱 外貨の固定費：為替レートを自動取得（無料・無登録のFrankfurter APIを使用）
+    // 円が毎月変わる問題への対応: 手入力の固定レートではなく、その都度リアルタイムのレートを取得し、
+    // 取得できない場合のみ手動入力にフォールバックする。取得日時を保存し、一覧にいつ時点のレートか表示する。
+    async function fetchFxRateToJpy(currencyCode) {
+      if (!currencyCode || currencyCode === "JPY") return 1;
+      try {
+        const res = await fetch(`https://api.frankfurter.app/latest?from=${encodeURIComponent(currencyCode)}&to=JPY`);
+        if (!res.ok) throw new Error("fx fetch failed");
+        const data = await res.json();
+        const rate = data && data.rates && data.rates.JPY;
+        if (typeof rate === "number" && isFinite(rate) && rate > 0) return rate;
+        throw new Error("invalid rate");
+      } catch (err) {
+        return null;
+      }
+    }
+
+    window.refreshFixedFx = async (id) => {
+      const item = DB.fixedExpenses.find(f => f.id === id);
+      if (!item || !item.currency || item.currency === "JPY") return;
+      showToast(`🔄 ${item.currency} の最新レートを取得中…`);
+      const rate = await fetchFxRateToJpy(item.currency);
+      if (rate === null) {
+        const manual = evaluateMath(prompt(`最新レートの自動取得に失敗しました。\n1 ${item.currency} が何円か手入力してください:`, item.fxRate || ""));
+        if (manual === null || manual <= 0) { showToast("⚠️ レート更新をキャンセルしました", "danger"); return; }
+        item.fxRate = manual;
+      } else {
+        item.fxRate = rate;
+      }
+      item.fxUpdatedAt = getLocalDateString(new Date());
+      saveDB();
+      renderSettingsTab();
+      showToast(`✅ ${item.currency}→円 のレートを更新しました (¥${item.fxRate.toLocaleString(undefined, { maximumFractionDigits: 2 })})`);
     };
 
     window.selectQuickTemplate = pinId => {
@@ -4660,6 +4887,7 @@
         DB.settings.theme = e.target.value;
         saveDB();
         applyTheme();
+        showToast("🎨 テーマを変更しました");
       });
 
       document.getElementById("close-override-modal-btn").addEventListener("click", () => closeModalWithLock("override-pay-modal"));
@@ -4766,11 +4994,29 @@
         showToast("📌 テンプレートを追加しました");
       });
 
-      document.getElementById("add-fixed-btn").addEventListener("click", () => {
+      document.getElementById("add-fixed-btn").addEventListener("click", async () => {
         const memo = prompt("固定費の項目名:"); if (!memo) return;
-        const amount = Number(prompt("金額 (円):", "50000")) || 0;
+        let currency = (prompt("通貨コードを入力 (例: JPY, USD, EUR, GBP, KRW / 空欄でJPY):", "JPY") || "JPY").trim().toUpperCase();
+        if (!/^[A-Z]{3}$/.test(currency)) currency = "JPY";
+        const amount = Number(prompt(`金額 (${currency}):`, "50000")) || 0;
+        if (!amount) return;
+
         pushUndoState();
-        DB.fixedExpenses.push({ id: Date.now(), memo, amount, autoApply: true });
+        const item = { id: Date.now(), memo, amount, currency, fxRate: 1, fxUpdatedAt: null, autoApply: true };
+
+        if (currency !== "JPY") {
+          showToast(`🔄 ${currency} の最新レートを取得中…`);
+          const rate = await fetchFxRateToJpy(currency);
+          if (rate === null) {
+            const manual = evaluateMath(prompt(`最新レートの自動取得に失敗しました。\n1 ${currency} が何円か手入力してください:`, "150"));
+            item.fxRate = (manual && manual > 0) ? manual : 1;
+          } else {
+            item.fxRate = rate;
+          }
+          item.fxUpdatedAt = getLocalDateString(new Date());
+        }
+
+        DB.fixedExpenses.push(item);
         saveDB(); renderAll();
         showToast("🏠 固定費を追加しました");
       });
@@ -4809,6 +5055,7 @@
         const blob = new Blob([csv], { type: "text/csv;charset=utf-8;" });
         const a = document.createElement("a"); a.href = URL.createObjectURL(blob);
         a.download = `PayCale_export_${getLocalDateString(new Date())}.csv`; a.click();
+        showToast("📤 CSVを書き出しました");
       });
 
       document.getElementById("export-json-btn").addEventListener("click", () => {
@@ -4816,6 +5063,7 @@
         const blob = new Blob([JSON.stringify(backupData, null, 2)], { type: "application/json" });
         const a = document.createElement("a"); a.href = URL.createObjectURL(blob);
         a.download = `PayCale_backup_${getLocalDateString(new Date())}.json`; a.click();
+        showToast("💾 JSONバックアップを保存しました");
       });
 
       const fileInput = document.getElementById("json-file-input");
@@ -4856,6 +5104,7 @@
       updateHistorySubfilterOptions();
       attachRippleFx();
       applyChartTheme();
+      moveTabIndicator("home");
       renderAll();
     });
   </script>
