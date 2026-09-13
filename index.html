@@ -1139,7 +1139,353 @@
     /* --- 統計グラフ: 余白と枠線を整えて視認性重視の落ち着いた見た目に --- */
     .card canvas { max-height: 150px !important; }
 
-    /* --- どこを押しても「ちゃんと反応した」がわかる、控えめなリップル --- */
+    /* ==========================================================================
+       ✨ シフト登録・編集モーダル リニューアル
+       register-pop（登録完了ポップ）の「丸み・グラデーション・弾む動き」を
+       フォーム全体に拡張したデザイン言語
+       ========================================================================== */
+
+    /* --- 種別セグメントスイッチ（シフト/収入/支出） --- */
+    .entry-type-switch {
+      position: relative;
+      display: flex;
+      background: var(--bg);
+      border: 1.5px solid var(--line);
+      border-radius: 14px;
+      padding: 4px;
+      margin-bottom: 12px;
+      gap: 2px;
+    }
+    .entry-type-switch-indicator {
+      position: absolute;
+      top: 4px; left: 4px;
+      height: calc(100% - 8px);
+      width: calc(33.333% - 3px);
+      border-radius: 10px;
+      background: linear-gradient(135deg, var(--brand) 0%, var(--brand-dark) 100%);
+      box-shadow: 0 3px 10px var(--brand-glow);
+      transition: transform 0.32s var(--ease-pop), background 0.25s ease, box-shadow 0.25s ease;
+      z-index: 0;
+    }
+    .entry-type-switch-indicator.mode-income {
+      background: linear-gradient(135deg, #10b981 0%, #059669 100%);
+      box-shadow: 0 3px 10px rgba(16, 185, 129, 0.35);
+    }
+    .entry-type-switch-indicator.mode-expense {
+      background: linear-gradient(135deg, #ef4444 0%, #dc2626 100%);
+      box-shadow: 0 3px 10px rgba(239, 68, 68, 0.35);
+    }
+    .entry-type-btn {
+      position: relative;
+      z-index: 1;
+      flex: 1;
+      border: none;
+      background: transparent;
+      padding: 8px 4px;
+      font-size: 11.5px;
+      font-weight: 700;
+      color: var(--muted);
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      gap: 3px;
+      border-radius: 10px;
+      cursor: pointer;
+      transition: color 0.25s ease, transform 0.15s var(--ease-pop);
+      white-space: nowrap;
+    }
+    .entry-type-btn.active { color: #fff; }
+    .entry-type-btn:active { transform: scale(0.95); }
+
+    /* --- テンプレート／履歴セクション --- */
+    .template-section {
+      background: var(--bg);
+      border: 1px solid var(--line);
+      border-radius: 14px;
+      padding: 10px;
+      margin-bottom: 10px;
+    }
+    .template-section-head {
+      display: flex;
+      align-items: center;
+      gap: 6px;
+      margin-bottom: 8px;
+    }
+    .template-section-icon {
+      width: 22px; height: 22px;
+      border-radius: 50%;
+      background: linear-gradient(135deg, var(--brand) 0%, var(--brand-dark) 100%);
+      display: flex; align-items: center; justify-content: center;
+      font-size: 11px;
+      flex-shrink: 0;
+      box-shadow: 0 2px 6px var(--brand-glow);
+    }
+    .template-section-title { font-size: 10.5px; font-weight: 800; color: var(--ink); }
+    .template-chip-row { display: flex; flex-wrap: wrap; gap: 6px; }
+    .template-chip-row:not(:last-child) { margin-bottom: 4px; }
+
+    .template-chip-v2 {
+      display: inline-flex;
+      align-items: center;
+      gap: 5px;
+      background: var(--card);
+      border: 1.5px solid var(--line);
+      border-radius: 18px;
+      padding: 5px 10px 5px 6px;
+      font-size: 10.5px;
+      font-weight: 700;
+      color: var(--ink);
+      cursor: pointer;
+      transition: all 0.18s var(--ease-pop);
+      white-space: nowrap;
+    }
+    .template-chip-v2:active { transform: scale(0.94); }
+    .template-chip-v2 .chip-dot {
+      width: 18px; height: 18px;
+      border-radius: 50%;
+      display: flex; align-items: center; justify-content: center;
+      font-size: 9.5px;
+      flex-shrink: 0;
+      background: var(--brand-light);
+      color: var(--brand-dark);
+    }
+    .template-chip-v2.active {
+      background: linear-gradient(135deg, var(--brand) 0%, var(--brand-dark) 100%);
+      border-color: transparent;
+      color: #fff;
+      box-shadow: 0 3px 10px var(--brand-glow);
+    }
+    .template-chip-v2.active .chip-dot { background: rgba(255,255,255,0.25); color: #fff; }
+    .template-chip-v2.hist-chip .chip-dot { background: var(--bg); color: var(--muted); }
+    .template-chip-v2.hist-chip.active {
+      background: linear-gradient(135deg, #64748b 0%, #475569 100%);
+      box-shadow: 0 3px 10px rgba(100, 116, 139, 0.35);
+    }
+    .template-chip-empty { font-size: 10px; color: var(--muted); padding: 4px 2px; }
+
+    /* --- 時間帯ピッカー(開始〜終了)カード --- */
+    .time-range-card {
+      background: var(--bg);
+      border: 1px solid var(--line);
+      border-radius: 14px;
+      padding: 10px;
+      margin-bottom: 10px;
+    }
+    .time-block-row { display: flex; align-items: center; gap: 6px; }
+    .time-block {
+      flex: 1;
+      min-width: 0;
+      background: var(--card);
+      border: 1.5px solid var(--line);
+      border-radius: 12px;
+      padding: 6px 8px;
+      transition: border-color 0.2s ease, box-shadow 0.2s ease;
+    }
+    .time-block:focus-within {
+      border-color: var(--brand);
+      box-shadow: 0 0 0 3px var(--brand-glow-soft);
+    }
+    .time-block-label {
+      font-size: 9px;
+      font-weight: 800;
+      color: var(--muted);
+      display: flex;
+      align-items: center;
+      gap: 3px;
+      margin-bottom: 3px;
+    }
+    .time-block-selects { display: flex; align-items: center; gap: 2px; }
+    .time-block-selects select {
+      border: none;
+      background: transparent;
+      font-size: 15px;
+      font-weight: 800;
+      color: var(--ink);
+      padding: 2px 0;
+      text-align: center;
+      width: 100%;
+    }
+    .time-block-selects span { font-weight: 800; color: var(--muted); font-size: 13px; }
+    .time-range-arrow {
+      flex-shrink: 0;
+      width: 22px; height: 22px;
+      border-radius: 50%;
+      background: var(--brand-light);
+      color: var(--brand-dark);
+      display: flex; align-items: center; justify-content: center;
+      font-size: 11px;
+      font-weight: 900;
+    }
+    .time-nudge-row { display: flex; justify-content: space-between; gap: 6px; margin-top: 6px; }
+    .btn-nudge-v2 {
+      flex: 1;
+      background: var(--card);
+      border: 1.5px solid var(--line);
+      border-radius: 8px;
+      padding: 4px;
+      font-size: 9.5px;
+      font-weight: 700;
+      color: var(--muted);
+      cursor: pointer;
+      transition: all 0.15s var(--ease-pop);
+    }
+    .btn-nudge-v2:active { transform: scale(0.92); background: var(--brand-light); color: var(--brand-dark); border-color: var(--brand); }
+
+    /* --- 給料見込み ヒーローカード（register-popと同じ質感） --- */
+    .pay-preview-hero {
+      position: relative;
+      background: linear-gradient(160deg, var(--brand-light) 0%, var(--card) 75%);
+      border: 1.5px solid #fed7aa;
+      border-radius: 16px;
+      padding: 12px 14px;
+      margin-bottom: 10px;
+      display: flex;
+      align-items: center;
+      gap: 10px;
+      overflow: hidden;
+    }
+    [data-theme="dark"] .pay-preview-hero { border-color: rgba(249, 115, 22, 0.35); }
+    .pay-preview-hero-icon {
+      width: 40px; height: 40px;
+      border-radius: 50%;
+      background: linear-gradient(135deg, var(--brand) 0%, var(--brand-dark) 100%);
+      display: flex; align-items: center; justify-content: center;
+      font-size: 19px;
+      flex-shrink: 0;
+      box-shadow: 0 4px 12px var(--brand-glow);
+      animation: iconBounce 0.5s var(--ease-pop) both;
+    }
+    .pay-preview-hero-body { flex: 1; min-width: 0; }
+    .pay-preview-hero-label { font-size: 9px; font-weight: 800; color: var(--muted); margin-bottom: 1px; }
+    .pay-preview-hero-amount {
+      font-size: 21px;
+      font-weight: 900;
+      color: var(--brand-dark);
+      letter-spacing: -0.3px;
+      line-height: 1.15;
+      animation: amountPop 0.35s var(--ease-pop) 0.1s both;
+    }
+    .pay-preview-hero-sub { font-size: 9.5px; color: var(--muted); font-weight: 600; margin-top: 1px; }
+    .pay-preview-hero.is-warn {
+      background: linear-gradient(160deg, var(--danger-light) 0%, var(--card) 75%);
+      border-color: rgba(239, 68, 68, 0.35);
+    }
+    .pay-preview-hero.is-warn .pay-preview-hero-icon {
+      background: linear-gradient(135deg, #ef4444 0%, #dc2626 100%);
+      box-shadow: 0 4px 12px rgba(239, 68, 68, 0.35);
+    }
+    .pay-preview-hero.is-warn .pay-preview-hero-amount { color: var(--danger); }
+
+    /* --- ヒーロー保存ボタン --- */
+    .btn-hero-save {
+      flex: 1;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      gap: 6px;
+      padding: 13px;
+      border: none;
+      border-radius: 14px;
+      font-size: 14px;
+      font-weight: 800;
+      color: #fff;
+      background: linear-gradient(135deg, var(--brand) 0%, var(--brand-dark) 100%);
+      box-shadow: 0 6px 16px var(--brand-glow);
+      cursor: pointer;
+      transition: transform 0.15s var(--ease-pop), box-shadow 0.15s ease;
+    }
+    .btn-hero-save:active { transform: scale(0.97); box-shadow: 0 3px 8px var(--brand-glow); }
+    .btn-hero-save.mode-income { background: linear-gradient(135deg, #10b981 0%, #059669 100%); box-shadow: 0 6px 16px rgba(16, 185, 129, 0.35); }
+    .btn-hero-save.mode-expense { background: linear-gradient(135deg, #ef4444 0%, #dc2626 100%); box-shadow: 0 6px 16px rgba(239, 68, 68, 0.35); }
+
+    /* --- フォームセクション見出し（支出/収入フォーム共通） --- */
+    .form-section-card {
+      background: var(--bg);
+      border: 1px solid var(--line);
+      border-radius: 14px;
+      padding: 10px;
+      margin-bottom: 10px;
+    }
+
+    /* --- 金額入力：大きく見せる電卓トリガー --- */
+    .amount-display-btn {
+      width: 100%;
+      text-align: center;
+      font-size: 26px;
+      font-weight: 900;
+      padding: 14px 10px;
+      border-radius: 14px;
+      border: 1.5px dashed var(--line);
+      background: var(--card);
+      color: var(--ink);
+      letter-spacing: -0.5px;
+      cursor: pointer;
+      transition: all 0.2s ease;
+    }
+    .amount-display-btn:focus, .amount-display-btn.calc-active-input {
+      border-style: solid;
+      border-color: var(--brand);
+      box-shadow: 0 0 0 3px var(--brand-glow-soft);
+    }
+    .amount-display-btn.mode-income:focus, .amount-display-btn.mode-income.calc-active-input { border-color: #10b981; box-shadow: 0 0 0 3px rgba(16, 185, 129, 0.18); }
+    .amount-display-btn.mode-expense:focus, .amount-display-btn.mode-expense.calc-active-input { border-color: #ef4444; box-shadow: 0 0 0 3px rgba(239, 68, 68, 0.18); }
+
+    /* --- テンプレート管理カード（設定タブ） --- */
+    .template-manage-card {
+      display: flex;
+      align-items: center;
+      gap: 10px;
+      background: var(--card);
+      border: 1px solid var(--line);
+      border-radius: 12px;
+      padding: 9px 10px;
+      margin-bottom: 6px;
+      cursor: pointer;
+      transition: transform 0.15s var(--ease-pop), box-shadow 0.15s ease;
+    }
+    .template-manage-card:active { transform: scale(0.98); }
+    .template-manage-card-icon {
+      width: 34px; height: 34px;
+      border-radius: 50%;
+      background: linear-gradient(135deg, var(--brand) 0%, var(--brand-dark) 100%);
+      display: flex; align-items: center; justify-content: center;
+      font-size: 15px;
+      flex-shrink: 0;
+      box-shadow: 0 3px 8px var(--brand-glow);
+    }
+    .template-manage-card-body { flex: 1; min-width: 0; }
+    .template-manage-card-title { font-size: 11.5px; font-weight: 800; color: var(--ink); }
+    .template-manage-card-sub { font-size: 9.5px; color: var(--muted); margin-top: 1px; }
+
+    /* --- この日の登録データ 一覧 --- */
+    .day-item-card {
+      display: flex;
+      align-items: center;
+      gap: 8px;
+      background: var(--bg);
+      border-radius: 10px;
+      padding: 7px 8px;
+      margin-bottom: 5px;
+      transition: transform 0.15s var(--ease-pop);
+    }
+    .day-item-card:active { transform: scale(0.98); }
+    .day-item-icon {
+      width: 28px; height: 28px;
+      border-radius: 50%;
+      display: flex; align-items: center; justify-content: center;
+      font-size: 13px;
+      flex-shrink: 0;
+      color: #fff;
+    }
+    .day-item-icon.type-shift { background: linear-gradient(135deg, var(--brand) 0%, var(--brand-dark) 100%); }
+    .day-item-icon.type-expense { background: linear-gradient(135deg, #ef4444 0%, #dc2626 100%); }
+    .day-item-icon.type-income { background: linear-gradient(135deg, #10b981 0%, #059669 100%); }
+    .day-item-body { flex: 1; min-width: 0; overflow: hidden; }
+    .day-item-title { font-size: 11px; font-weight: 700; color: var(--ink); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+    .day-item-sub { font-size: 9.5px; color: var(--muted); }
+    .day-item-amount { font-size: 12px; font-weight: 800; flex-shrink: 0; }
+
+    /* --- リップル/ホバー: どこを押しても「ちゃんと反応した」がわかる、控えめなリップル --- */
     .ripple-host { position: relative; overflow: hidden; }
     .ripple-fx {
       position: absolute;
@@ -1761,10 +2107,11 @@
         <button class="icon-btn" id="close-entry-modal-btn" style="color:var(--ink);">✕</button>
       </div>
 
-      <div class="mode-bar" id="entry-type-selector">
-        <button class="btn btn-sm" id="type-shift-btn">📅 シフト</button>
-        <button class="btn btn-outline btn-sm" id="type-income-btn">💵 その他収入</button>
-        <button class="btn btn-outline btn-sm" id="type-expense-btn">💸 支出</button>
+      <div class="entry-type-switch" id="entry-type-selector">
+        <div class="entry-type-switch-indicator" id="entry-type-indicator"></div>
+        <button type="button" class="entry-type-btn active" id="type-shift-btn">📅 シフト</button>
+        <button type="button" class="entry-type-btn" id="type-income-btn">💵 収入</button>
+        <button type="button" class="entry-type-btn" id="type-expense-btn">💸 支出</button>
       </div>
 
       <div id="shift-overlap-alert" style="display:none; background:var(--danger-light); color:var(--danger); padding:6px; border-radius:6px; font-size:10.5px; font-weight:bold; margin-bottom:8px;">
@@ -1774,14 +2121,20 @@
       <form id="shift-form">
         <input type="hidden" id="shift-id">
 
-        <div style="background:var(--bg); border:1px solid var(--line); border-radius:8px; padding:6px; margin-bottom:8px; width:100%; overflow:hidden;">
-          <div style="font-size:9.5px; font-weight:bold; color:var(--muted); margin-bottom:3px;">📋 テンプレートからワンタップ入力</div>
-          <div class="pin-container" id="form-pin-shortcuts" style="margin-bottom:6px;"></div>
-          <div style="font-size:9.5px; font-weight:bold; color:var(--muted); margin-bottom:3px;">↩️ 過去の入力からワンタップ</div>
-          <div class="pin-container" id="form-history-shortcuts"></div>
+        <div class="template-section">
+          <div class="template-section-head">
+            <div class="template-section-icon">📋</div>
+            <div class="template-section-title">テンプレートからワンタップ入力</div>
+          </div>
+          <div class="template-chip-row pin-container" id="form-pin-shortcuts" style="margin-bottom:6px;"></div>
+          <div class="template-section-head">
+            <div class="template-section-icon" style="background:linear-gradient(135deg, #64748b 0%, #475569 100%); box-shadow:0 2px 6px rgba(100,116,139,0.35);">↩️</div>
+            <div class="template-section-title">過去の入力からワンタップ</div>
+          </div>
+          <div class="template-chip-row pin-container" id="form-history-shortcuts"></div>
         </div>
 
-        <div style="margin-bottom: 6px; text-align: right;">
+        <div style="margin-bottom: 8px; text-align: right;">
           <button type="button" class="btn btn-outline btn-sm" id="save-as-pin-btn">＋ この内容をテンプレ保存</button>
         </div>
 
@@ -1796,25 +2149,31 @@
           </div>
         </div>
 
-        <div class="form-group">
-          <label>開始時間</label>
-          <div style="display:flex; align-items:center; gap:3px; flex-wrap:nowrap; width:100%;">
-            <button type="button" class="btn-nudge" id="start-nudge-minus">-15</button>
-            <select id="shift-start-hour" class="form-control" style="text-align:center; padding:5px 2px;"></select>
-            <span style="font-weight:bold;">:</span>
-            <select id="shift-start-min" class="form-control" style="text-align:center; padding:5px 2px;"></select>
-            <button type="button" class="btn-nudge" id="start-nudge-plus">+15</button>
+        <div class="time-range-card">
+          <div class="time-block-row">
+            <div class="time-block">
+              <div class="time-block-label">🟢 開始</div>
+              <div class="time-block-selects">
+                <select id="shift-start-hour"></select>
+                <span>:</span>
+                <select id="shift-start-min"></select>
+              </div>
+            </div>
+            <div class="time-range-arrow">→</div>
+            <div class="time-block">
+              <div class="time-block-label">🔴 終了</div>
+              <div class="time-block-selects">
+                <select id="shift-end-hour"></select>
+                <span>:</span>
+                <select id="shift-end-min"></select>
+              </div>
+            </div>
           </div>
-        </div>
-
-        <div class="form-group">
-          <label>終了時間</label>
-          <div style="display:flex; align-items:center; gap:3px; flex-wrap:nowrap; width:100%;">
-            <button type="button" class="btn-nudge" id="end-nudge-minus">-15</button>
-            <select id="shift-end-hour" class="form-control" style="text-align:center; padding:5px 2px;"></select>
-            <span style="font-weight:bold;">:</span>
-            <select id="shift-end-min" class="form-control" style="text-align:center; padding:5px 2px;"></select>
-            <button type="button" class="btn-nudge" id="end-nudge-plus">+15</button>
+          <div class="time-nudge-row">
+            <button type="button" class="btn-nudge-v2" id="start-nudge-minus">開始 -15分</button>
+            <button type="button" class="btn-nudge-v2" id="start-nudge-plus">開始 +15分</button>
+            <button type="button" class="btn-nudge-v2" id="end-nudge-minus">終了 -15分</button>
+            <button type="button" class="btn-nudge-v2" id="end-nudge-plus">終了 +15分</button>
           </div>
         </div>
 
@@ -1839,85 +2198,89 @@
           </div>
         </div>
 
-        <div id="shift-pay-preview" style="font-size:10.5px; color:var(--muted); margin-bottom:6px;"></div>
+        <div id="shift-pay-preview"></div>
 
-        <div style="display:flex; gap:6px;">
-          <button type="submit" class="btn" style="flex:1;">保存</button>
-          <button type="button" class="btn btn-outline btn-sm" id="btn-new-shift-same-day" style="display:none;" onclick="openNewShiftOnDate(document.getElementById('shift-date').value)">＋ 新規シフトを追加</button>
+        <div style="display:flex; gap:6px; flex-wrap: wrap;">
+          <button type="submit" class="btn-hero-save">💾 保存する</button>
+          <button type="button" class="btn btn-outline btn-sm" id="btn-new-shift-same-day" style="display:none; width:100%;" onclick="openNewShiftOnDate(document.getElementById('shift-date').value)">＋ 新規シフトを追加</button>
         </div>
       </form>
 
       <form id="expense-form" style="display: none;">
         <input type="hidden" id="expense-id">
-        <div class="form-row">
-          <div class="form-group" style="flex:1; min-width:0;">
-            <label>日付</label>
-            <input type="date" id="expense-date" class="form-control" required>
+        <div class="form-section-card">
+          <div class="form-row">
+            <div class="form-group" style="flex:1; min-width:0;">
+              <label>日付</label>
+              <input type="date" id="expense-date" class="form-control" required>
+            </div>
+            <div class="form-group" style="flex:1; min-width:0;">
+              <label>カテゴリ</label>
+              <select id="expense-category" class="form-control">
+                <option value="食費">🍔 食費</option>
+                <option value="交通費">🚃 交通費</option>
+                <option value="旅費">🛫 旅費</option>
+                <option value="交際費">🎉 交際費</option>
+                <option value="日用品">🛒 日用品</option>
+                <option value="趣味">🎮 趣味</option>
+                <option value="固定費">🏠 固定費</option>
+                <option value="貯金">🪙 小銭貯金</option>
+                <option value="その他">📦 その他</option>
+              </select>
+            </div>
           </div>
-          <div class="form-group" style="flex:1; min-width:0;">
-            <label>カテゴリ</label>
-            <select id="expense-category" class="form-control">
-              <option value="食費">🍔 食費</option>
-              <option value="交通費">🚃 交通費</option>
-              <option value="旅費">🛫 旅費</option>
-              <option value="交際費">🎉 交際費</option>
-              <option value="日用品">🛒 日用品</option>
-              <option value="趣味">🎮 趣味</option>
-              <option value="固定費">🏠 固定費</option>
-              <option value="貯金">🪙 小銭貯金</option>
-              <option value="その他">📦 その他</option>
-            </select>
+          <div class="form-group">
+            <label>メモ (任意)</label>
+            <input type="text" id="expense-memo" class="form-control" placeholder="例: 新幹線代 (空欄でもOK)">
           </div>
         </div>
         <div class="form-group">
-          <label>メモ (任意)</label>
-          <input type="text" id="expense-memo" class="form-control" placeholder="例: 新幹線代 (空欄でもOK)">
-        </div>
-        <div class="form-group">
-          <label>金額 (計算式可 例: 500+300)</label>
-          <input type="text" id="expense-amount" class="form-control calc-input" placeholder="0" readonly required>
+          <label>金額 (タップして入力・計算式も可)</label>
+          <input type="text" id="expense-amount" class="amount-display-btn mode-expense calc-input" placeholder="¥0" readonly required>
           <div class="input-error-text" style="font-size:9.5px; color:var(--danger); display:none; margin-top:2px;">⚠️ 計算式が不完全です</div>
         </div>
         <div style="display:flex; gap:6px;">
-          <button type="submit" class="btn btn-danger" style="flex:1;">支出を記録</button>
+          <button type="submit" class="btn-hero-save mode-expense">💸 支出を記録</button>
         </div>
       </form>
 
       <form id="income-form" style="display: none;">
         <input type="hidden" id="income-id">
-        <div class="form-row">
-          <div class="form-group" style="flex:1; min-width:0;">
-            <label>日付</label>
-            <input type="date" id="income-date" class="form-control" required>
+        <div class="form-section-card">
+          <div class="form-row">
+            <div class="form-group" style="flex:1; min-width:0;">
+              <label>日付</label>
+              <input type="date" id="income-date" class="form-control" required>
+            </div>
+            <div class="form-group" style="flex:1; min-width:0;">
+              <label>区分</label>
+              <select id="income-category" class="form-control">
+                <option value="回収">🤝 立て替え回収</option>
+                <option value="お小遣い">🎁 お小遣い・仕送り</option>
+                <option value="フリマ売上">📦 フリマ・売却</option>
+                <option value="副業・臨時収入">💻 副業・単発ワーク</option>
+                <option value="利子・キャッシュバック">🪙 キャッシュバック</option>
+                <option value="その他収入">✨ その他</option>
+              </select>
+            </div>
           </div>
-          <div class="form-group" style="flex:1; min-width:0;">
-            <label>区分</label>
-            <select id="income-category" class="form-control">
-              <option value="回収">🤝 立て替え回収</option>
-              <option value="お小遣い">🎁 お小遣い・仕送り</option>
-              <option value="フリマ売上">📦 フリマ・売却</option>
-              <option value="副業・臨時収入">💻 副業・単発ワーク</option>
-              <option value="利子・キャッシュバック">🪙 キャッシュバック</option>
-              <option value="その他収入">✨ その他</option>
-            </select>
+          <div class="form-group">
+            <label>メモ (任意)</label>
+            <input type="text" id="income-memo" class="form-control" placeholder="例: ご飯代回収 (空欄でもOK)">
           </div>
         </div>
         <div class="form-group">
-          <label>メモ (任意)</label>
-          <input type="text" id="income-memo" class="form-control" placeholder="例: ご飯代回収 (空欄でもOK)">
-        </div>
-        <div class="form-group">
-          <label>金額 (計算式可)</label>
-          <input type="text" id="income-amount" class="form-control calc-input" placeholder="0" readonly required>
+          <label>金額 (タップして入力・計算式も可)</label>
+          <input type="text" id="income-amount" class="amount-display-btn mode-income calc-input" placeholder="¥0" readonly required>
           <div class="input-error-text" style="font-size:9.5px; color:var(--danger); display:none; margin-top:2px;">⚠️ 計算式が不完全です</div>
         </div>
         <div style="display:flex; gap:6px;">
-          <button type="submit" class="btn btn-good" style="flex:1;">収入を記録</button>
+          <button type="submit" class="btn-hero-save mode-income">💵 収入を記録</button>
         </div>
       </form>
 
-      <div id="day-items-container" style="margin-top: 10px; border-top: 1px solid var(--line); padding-top: 6px;">
-        <div style="font-size: 10.5px; font-weight: 700; color: var(--muted); margin-bottom: 4px;">この日の登録データ</div>
+      <div id="day-items-container" style="margin-top: 10px; border-top: 1px solid var(--line); padding-top: 8px;">
+        <div style="font-size: 10.5px; font-weight: 800; color: var(--muted); margin-bottom: 6px;">📆 この日の登録データ</div>
         <div id="day-items-list"></div>
       </div>
     </div>
@@ -3793,17 +4156,16 @@
 
       const pinsConfig = document.getElementById("pins-config-list");
       if (pinsConfig) {
-        pinsConfig.innerHTML = DB.pins.map(p => `
-          <div class="list-item" onclick="openPinEditModal(${p.id})">
-            <div class="list-item-left">
-              <strong>📌 ${p.label}</strong>
-              <span style="font-size:11px; color:var(--muted); margin-left:4px;">(${p.start} ~ ${p.end})</span>
+        pinsConfig.innerHTML = DB.pins.length ? DB.pins.map(p => `
+          <div class="template-manage-card" onclick="openPinEditModal(${p.id})">
+            <div class="template-manage-card-icon">📌</div>
+            <div class="template-manage-card-body">
+              <div class="template-manage-card-title">${p.label}</div>
+              <div class="template-manage-card-sub">${p.start} ~ ${p.end}</div>
             </div>
-            <div class="list-item-right">
-              <button class="btn btn-outline btn-sm" onclick="event.stopPropagation(); openPinEditModal(${p.id})">✏️ 編集</button>
-            </div>
+            <button class="btn btn-outline btn-sm" onclick="event.stopPropagation(); openPinEditModal(${p.id})">✏️ 編集</button>
           </div>
-        `).join("");
+        `).join("") : '<div style="font-size:11px; color:var(--muted); text-align:center; padding:8px;">テンプレートがありません</div>';
       }
 
       document.getElementById("setting-theme-select").value = DB.settings.theme || "light";
@@ -3929,8 +4291,8 @@
       if (pinContainer) {
         pinContainer.innerHTML = DB.pins.map(p => {
           const key = `pin_${p.id}`;
-          return `<button type="button" class="pin-chip ${selectedShortcutKey === key ? 'active' : ''}" onclick="applyShortcutData({jobId:${p.jobId}, start:'${p.start}', end:'${p.end}', breakMin:${p.breakMin}, transport:${p.transport||0}}, '${key}')">📌 ${p.label}</button>`;
-        }).join("") || '<span style="font-size:10px; color:var(--muted);">テンプレートなし</span>';
+          return `<button type="button" class="template-chip-v2 ${selectedShortcutKey === key ? 'active' : ''}" onclick="applyShortcutData({jobId:${p.jobId}, start:'${p.start}', end:'${p.end}', breakMin:${p.breakMin}, transport:${p.transport||0}}, '${key}')"><span class="chip-dot">📌</span>${p.label}</button>`;
+        }).join("") || '<span class="template-chip-empty">テンプレートなし</span>';
       }
 
       const histContainer = document.getElementById("form-history-shortcuts");
@@ -3949,8 +4311,8 @@
         const recentShortcuts = Array.from(historyMap.values()).slice(0, 4);
         histContainer.innerHTML = recentShortcuts.map((s, idx) => {
           const key = `hist_${idx}_${s.jobId}`;
-          return `<button type="button" class="pin-chip ${selectedShortcutKey === key ? 'active' : ''}" style="${selectedShortcutKey !== key ? 'border-color:var(--muted); color:var(--ink);' : ''}" onclick="applyShortcutData({jobId:${s.jobId}, start:'${s.start}', end:'${s.end}', breakMin:${s.breakMin}, transport:${s.transport||0}}, '${key}')">↩️ ${s.jobName} ${s.start}~${s.end}</button>`;
-        }).join("") || '<span style="font-size:10px; color:var(--muted);">過去履歴なし</span>';
+          return `<button type="button" class="template-chip-v2 hist-chip ${selectedShortcutKey === key ? 'active' : ''}" onclick="applyShortcutData({jobId:${s.jobId}, start:'${s.start}', end:'${s.end}', breakMin:${s.breakMin}, transport:${s.transport||0}}, '${key}')"><span class="chip-dot">↩️</span>${s.jobName} ${s.start}~${s.end}</button>`;
+        }).join("") || '<span class="template-chip-empty">過去履歴なし</span>';
       }
     }
 
@@ -4122,11 +4484,19 @@
       closeCalcKeyboard();
       const forms = { shift: document.getElementById("shift-form"), expense: document.getElementById("expense-form"), income: document.getElementById("income-form") };
       const btns = { shift: document.getElementById("type-shift-btn"), expense: document.getElementById("type-expense-btn"), income: document.getElementById("type-income-btn") };
+      const order = ["shift", "income", "expense"];
+      const indicator = document.getElementById("entry-type-indicator");
 
       Object.keys(forms).forEach(k => {
         forms[k].style.display = k === type ? "block" : "none";
-        btns[k].className = k === type ? "btn btn-sm" : "btn btn-outline btn-sm";
+        btns[k].classList.toggle("active", k === type);
       });
+
+      if (indicator) {
+        const idx = order.indexOf(type);
+        indicator.style.transform = `translateX(${idx * 100}%)`;
+        indicator.className = "entry-type-switch-indicator" + (type === "income" ? " mode-income" : type === "expense" ? " mode-expense" : "");
+      }
 
       document.getElementById("shift-overlap-alert").style.display = "none";
     }
@@ -4256,47 +4626,43 @@
           const job = DB.jobs.find(j => String(j.id) === String(item.jobId));
           const pay = calculateShiftPay(item).totalPay;
           html += `
-            <div class="list-item" onclick="openEditModalById('shift', ${item.id})">
-              <div class="list-item-left">
-                <span class="badge" style="background:${job ? job.color : 'var(--brand)'};">シフト</span>
-                <strong>${job ? job.name : ''}</strong>
-                <span style="font-size:10px; color:var(--muted); margin-left:2px;">(${item.startTime}~${item.endTime})</span>
+            <div class="day-item-card" onclick="openEditModalById('shift', ${item.id})">
+              <div class="day-item-icon type-shift" style="background:${job ? job.color : 'var(--brand)'};">📅</div>
+              <div class="day-item-body">
+                <div class="day-item-title">${job ? job.name : ''}</div>
+                <div class="day-item-sub">${item.startTime}~${item.endTime}</div>
               </div>
-              <div class="list-item-right" style="color:${job ? job.color : 'var(--brand)'};">
-                <span>¥${pay.toLocaleString()}</span>
-                <button class="btn btn-danger btn-sm" onclick="event.stopPropagation(); deleteShift(${item.id})">削除</button>
-              </div>
+              <div class="day-item-amount" style="color:${job ? job.color : 'var(--brand)'};">¥${pay.toLocaleString()}</div>
+              <button class="btn btn-danger btn-sm" onclick="event.stopPropagation(); deleteShift(${item.id})">削除</button>
             </div>`;
         } else if (item.type === 'expense') {
-          const displayTitle = (item.memo && item.memo !== item.category) ? `[${item.category}] ${item.memo}` : `[${item.category}]`;
+          const displayTitle = (item.memo && item.memo !== item.category) ? item.memo : item.category;
           html += `
-            <div class="list-item" onclick="openEditModalById('expense', ${item.id})">
-              <div class="list-item-left">
-                <span class="badge" style="background:var(--danger);">支出</span>
-                <span style="overflow:hidden; text-overflow:ellipsis;">${displayTitle}</span>
+            <div class="day-item-card" onclick="openEditModalById('expense', ${item.id})">
+              <div class="day-item-icon type-expense">💸</div>
+              <div class="day-item-body">
+                <div class="day-item-title">${displayTitle}</div>
+                <div class="day-item-sub">${item.category}</div>
               </div>
-              <div class="list-item-right" style="color:var(--danger);">
-                <span>-¥${item.amount.toLocaleString()}</span>
-                <button class="btn btn-danger btn-sm" onclick="event.stopPropagation(); deleteExpense(${item.id})">削除</button>
-              </div>
+              <div class="day-item-amount" style="color:var(--danger);">-¥${item.amount.toLocaleString()}</div>
+              <button class="btn btn-danger btn-sm" onclick="event.stopPropagation(); deleteExpense(${item.id})">削除</button>
             </div>`;
         } else if (item.type === 'income') {
-          const displayTitle = (item.memo && item.memo !== item.category) ? `[${item.category}] ${item.memo}` : `[${item.category}]`;
+          const displayTitle = (item.memo && item.memo !== item.category) ? item.memo : item.category;
           html += `
-            <div class="list-item" onclick="openEditModalById('income', ${item.id})">
-              <div class="list-item-left">
-                <span class="badge" style="background:var(--good);">${item.category === '回収' ? '🤝回収' : '収入'}</span>
-                <span style="overflow:hidden; text-overflow:ellipsis;">${displayTitle}</span>
+            <div class="day-item-card" onclick="openEditModalById('income', ${item.id})">
+              <div class="day-item-icon type-income">${item.category === '回収' ? '🤝' : '💵'}</div>
+              <div class="day-item-body">
+                <div class="day-item-title">${displayTitle}</div>
+                <div class="day-item-sub">${item.category}</div>
               </div>
-              <div class="list-item-right" style="color:var(--good);">
-                <span>+¥${item.amount.toLocaleString()}</span>
-                <button class="btn btn-danger btn-sm" onclick="event.stopPropagation(); deleteIncome(${item.id})">削除</button>
-              </div>
+              <div class="day-item-amount" style="color:var(--good);">+¥${item.amount.toLocaleString()}</div>
+              <button class="btn btn-danger btn-sm" onclick="event.stopPropagation(); deleteIncome(${item.id})">削除</button>
             </div>`;
         }
       });
 
-      container.innerHTML = html || `<div style="font-size:12px; color:var(--muted);">データなし</div>`;
+      container.innerHTML = html || `<div style="font-size:12px; color:var(--muted); text-align:center; padding:8px;">データなし</div>`;
     }
 
     function initTimeSelects() {
@@ -4416,7 +4782,18 @@
       const tempShift = { jobId, startTime: `${sH}:${sM}`, endTime: `${eH}:${eM}`, breakMin, transport: evalTrans || 0 };
       const calc = calculateShiftPay(tempShift);
 
-      document.getElementById("shift-pay-preview").textContent = `💡 見込み給料: 約 ¥${calc.totalPay.toLocaleString()} (実働 ${calc.totalHours.toFixed(1)}h)`;
+      const previewEl = document.getElementById("shift-pay-preview");
+      if (previewEl) {
+        previewEl.innerHTML = `
+          <div class="pay-preview-hero">
+            <div class="pay-preview-hero-icon">💰</div>
+            <div class="pay-preview-hero-body">
+              <div class="pay-preview-hero-label">見込み給料</div>
+              <div class="pay-preview-hero-amount">¥${calc.totalPay.toLocaleString()}</div>
+              <div class="pay-preview-hero-sub">実働 ${calc.totalHours.toFixed(1)}h${job ? ` ・ ${job.name}` : ''}</div>
+            </div>
+          </div>`;
+      }
 
       const currentEditId = document.getElementById("shift-id").value;
       const dateStr = document.getElementById("shift-date").value;
@@ -4441,6 +4818,8 @@
       });
 
       document.getElementById("shift-overlap-alert").style.display = hasOverlap ? "block" : "none";
+      const heroEl = previewEl ? previewEl.querySelector(".pay-preview-hero") : null;
+      if (heroEl) heroEl.classList.toggle("is-warn", hasOverlap);
     }
 
     // 削除確認モーダルを使った削除フロー
