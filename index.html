@@ -7,7 +7,7 @@
 
   <link rel="apple-touch-icon" href="https://img.icons8.com/color/192/calculator--v1.png">
 
-  <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+  <script src="https://cdn.jsdelivr.net/npm/chart.js" crossorigin="anonymous"></script>
   <style>
     :root {
       --brand: #f97316;
@@ -125,7 +125,12 @@
       max-width: 600px;
       margin: 0 auto;
       width: 100%;
-      overflow-x: hidden;
+      /* overflow-x: hidden と overflow-y: visible は仕様上両立できず、
+         hidden 側を指定すると overflow-y も強制的に auto 扱いになり、
+         main が独自のスクロールコンテナとなって子要素の position:sticky が
+         効かなくなってしまう。そのためスクロールコンテナを作らない overflow-x: clip を使う */
+      overflow-x: clip;
+      overflow-y: visible;
     }
 
     .tab-content { display: none; }
@@ -215,6 +220,33 @@
       margin-bottom: 6px;
       font-size: 11px;
     }
+
+    /* ✨ 明細カード・リストのちょっとした質感アップ（視認性は変えず、余白と陰影だけ調整） */
+    .detail-card-box {
+      box-shadow: 0 1px 4px rgba(15, 23, 42, 0.04);
+      transition: box-shadow 0.2s ease, transform 0.15s var(--ease-pop);
+    }
+    .detail-card-box:active { transform: scale(0.99); }
+
+    .list-item:nth-child(odd) { background: rgba(148, 163, 184, 0.045); }
+    [data-theme="dark"] .list-item:nth-child(odd) { background: rgba(255, 255, 255, 0.025); }
+    .list-item.is-current-month {
+      background: var(--brand-light) !important;
+      box-shadow: inset 3px 0 0 var(--brand);
+    }
+
+    /* 年間サマリーの行内に表示する、収入・支出比率の極小バー */
+    .yearly-mini-bar {
+      display: flex;
+      width: 100%;
+      height: 4px;
+      border-radius: 3px;
+      overflow: hidden;
+      background: rgba(148, 163, 184, 0.18);
+      margin-top: 4px;
+    }
+    .yearly-mini-bar-inc { background: linear-gradient(90deg, #10b981, #34d399); height: 100%; }
+    .yearly-mini-bar-exp { background: linear-gradient(90deg, #f87171, #ef4444); height: 100%; }
 
     #calendar-card {
       margin-left: -8px;
@@ -650,13 +682,27 @@
       display: flex;
       justify-content: space-between;
       align-items: center;
-      padding: 6px 0;
+      padding: 7px 8px;
       border-bottom: 1px solid var(--line);
+      border-radius: 7px;
       font-size: 10.5px;
       cursor: pointer;
       gap: 6px;
       width: 100%;
       transition: background 0.2s ease, transform 0.15s var(--ease-pop);
+    }
+    /* 年間サマリーなど、行の下にミニバーを添えたい場合だけ縦積みにする修飾クラス */
+    .list-item.list-item-stacked {
+      flex-direction: column;
+      align-items: stretch;
+      gap: 3px;
+    }
+    .list-item-row {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      width: 100%;
+      gap: 6px;
     }
     .list-item:active { transform: scale(0.99); background: var(--bg); }
     .btn.active-toggle {
@@ -1172,7 +1218,6 @@
     }
 
     /* タブバー: 現在地を示す、色が流れるインジケーター */
-    .tab-bar { position: relative; }
     .tab-indicator {
       position: absolute;
       top: 0; left: 0;
@@ -1438,7 +1483,7 @@
         </div>
       </div>
 
-      <div class="card" id="payroll-summary-card" style="touch-action: pan-y;">
+      <div class="card" id="payroll-summary-card" style="touch-action: pan-y; overflow: hidden;">
         <div class="card-title">
           <span>💴 給料見込み ＆ 収支詳細</span>
           <div class="cal-nav-btns" style="transform: scale(0.85); transform-origin: right center;">
@@ -1447,23 +1492,25 @@
             <button class="cal-nav-btn" id="payroll-next-btn">▶</button>
           </div>
         </div>
-        <div class="form-row" style="margin-bottom: 6px;">
-          <div style="flex:1; background:var(--bg); padding:6px; border-radius:6px; text-align:center;">
-            <div style="font-size:9.5px; color:var(--muted);">選択月の収入</div>
-            <div style="font-size:14px; font-weight:bold; color:var(--good);" id="sum-income">¥0</div>
+        <div id="payroll-swipe-content">
+          <div class="form-row" style="margin-bottom: 6px;">
+            <div style="flex:1; background:var(--bg); padding:6px; border-radius:6px; text-align:center;">
+              <div style="font-size:9.5px; color:var(--muted);">選択月の収入</div>
+              <div style="font-size:14px; font-weight:bold; color:var(--good);" id="sum-income">¥0</div>
+            </div>
+            <div style="flex:1; background:var(--bg); padding:6px; border-radius:6px; text-align:center;">
+              <div style="font-size:9.5px; color:var(--muted);">選択月の支出</div>
+              <div style="font-size:14px; font-weight:bold; color:var(--danger);" id="sum-expense">¥0</div>
+            </div>
           </div>
-          <div style="flex:1; background:var(--bg); padding:6px; border-radius:6px; text-align:center;">
-            <div style="font-size:9.5px; color:var(--muted);">選択月の支出</div>
-            <div style="font-size:14px; font-weight:bold; color:var(--danger);" id="sum-expense">¥0</div>
+
+          <div id="job-pay-details-list" style="margin-bottom: 6px;"></div>
+
+          <div style="background: var(--brand-light); border: 1px solid #fed7aa; padding: 6px; border-radius: 6px; text-align: center;">
+            <div style="font-size:9.5px; color:var(--muted);">差し引き残高（使えるお金）</div>
+            <div style="font-size:16px; font-weight:bold;" id="sum-balance">¥0</div>
+            <div style="font-size:9.5px; color:var(--muted); margin-top:2px;" id="daily-budget-text">1日あたり: 約 ¥0</div>
           </div>
-        </div>
-
-        <div id="job-pay-details-list" style="margin-bottom: 6px;"></div>
-
-        <div style="background: var(--brand-light); border: 1px solid #fed7aa; padding: 6px; border-radius: 6px; text-align: center;">
-          <div style="font-size:9.5px; color:var(--muted);">差し引き残高（使えるお金）</div>
-          <div style="font-size:16px; font-weight:bold;" id="sum-balance">¥0</div>
-          <div style="font-size:9.5px; color:var(--muted); margin-top:2px;" id="daily-budget-text">1日あたり: 約 ¥0</div>
         </div>
       </div>
 
@@ -1486,7 +1533,7 @@
     </div>
 
     <div id="tab-stats" class="tab-content" style="touch-action: pan-y;">
-      <div class="card" style="background: var(--bg);">
+      <div class="card" id="stats-month-nav-card" style="background: var(--bg); position: sticky; top: 55px; z-index: 90;">
         <div class="calendar-header" style="margin-bottom: 0;">
           <div class="cal-nav-btns">
             <button class="cal-nav-btn" id="stats-prev-month-btn">◀</button>
@@ -1970,6 +2017,51 @@
         <div style="display:flex; gap:6px; margin-top:10px;">
           <button type="submit" class="btn" style="flex:1;">確定保存</button>
           <button type="button" class="btn btn-outline" id="clear-override-btn">計算値に戻す</button>
+        </div>
+      </form>
+    </div>
+  </div>
+
+  <div class="modal-overlay" id="fixed-expense-modal">
+    <div class="modal-content" style="padding-bottom:20px;">
+      <div class="modal-header">
+        <div class="modal-title">🏠 固定費を追加</div>
+        <button class="icon-btn" id="close-fixed-expense-modal-btn" style="color:var(--ink);">✕</button>
+      </div>
+      <form id="fixed-expense-form">
+        <div class="form-group">
+          <label>項目名</label>
+          <input type="text" id="fixed-expense-memo" class="form-control" placeholder="例: 家賃、サブスクなど" required>
+        </div>
+        <div class="form-row">
+          <div class="form-group" style="flex:2;">
+            <label>金額</label>
+            <input type="text" id="fixed-expense-amount" class="form-control calc-input" placeholder="0" readonly required>
+          </div>
+          <div class="form-group" style="flex:1; min-width:90px;">
+            <label>通貨</label>
+            <select id="fixed-expense-currency" class="form-control">
+              <option value="JPY">🇯🇵 JPY（円）</option>
+              <option value="USD">🇺🇸 USD（米ドル）</option>
+              <option value="EUR">🇪🇺 EUR（ユーロ）</option>
+              <option value="GBP">🇬🇧 GBP（英ポンド）</option>
+              <option value="CNY">🇨🇳 CNY（人民元）</option>
+              <option value="KRW">🇰🇷 KRW（ウォン）</option>
+              <option value="AUD">🇦🇺 AUD（豪ドル）</option>
+              <option value="CAD">🇨🇦 CAD（加ドル）</option>
+              <option value="CHF">🇨🇭 CHF（スイスフラン）</option>
+              <option value="HKD">🇭🇰 HKD（香港ドル）</option>
+              <option value="SGD">🇸🇬 SGD（シンガポールドル）</option>
+              <option value="THB">🇹🇭 THB（バーツ）</option>
+              <option value="TWD">🇹🇼 TWD（台湾ドル）</option>
+            </select>
+          </div>
+        </div>
+        <div id="fixed-expense-fx-note" style="font-size:10px; color:var(--muted); margin-top:-2px; margin-bottom:6px; display:none;">
+          💡 保存時に最新の為替レートを自動取得し、円換算額を表示します。
+        </div>
+        <div style="display:flex; gap:6px; margin-top:10px;">
+          <button type="submit" class="btn" style="flex:1;" id="fixed-expense-save-btn">追加する</button>
         </div>
       </form>
     </div>
@@ -2854,6 +2946,7 @@
       const summaryList = document.getElementById("yearly-summary-list");
       if (summaryList) {
         let html = "";
+        const nowForHighlight = new Date();
         for (let m = 1; m <= 12; m++) {
           const mStr = `${currentYear}-${String(m).padStart(2, "0")}`;
           let inc = 0;
@@ -2861,15 +2954,25 @@
           inc += DB.otherIncomes.filter(i => i.date.startsWith(mStr)).reduce((acc, i) => acc + i.amount, 0);
           const exp = DB.expenses.filter(e => e.date.startsWith(mStr)).reduce((acc, e) => acc + e.amount, 0);
           const bal = inc - exp;
+          const isCurrentMonth = nowForHighlight.getFullYear() === currentYear && nowForHighlight.getMonth() + 1 === m;
+          const barTotal = inc + exp;
+          const incPct = barTotal > 0 ? (inc / barTotal) * 100 : 0;
+          const expPct = barTotal > 0 ? (exp / barTotal) * 100 : 0;
           html += `
-            <div class="list-item">
-              <div class="list-item-left">
-                <strong>${m}月</strong>
+            <div class="list-item list-item-stacked${isCurrentMonth ? ' is-current-month' : ''}">
+              <div class="list-item-row">
+                <div class="list-item-left">
+                  <strong>${m}月</strong>${isCurrentMonth ? '<span class="badge" style="background:var(--brand); margin-left:4px; font-size:8.5px;">今月</span>' : ''}
+                </div>
+                <div class="list-item-right">
+                  <span style="color:var(--good); font-size:10px;">+¥${inc.toLocaleString()}</span>
+                  <span style="color:var(--danger); font-size:10px;">-¥${exp.toLocaleString()}</span>
+                  <span style="font-weight:bold; font-size:11px; color:${bal >= 0 ? 'var(--good)' : 'var(--danger)'}; margin-left:4px; width:45px; text-align:right;">¥${bal.toLocaleString()}</span>
+                </div>
               </div>
-              <div class="list-item-right">
-                <span style="color:var(--good); font-size:10px;">+¥${inc.toLocaleString()}</span>
-                <span style="color:var(--danger); font-size:10px;">-¥${exp.toLocaleString()}</span>
-                <span style="font-weight:bold; font-size:11px; color:${bal >= 0 ? 'var(--good)' : 'var(--danger)'}; margin-left:4px; width:45px; text-align:right;">¥${bal.toLocaleString()}</span>
+              <div class="yearly-mini-bar">
+                <div class="yearly-mini-bar-inc" style="width:${incPct}%;"></div>
+                <div class="yearly-mini-bar-exp" style="width:${expPct}%;"></div>
               </div>
             </div>`;
         }
@@ -3137,9 +3240,13 @@
       Chart.defaults.elements.line.borderWidth = 2.5;
       Chart.defaults.elements.bar.borderRadius = 6;
       Chart.defaults.elements.bar.borderSkipped = false;
-      Chart.defaults.scale.grid = { color: "rgba(148, 163, 184, 0.12)", drawTicks: false };
-      Chart.defaults.scale.border = { display: false };
-      Chart.defaults.scale.ticks = { padding: 6 };
+      // ⚠️ オブジェクトを丸ごと代入すると Chart.js 内部が必要とする既定値
+      // （ticks.major.enabled など）まで消えてしまい、autoSkip 等でエラーになるため、
+      // 個々のプロパティだけを上書きする（既存の既定オブジェクトを保持したまま変更）
+      Chart.defaults.scale.grid.color = "rgba(148, 163, 184, 0.12)";
+      Chart.defaults.scale.grid.drawTicks = false;
+      Chart.defaults.scale.border.display = false;
+      Chart.defaults.scale.ticks.padding = 6;
     }
 
     // よく使う「控えめグリッド」のスケール設定
@@ -3148,6 +3255,37 @@
         x: { grid: { display: false }, ticks: { maxRotation: 0, autoSkipPadding: 8 } },
         y: { grid: { color: "rgba(148, 163, 184, 0.12)" }, ticks: { callback: opts.yFormat || undefined } }
       };
+    }
+
+    // 🛡 グラフの再生成前に、そのcanvasに紐づく既存Chartを確実に破棄する
+    // （変数の食い違いなどで「Canvas is already in use」エラーが起き、
+    //   以降のグラフや設定タブの再描画が丸ごと止まってしまうのを防ぐ）
+    function safeDestroyChart(canvasEl, existingRef) {
+      try {
+        const attached = (typeof Chart !== "undefined" && Chart.getChart) ? Chart.getChart(canvasEl) : null;
+        if (attached) attached.destroy();
+        else if (existingRef && typeof existingRef.destroy === "function") existingRef.destroy();
+      } catch (err) {
+        console.error("chart destroy failed", err);
+      }
+    }
+
+    // 🎨 グラフのバーに軽いグラデーションをつけるための簡易カラー調整（16進カラー専用）
+    function shadeColor(hex, percent) {
+      try {
+        let h = hex.replace('#', '');
+        if (h.length === 3) h = h.split('').map(c => c + c).join('');
+        const num = parseInt(h, 16);
+        let r = (num >> 16) + Math.round(255 * (percent / 100));
+        let g = ((num >> 8) & 0x00FF) + Math.round(255 * (percent / 100));
+        let b = (num & 0x0000FF) + Math.round(255 * (percent / 100));
+        r = Math.max(0, Math.min(255, r));
+        g = Math.max(0, Math.min(255, g));
+        b = Math.max(0, Math.min(255, b));
+        return `rgb(${r}, ${g}, ${b})`;
+      } catch (e) {
+        return hex;
+      }
     }
 
     function renderCharts() {
@@ -3159,7 +3297,8 @@
 
       const ctxBudgetLine = document.getElementById("chart-budget-line");
       if (ctxBudgetLine) {
-        if (chartBudgetLine) chartBudgetLine.destroy();
+        try {
+        safeDestroyChart(ctxBudgetLine, chartBudgetLine);
 
         const todayObj = new Date();
         todayObj.setHours(0, 0, 0, 0);
@@ -3203,10 +3342,12 @@
         }
 
         const gBudget1 = ctxBudgetLine.getContext("2d").createLinearGradient(0, 0, 0, 160);
-        gBudget1.addColorStop(0, "rgba(249, 115, 22, 0.22)");
+        gBudget1.addColorStop(0, "rgba(249, 115, 22, 0.30)");
+        gBudget1.addColorStop(0.6, "rgba(249, 115, 22, 0.08)");
         gBudget1.addColorStop(1, "rgba(249, 115, 22, 0.0)");
         const gBudget2 = ctxBudgetLine.getContext("2d").createLinearGradient(0, 0, 0, 160);
-        gBudget2.addColorStop(0, "rgba(59, 130, 246, 0.14)");
+        gBudget2.addColorStop(0, "rgba(59, 130, 246, 0.20)");
+        gBudget2.addColorStop(0.6, "rgba(59, 130, 246, 0.05)");
         gBudget2.addColorStop(1, "rgba(59, 130, 246, 0.0)");
 
         chartBudgetLine = new Chart(ctxBudgetLine, {
@@ -3219,6 +3360,9 @@
                 data: pastAssetData,
                 borderColor: '#f97316',
                 backgroundColor: gBudget1,
+                borderWidth: 3,
+                borderCapStyle: 'round',
+                borderJoinStyle: 'round',
                 fill: true,
                 tension: 0.35,
                 cubicInterpolationMode: 'monotone'
@@ -3227,7 +3371,9 @@
                 label: '予測',
                 data: futureAssetData,
                 borderColor: '#3b82f6',
-                borderDash: [4, 4],
+                borderDash: [5, 4],
+                borderWidth: 2.5,
+                borderCapStyle: 'round',
                 backgroundColor: gBudget2,
                 fill: true,
                 tension: 0.35,
@@ -3246,17 +3392,34 @@
             scales: quietScales({ yFormat: (v) => v >= 10000 ? `${v/10000}万` : v })
           }
         });
+        } catch (chartErr) { console.error('ctxBudgetLine render failed:', chartErr); }
       }
 
       const ctxJobs = document.getElementById("chart-jobs");
       if (ctxJobs) {
-        if (chartJobs) chartJobs.destroy();
+        try {
+        safeDestroyChart(ctxJobs, chartJobs);
         const datasets = DB.jobs.map(job => {
           const data = labels12.map((_, idx) => {
             const mStr = `${currentYear}-${String(idx + 1).padStart(2, "0")}`;
             return getJobPeriodIncomeList(job, mStr).reduce((acc, p) => acc + p.income, 0);
           });
-          return { label: job.name, data, backgroundColor: job.color || '#f97316', maxBarThickness: 22 };
+          const baseColor = job.color || '#f97316';
+          return {
+            label: job.name,
+            data,
+            maxBarThickness: 22,
+            backgroundColor: (barCtx) => {
+              const { chart } = barCtx;
+              const { ctx: c, chartArea } = chart;
+              if (!chartArea) return baseColor;
+              const g = c.createLinearGradient(0, chartArea.top, 0, chartArea.bottom);
+              g.addColorStop(0, baseColor);
+              g.addColorStop(1, shadeColor(baseColor, -18));
+              return g;
+            },
+            hoverBackgroundColor: baseColor
+          };
         });
         chartJobs = new Chart(ctxJobs, {
           type: 'bar',
@@ -3264,6 +3427,9 @@
           options: {
             responsive: true,
             maintainAspectRatio: false,
+            // ⚠️ backgroundColorにグラデーション(CanvasGradient)を使う場合、Chart.jsの
+            // 色の自動アニメーション(colors)がそれを補間できずエラーになるため無効化する
+            animation: { colors: false },
             plugins: {
               legend: { position: 'top', align: 'end' },
               tooltip: { callbacks: { label: (c) => ` ${c.dataset.label}: ¥${(c.raw ?? 0).toLocaleString()}` } }
@@ -3271,11 +3437,13 @@
             scales: quietScales({ yFormat: (v) => v >= 10000 ? `${v/10000}万` : v })
           }
         });
+        } catch (chartErr) { console.error('ctxJobs render failed:', chartErr); }
       }
 
       const ctxTrend = document.getElementById("chart-trend");
       if (ctxTrend) {
-        if (chartTrend) chartTrend.destroy();
+        try {
+        safeDestroyChart(ctxTrend, chartTrend);
         const incData = [], expData = [];
         labels12.forEach((_, idx) => {
           const mStr = `${currentYear}-${String(idx + 1).padStart(2, "0")}`;
@@ -3290,8 +3458,8 @@
           data: {
             labels: labels12,
             datasets: [
-              { label: '収入', data: incData, borderColor: '#10b981', backgroundColor: 'rgba(16, 185, 129, 0.08)', tension: 0.35, cubicInterpolationMode: 'monotone', fill: true },
-              { label: '支出', data: expData, borderColor: '#ef4444', backgroundColor: 'rgba(239, 68, 68, 0.06)', tension: 0.35, cubicInterpolationMode: 'monotone', fill: true }
+              { label: '収入', data: incData, borderColor: '#10b981', backgroundColor: 'rgba(16, 185, 129, 0.10)', borderWidth: 2.5, borderCapStyle: 'round', tension: 0.35, cubicInterpolationMode: 'monotone', fill: true },
+              { label: '支出', data: expData, borderColor: '#ef4444', backgroundColor: 'rgba(239, 68, 68, 0.06)', borderWidth: 2.5, borderCapStyle: 'round', tension: 0.35, cubicInterpolationMode: 'monotone', fill: true }
             ]
           },
           options: {
@@ -3305,11 +3473,13 @@
             scales: quietScales({ yFormat: (v) => v >= 10000 ? `${v/10000}万` : v })
           }
         });
+        } catch (chartErr) { console.error('ctxTrend render failed:', chartErr); }
       }
 
       const ctxDaily = document.getElementById("chart-daily-expense");
       if (ctxDaily) {
-        if (chartDaily) chartDaily.destroy();
+        try {
+        safeDestroyChart(ctxDaily, chartDaily);
         const daysInMonth = new Date(statsYear, statsMonth + 1, 0).getDate();
         const dLabels = Array.from({ length: daysInMonth }, (_, i) => `${i + 1}`);
         const dData = dLabels.map((_, i) => {
@@ -3318,10 +3488,28 @@
         });
         chartDaily = new Chart(ctxDaily, {
           type: 'bar',
-          data: { labels: dLabels, datasets: [{ label: '支出', data: dData, backgroundColor: 'rgba(239, 68, 68, 0.75)', maxBarThickness: 14 }] },
+          data: {
+            labels: dLabels,
+            datasets: [{
+              label: '支出',
+              data: dData,
+              maxBarThickness: 14,
+              backgroundColor: (barCtx) => {
+                const { chart } = barCtx;
+                const { ctx: c, chartArea } = chart;
+                if (!chartArea) return 'rgba(239, 68, 68, 0.75)';
+                const g = c.createLinearGradient(0, chartArea.top, 0, chartArea.bottom);
+                g.addColorStop(0, 'rgba(248, 113, 113, 0.95)');
+                g.addColorStop(1, 'rgba(220, 38, 38, 0.85)');
+                return g;
+              },
+              hoverBackgroundColor: 'rgba(220, 38, 38, 0.95)'
+            }]
+          },
           options: {
             responsive: true,
             maintainAspectRatio: false,
+            animation: { colors: false },
             plugins: {
               legend: { display: false },
               tooltip: { callbacks: { label: (c) => ` ¥${(c.raw ?? 0).toLocaleString()}` } }
@@ -3332,42 +3520,51 @@
             }
           }
         });
+        } catch (chartErr) { console.error('ctxDaily render failed:', chartErr); }
       }
 
       const ctxPie = document.getElementById("chart-expense-pie");
       if (ctxPie) {
-        if (chartPie) chartPie.destroy();
+        try {
+        safeDestroyChart(ctxPie, chartPie);
         const catMap = {};
         DB.expenses.filter(e => e.date.startsWith(statsMonthStr)).forEach(e => {
           catMap[e.category] = (catMap[e.category] || 0) + e.amount;
         });
-        const pieTotal = Object.values(catMap).reduce((a, b) => a + b, 0);
+        // 金額が大きいカテゴリから並べることで、円グラフの構成が直感的に読み取れるようにする
+        const sortedEntries = Object.entries(catMap).sort((a, b) => b[1] - a[1]);
+        const pieTotal = sortedEntries.reduce((acc, [, v]) => acc + v, 0);
         const donutTotalEl = document.getElementById("chart-donut-total");
         if (donutTotalEl) donutTotalEl.textContent = `¥${pieTotal.toLocaleString()}`;
+
+        const donutPalette = ['#f97316', '#6366f1', '#0ea5e9', '#10b981', '#ec4899', '#8b5cf6', '#f43f5e', '#84cc16', '#eab308', '#14b8a6'];
 
         chartPie = new Chart(ctxPie, {
           type: 'doughnut',
           data: {
-            labels: Object.keys(catMap).length ? Object.keys(catMap) : ["なし"],
+            labels: sortedEntries.length ? sortedEntries.map(e => e[0]) : ["なし"],
             datasets: [{
-              data: Object.values(catMap).length ? Object.values(catMap) : [1],
-              backgroundColor: ['#f97316', '#6366f1', '#0ea5e9', '#10b981', '#ec4899', '#8b5cf6', '#f43f5e', '#84cc16'],
+              data: sortedEntries.length ? sortedEntries.map(e => e[1]) : [1],
+              backgroundColor: sortedEntries.length ? sortedEntries.map((_, i) => donutPalette[i % donutPalette.length]) : ['#e2e8f0'],
               borderColor: getComputedStyle(document.documentElement).getPropertyValue('--card').trim() || '#fff',
-              borderWidth: 2,
-              hoverOffset: 8,
-              spacing: 1.5
+              borderWidth: 2.5,
+              hoverOffset: 10,
+              hoverBorderWidth: 3,
+              spacing: 2,
+              borderRadius: 4
             }]
           },
           options: {
             responsive: true,
             maintainAspectRatio: false,
-            cutout: '68%',
+            cutout: '70%',
             plugins: {
               legend: { position: 'right', labels: { boxWidth: 8, boxHeight: 8 } },
               tooltip: { callbacks: { label: (c) => ` ${c.label}: ¥${(c.raw ?? 0).toLocaleString()} (${pieTotal ? Math.round((c.raw / pieTotal) * 100) : 0}%)` } }
             }
           }
         });
+        } catch (chartErr) { console.error('ctxPie render failed:', chartErr); }
       }
     }
 
@@ -4371,6 +4568,83 @@
       }, { passive: true });
     }
 
+    // 📱 月送り用：指の動きに合わせてリアルタイムに追従し、カレンダーと同じ判定
+    // （素早いフリックなら距離に関わらず切替／ゆっくりなら移動量が半分を超えたら切替、
+    //   超えなければ元の位置にスナックバック）で月を切り替える汎用スワイプ
+    function initMonthDragSwipe(triggerEl, contentEl, onPrev, onNext) {
+      if (!triggerEl || !contentEl) return;
+      let startX = 0, startY = 0, startTime = 0, diffX = 0, dragging = false, isHorizontal = false;
+
+      triggerEl.addEventListener("touchstart", (e) => {
+        if (!e.touches || e.touches.length === 0) return;
+        startX = e.touches[0].clientX;
+        startY = e.touches[0].clientY;
+        startTime = Date.now();
+        diffX = 0;
+        dragging = true;
+        isHorizontal = false;
+        contentEl.style.transition = "none";
+      }, { passive: true });
+
+      triggerEl.addEventListener("touchmove", (e) => {
+        if (!dragging || !e.touches || e.touches.length === 0) return;
+        const curX = e.touches[0].clientX;
+        const curY = e.touches[0].clientY;
+        const dx = curX - startX;
+        const dy = curY - startY;
+        if (Math.abs(dx) > Math.abs(dy)) {
+          isHorizontal = true;
+          diffX = dx;
+          contentEl.style.transform = `translateX(${dx}px)`;
+        }
+      }, { passive: true });
+
+      triggerEl.addEventListener("touchend", () => {
+        if (!dragging) return;
+        dragging = false;
+        if (!isHorizontal) return;
+
+        const width = triggerEl.offsetWidth || 300;
+        const duration = Date.now() - startTime;
+        const velocity = Math.abs(diffX) / (duration || 1);
+        const isFlick = duration < 300 && Math.abs(diffX) > 40 && velocity > 0.25;
+        const isHalfSwipe = Math.abs(diffX) >= width * 0.5;
+
+        contentEl.style.transition = "transform 0.22s cubic-bezier(0.25, 1, 0.5, 1)";
+
+        if ((isFlick || isHalfSwipe) && diffX < 0) {
+          contentEl.style.transform = `translateX(-${width}px)`;
+          setTimeout(() => {
+            onNext();
+            contentEl.style.transition = "none";
+            contentEl.style.transform = `translateX(${width}px)`;
+            requestAnimationFrame(() => {
+              requestAnimationFrame(() => {
+                contentEl.style.transition = "transform 0.22s cubic-bezier(0.25, 1, 0.5, 1)";
+                contentEl.style.transform = "translateX(0)";
+              });
+            });
+          }, 220);
+        } else if ((isFlick || isHalfSwipe) && diffX > 0) {
+          contentEl.style.transform = `translateX(${width}px)`;
+          setTimeout(() => {
+            onPrev();
+            contentEl.style.transition = "none";
+            contentEl.style.transform = `translateX(-${width}px)`;
+            requestAnimationFrame(() => {
+              requestAnimationFrame(() => {
+                contentEl.style.transition = "transform 0.22s cubic-bezier(0.25, 1, 0.5, 1)";
+                contentEl.style.transform = "translateX(0)";
+              });
+            });
+          }, 220);
+        } else {
+          contentEl.style.transform = "translateX(0)";
+        }
+        diffX = 0;
+      }, { passive: true });
+    }
+
     // 📱 前後の月がリアルタイムに見える3面カルーセルスライダー
     let calTouchStartX = 0;
     let calTouchStartY = 0;
@@ -4442,67 +4716,84 @@
       }, { passive: true });
     }
 
-    // 📱 モーダル上部を下にスライドして閉じる
+    // 📱 モーダル：バー以外の場所からでも、素早く下に払えば閉じる／ゆっくりなら半分基準で判定
+    // （カレンダーの月送りスワイプと同じ「フリックなら即座／ゆっくりなら距離の半分で判定」ロジック）
+    let modalTouchStartX = 0;
     let modalTouchStartY = 0;
+    let modalTouchStartTime = 0;
     let modalCurrentTranslateY = 0;
     let isModalDragging = false;
+    let modalDragIsVertical = false;
 
     function initModalSwipeDown() {
       const entryModalContent = document.getElementById("entry-modal-content");
-      const dragHandle = document.getElementById("entry-modal-drag-handle");
-      const modalHeader = document.getElementById("entry-modal-header");
       if (!entryModalContent) return;
 
-      const dragTargets = [dragHandle, modalHeader];
+      entryModalContent.addEventListener("touchstart", (e) => {
+        if (!e.touches || e.touches.length === 0) return;
+        modalTouchStartX = e.touches[0].clientX;
+        modalTouchStartY = e.touches[0].clientY;
+        modalTouchStartTime = Date.now();
+        modalCurrentTranslateY = 0;
+        // スクロール可能な内容の途中からは、通常のスクロールを優先させる
+        // （一番上までスクロールされている状態からの「下方向ドラッグ」だけを閉じるジェスチャーとして扱う）
+        isModalDragging = entryModalContent.scrollTop <= 0;
+        modalDragIsVertical = false;
+        entryModalContent.style.transition = "none";
+      }, { passive: true });
 
-      dragTargets.forEach(target => {
-        if (!target) return;
-        target.addEventListener("touchstart", (e) => {
-          if (e.touches && e.touches.length > 0) {
-            modalTouchStartY = e.touches[0].clientY;
-            modalCurrentTranslateY = 0;
-            isModalDragging = true;
-            entryModalContent.style.transition = "none";
-          }
-        }, { passive: true });
+      entryModalContent.addEventListener("touchmove", (e) => {
+        if (!isModalDragging || !e.touches || e.touches.length === 0) return;
+        const currentX = e.touches[0].clientX;
+        const currentY = e.touches[0].clientY;
+        const diffX = currentX - modalTouchStartX;
+        const diffY = currentY - modalTouchStartY;
 
-        target.addEventListener("touchmove", (e) => {
-          if (!isModalDragging || !e.touches || e.touches.length === 0) return;
-          const currentY = e.touches[0].clientY;
-          const diffY = currentY - modalTouchStartY;
+        // 下方向・かつ横より縦方向の動きが大きい場合のみ、閉じるジェスチャーとして追従させる
+        if (diffY > 0 && diffY > Math.abs(diffX)) {
+          modalDragIsVertical = true;
+          modalCurrentTranslateY = diffY;
+          entryModalContent.style.transform = `translateY(${diffY}px)`;
+        }
+      }, { passive: true });
 
-          if (diffY > 0) {
-            modalCurrentTranslateY = diffY;
-            entryModalContent.style.transform = `translateY(${diffY}px)`;
-          } else {
-            modalCurrentTranslateY = diffY * 0.15;
-            entryModalContent.style.transform = `translateY(${modalCurrentTranslateY}px)`;
-          }
-        }, { passive: true });
+      entryModalContent.addEventListener("touchend", () => {
+        if (!isModalDragging) return;
+        isModalDragging = false;
 
-        target.addEventListener("touchend", () => {
-          if (!isModalDragging) return;
-          isModalDragging = false;
-
-          entryModalContent.style.transition = "transform 0.22s cubic-bezier(0.25, 1, 0.5, 1)";
-
-          if (modalCurrentTranslateY > 160) {
-            entryModalContent.style.transform = "translateY(100%)";
-            setTimeout(() => {
-              closeEntryModal();
-              entryModalContent.style.transition = "";
-              entryModalContent.style.transform = "";
-            }, 220);
-          } else {
-            entryModalContent.style.transform = "translateY(0)";
-            setTimeout(() => {
-              entryModalContent.style.transition = "";
-              entryModalContent.style.transform = "";
-            }, 220);
-          }
+        if (!modalDragIsVertical || modalCurrentTranslateY <= 0) {
+          entryModalContent.style.transition = "";
+          entryModalContent.style.transform = "";
           modalCurrentTranslateY = 0;
-        }, { passive: true });
-      });
+          return;
+        }
+
+        const duration = Date.now() - modalTouchStartTime;
+        const modalHeight = entryModalContent.offsetHeight || 500;
+        const velocity = modalCurrentTranslateY / (duration || 1);
+
+        // 素早いフリックなら距離に関わらず閉じる／ゆっくりなら半分より下で閉じる（カレンダーと同じ判定）
+        const isFlick = duration < 300 && modalCurrentTranslateY > 40 && velocity > 0.25;
+        const isHalfSwipe = modalCurrentTranslateY >= modalHeight * 0.5;
+
+        entryModalContent.style.transition = "transform 0.22s cubic-bezier(0.25, 1, 0.5, 1)";
+
+        if (isFlick || isHalfSwipe) {
+          entryModalContent.style.transform = "translateY(100%)";
+          setTimeout(() => {
+            closeEntryModal();
+            entryModalContent.style.transition = "";
+            entryModalContent.style.transform = "";
+          }, 220);
+        } else {
+          entryModalContent.style.transform = "translateY(0)";
+          setTimeout(() => {
+            entryModalContent.style.transition = "";
+            entryModalContent.style.transform = "";
+          }, 220);
+        }
+        modalCurrentTranslateY = 0;
+      }, { passive: true });
     }
 
     function bindEvents() {
@@ -4600,10 +4891,11 @@
       });
 
       const payrollCardEl = document.getElementById("payroll-summary-card");
-      if (payrollCardEl) {
-        attachSwipeListener(payrollCardEl,
-          () => { payrollDate.setMonth(payrollDate.getMonth() + 1); renderSummaryAndPayroll(); },
-          () => { payrollDate.setMonth(payrollDate.getMonth() - 1); renderSummaryAndPayroll(); }
+      const payrollSwipeContentEl = document.getElementById("payroll-swipe-content");
+      if (payrollCardEl && payrollSwipeContentEl) {
+        initMonthDragSwipe(payrollCardEl, payrollSwipeContentEl,
+          () => { payrollDate.setMonth(payrollDate.getMonth() - 1); renderSummaryAndPayroll(); },
+          () => { payrollDate.setMonth(payrollDate.getMonth() + 1); renderSummaryAndPayroll(); }
         );
       }
 
@@ -4994,19 +5286,40 @@
         showToast("📌 テンプレートを追加しました");
       });
 
-      document.getElementById("add-fixed-btn").addEventListener("click", async () => {
-        const memo = prompt("固定費の項目名:"); if (!memo) return;
-        let currency = (prompt("通貨コードを入力 (例: JPY, USD, EUR, GBP, KRW / 空欄でJPY):", "JPY") || "JPY").trim().toUpperCase();
-        if (!/^[A-Z]{3}$/.test(currency)) currency = "JPY";
-        const amount = Number(prompt(`金額 (${currency}):`, "50000")) || 0;
-        if (!amount) return;
+      document.getElementById("add-fixed-btn").addEventListener("click", () => {
+        document.getElementById("fixed-expense-form").reset();
+        document.getElementById("fixed-expense-amount").value = "";
+        document.getElementById("fixed-expense-currency").value = "JPY";
+        document.getElementById("fixed-expense-fx-note").style.display = "none";
+        openModalWithLock("fixed-expense-modal");
+      });
 
+      document.getElementById("close-fixed-expense-modal-btn").addEventListener("click", () => closeModalWithLock("fixed-expense-modal"));
+
+      document.getElementById("fixed-expense-currency").addEventListener("change", (e) => {
+        document.getElementById("fixed-expense-fx-note").style.display = e.target.value === "JPY" ? "none" : "block";
+      });
+
+      document.getElementById("fixed-expense-form").addEventListener("submit", async (e) => {
+        e.preventDefault();
+        const memo = document.getElementById("fixed-expense-memo").value.trim();
+        const currency = document.getElementById("fixed-expense-currency").value;
+        const amountInput = document.getElementById("fixed-expense-amount");
+        const amount = evaluateMath(amountInput.value);
+
+        if (!memo) return;
+        if (amount === null || amount <= 0) { showInputError(amountInput); return; }
+
+        const saveBtn = document.getElementById("fixed-expense-save-btn");
         pushUndoState();
         const item = { id: Date.now(), memo, amount, currency, fxRate: 1, fxUpdatedAt: null, autoApply: true };
 
         if (currency !== "JPY") {
-          showToast(`🔄 ${currency} の最新レートを取得中…`);
+          saveBtn.disabled = true;
+          saveBtn.textContent = "レート取得中…";
           const rate = await fetchFxRateToJpy(currency);
+          saveBtn.disabled = false;
+          saveBtn.textContent = "追加する";
           if (rate === null) {
             const manual = evaluateMath(prompt(`最新レートの自動取得に失敗しました。\n1 ${currency} が何円か手入力してください:`, "150"));
             item.fxRate = (manual && manual > 0) ? manual : 1;
@@ -5017,7 +5330,9 @@
         }
 
         DB.fixedExpenses.push(item);
-        saveDB(); renderAll();
+        saveDB();
+        closeModalWithLock("fixed-expense-modal");
+        renderAll();
         showToast("🏠 固定費を追加しました");
       });
 
