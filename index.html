@@ -3993,6 +3993,7 @@
       if (content) {
         content.style.transition = "";
         content.style.transform = "";
+        content.style.animation = "";
       }
 
       document.getElementById("shift-id").value = "";
@@ -4030,6 +4031,7 @@
       if (content) {
         content.style.transition = "";
         content.style.transform = "";
+        content.style.animation = "";
       }
       openModalWithLock("entry-modal");
 
@@ -4740,6 +4742,10 @@
         isModalDragging = entryModalContent.scrollTop <= 0;
         modalDragIsVertical = false;
         entryModalContent.style.transition = "none";
+        // 開いた直後の登場アニメーション(modalRise)がtransformプロパティを掴んだままだと、
+        // ドラッグ中にJSでtransformを更新しても指の動きに追従して見えないため、
+        // ドラッグ開始時にアニメーションを止めて、inlineスタイルに制御を戻す
+        entryModalContent.style.animation = "none";
       }, { passive: true });
 
       entryModalContent.addEventListener("touchmove", (e) => {
