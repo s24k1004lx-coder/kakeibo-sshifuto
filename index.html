@@ -2067,6 +2067,21 @@
     </div>
   </div>
 
+  <!-- ✨ 削除確認モーダル（モダンデザイン） -->
+  <div class="modal-overlay" id="delete-confirm-modal">
+    <div class="modal-content" id="delete-confirm-content" style="text-align: center; padding: 32px 24px;">
+      <div style="font-size: 48px; margin-bottom: 12px;" id="delete-confirm-icon">🗑️</div>
+      <div style="font-size: 16px; font-weight: bold; margin-bottom: 6px; color: var(--ink);" id="delete-confirm-title">削除してもよろしいですか？</div>
+      <div style="font-size: 13px; color: var(--muted); margin-bottom: 20px; line-height: 1.5;" id="delete-confirm-desc">
+        この操作は取り消せません
+      </div>
+      <div style="display: flex; gap: 8px; margin-top: 20px; padding-top: 20px; border-top: 1px solid var(--line);">
+        <button class="btn btn-outline" style="flex: 1;" id="delete-confirm-cancel-btn">キャンセル</button>
+        <button class="btn btn-danger" style="flex: 1;" id="delete-confirm-ok-btn">削除する</button>
+      </div>
+    </div>
+  </div>
+
   <div class="calc-keyboard-drawer" id="calc-keyboard-drawer">
     <div class="calc-keyboard-header">
       <span>🔢 計算・入力キーボード</span>
@@ -3610,14 +3625,19 @@
       }
     }
 
-    function deletePinFromModal() {
+    async function deletePinFromModal() {
       const pinId = document.getElementById("edit-pin-id").value;
-      if (confirm("このテンプレートを削除してもよろしいですか？")) {
+      const confirmed = await showDeleteConfirm(
+        `テンプレートを削除しますか？`,
+        `<span style="font-size:11px; color:var(--muted);">この操作は取り消せません</span>`,
+        "📌"
+      );
+      if (confirmed) {
         DB.pins = DB.pins.filter(p => String(p.id) !== String(pinId));
         saveDB();
         renderAll();
         closePinEditModal();
-        showToast("🗑 テンプレートを削除しました", "danger");
+        showToast("📌 テンプレートを削除しました", "danger");
       }
     }
 
@@ -3864,9 +3884,15 @@
       }
     };
 
-    window.deletePeriod = function(jobIdx, periodIdx) {
+    window.deletePeriod = async function(jobIdx, periodIdx) {
       if (DB.jobs[jobIdx] && DB.jobs[jobIdx].periods) {
-        if (confirm("この支給回を削除しますか？")) {
+        const period = DB.jobs[jobIdx].periods[periodIdx];
+        const confirmed = await showDeleteConfirm(
+          `支給回を削除しますか？`,
+          `<span style="font-size:11px; color:var(--muted);">この操作は取り消せません</span>`,
+          "📆"
+        );
+        if (confirmed) {
           DB.jobs[jobIdx].periods.splice(periodIdx, 1);
           saveDB();
           renderAll();
@@ -4417,64 +4443,129 @@
       document.getElementById("shift-overlap-alert").style.display = hasOverlap ? "block" : "none";
     }
 
-    window.deleteShift = id => {
+    // 削除確認モーダルを使った削除フロー
+    window.showDeleteConfirm = (title, description, icon = "🗑️") => {
+      return new Promise((resolve) => {
+        const modal = document.getElementById("delete-confirm-modal");
+        const titleEl = document.getElementById("delete-confirm-title");
+        const descEl = document.getElementById("delete-confirm-desc");
+        const iconEl = document.getElementById("delete-confirm-icon");
+        const cancelBtn = document.getElementById("delete-confirm-cancel-btn");
+        const okBtn = document.getElementById("delete-confirm-ok-btn");
+
+        titleEl.textContent = title;
+        descEl.innerHTML = description;
+        iconEl.textContent = icon;
+
+        const handleOk = () => {
+          cancelBtn.removeEventListener("click", handleCancel);
+          okBtn.removeEventListener("click", handleOk);
+          closeModalWithLock("delete-confirm-modal");
+          resolve(true);
+        };
+        const handleCancel = () => {
+          cancelBtn.removeEventListener("click", handleCancel);
+          okBtn.removeEventListener("click", handleOk);
+          closeModalWithLock("delete-confirm-modal");
+          resolve(false);
+        };
+
+        cancelBtn.addEventListener("click", handleCancel);
+        okBtn.addEventListener("click", handleOk);
+        openModalWithLock("delete-confirm-modal");
+      });
+    };
+
+    window.deleteShift = async (id) => {
       const s = DB.shifts.find(x => String(x.id) === String(id));
       if(!s) return;
       const job = DB.jobs.find(j => String(j.id) === String(s.jobId));
       const jName = job ? job.name : '';
-      if (confirm(`シフト「${jName} ${s.startTime}~${s.endTime}」を削除してもよろしいですか？`)) {
+      const confirmed = await showDeleteConfirm(
+        `シフトを削除しますか？`,
+        `<strong>${jName}</strong><br/>${s.startTime}~${s.endTime}<br/><span style="font-size:11px; color:var(--muted);">この操作は取り消せません</span>`,
+        "📅"
+      );
+      if (confirmed) {
         pushUndoState();
         DB.shifts = DB.shifts.filter(x => String(x.id) !== String(id));
         saveDB(); renderAll(); closeEntryModal();
-        showToast("🗑 シフトを削除しました", "danger");
+        showToast("📅 シフトを削除しました", "danger");
       }
     };
-    window.deleteExpense = id => {
+    window.deleteExpense = async (id) => {
       const e = DB.expenses.find(x => String(x.id) === String(id));
       if(!e) return;
       const name = e.memo || e.category;
-      if (confirm(`支出「${name}」を削除してもよろしいですか？`)) {
+      const confirmed = await showDeleteConfirm(
+        `支出を削除しますか？`,
+        `<strong>${name}</strong><br/>¥${e.amount.toLocaleString()}<br/><span style="font-size:11px; color:var(--muted);">この操作は取り消せません</span>`,
+        "💸"
+      );
+      if (confirmed) {
         pushUndoState();
         DB.expenses = DB.expenses.filter(x => String(x.id) !== String(id));
         saveDB(); renderAll(); closeEntryModal();
-        showToast("🗑 支出を削除しました", "danger");
+        showToast("💸 支出を削除しました", "danger");
       }
     };
-    window.deleteIncome = id => {
+    window.deleteIncome = async (id) => {
       const i = DB.otherIncomes.find(x => String(x.id) === String(id));
       if(!i) return;
       const name = i.memo || i.category;
-      if (confirm(`収入「${name}」を削除してもよろしいですか？`)) {
+      const confirmed = await showDeleteConfirm(
+        `収入を削除しますか？`,
+        `<strong>${name}</strong><br/>¥${i.amount.toLocaleString()}<br/><span style="font-size:11px; color:var(--muted);">この操作は取り消せません</span>`,
+        "💵"
+      );
+      if (confirmed) {
         pushUndoState();
         DB.otherIncomes = DB.otherIncomes.filter(x => String(x.id) !== String(id));
         saveDB(); renderAll(); closeEntryModal();
-        showToast("🗑 収入を削除しました", "danger");
+        showToast("💵 収入を削除しました", "danger");
       }
     };
-    window.deleteJob = id => {
+    window.deleteJob = async (id) => {
       const j = DB.jobs.find(x => x.id === id);
       const name = j ? j.name : '勤務先';
-      if (confirm(`勤務先「${name}」を削除しますか？`)) {
+      const confirmed = await showDeleteConfirm(
+        `勤務先を削除しますか？`,
+        `<strong>${name}</strong><br/><span style="font-size:11px; color:var(--muted);">登録済みのシフトは削除されません</span>`,
+        "🏢"
+      );
+      if (confirmed) {
         pushUndoState();
         DB.jobs = DB.jobs.filter(x => x.id !== id);
         saveDB(); renderAll();
         showToast("🏢 勤務先を削除しました", "danger");
       }
     };
-    window.deletePin = id => {
-      if (confirm("このテンプレートを削除しますか？")) {
+    window.deletePin = async (id) => {
+      const confirmed = await showDeleteConfirm(
+        `テンプレートを削除しますか？`,
+        `<span style="font-size:11px; color:var(--muted);">この操作は取り消せません</span>`,
+        "📌"
+      );
+      if (confirmed) {
         pushUndoState();
         DB.pins = DB.pins.filter(p => p.id !== id);
         saveDB(); renderAll();
         showToast("🗑 テンプレートを削除しました", "danger");
       }
     };
-    window.deleteFixedConfig = id => {
-      if (confirm("この固定費設定を削除しますか？")) {
+    window.deleteFixedConfig = async (id) => {
+      const f = DB.fixedExpenses.find(x => x.id === id);
+      const name = f ? f.memo : '固定費';
+      const confirmed = await showDeleteConfirm(
+        `固定費を削除しますか？`,
+        `<strong>${name}</strong><br/><span style="font-size:11px; color:var(--muted);">この操作は取り消せません</span>`,
+        "💳"
+      );
+      if (confirmed) {
         pushUndoState();
         DB.fixedExpenses = DB.fixedExpenses.filter(f => f.id !== id);
         saveDB(); renderAll();
-        showToast("🗑 固定費設定を削除しました", "danger");
+        showToast("💳 固定費を削除しました", "danger");
       }
     };
 
