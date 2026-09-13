@@ -4478,19 +4478,38 @@
       }
     };
 
-    // 💱 外貨の固定費：為替レートを自動取得（無料・無登録のFrankfurter APIを使用）
-    // 円が毎月変わる問題への対応: 手入力の固定レートではなく、その都度リアルタイムのレートを取得し、
-    // 取得できない場合のみ手動入力にフォールバックする。取得日時を保存し、一覧にいつ時点のレートか表示する。
-    async function fetchFxRateToJpy(currencyCode) {
+    // 💱 外貨の為替レート取得（Frankfurter API 無料・無登録）
+    // ネットワークエラーやAPI障害が一時的なこともあるため、簡易的なリトライを組み込む
+    async function fetchFxRateToJpy(currencyCode, retryCount = 0) {
       if (!currencyCode || currencyCode === "JPY") return 1;
       try {
-        const res = await fetch(`https://api.frankfurter.app/latest?from=${encodeURIComponent(currencyCode)}&to=JPY`);
-        if (!res.ok) throw new Error("fx fetch failed");
+        const controller = new AbortController();
+        const timeoutId = setTimeout(() => controller.abort(), 8000); // 8秒タイムアウト
+        const res = await fetch(`https://api.frankfurter.app/latest?from=${encodeURIComponent(currencyCode)}&to=JPY`, {
+          signal: controller.signal,
+          headers: { "Accept": "application/json" }
+        });
+        clearTimeout(timeoutId);
+        if (!res.ok) {
+          console.warn(`FX fetch failed: HTTP ${res.status} for ${currencyCode}`);
+          throw new Error(`HTTP ${res.status}`);
+        }
         const data = await res.json();
         const rate = data && data.rates && data.rates.JPY;
-        if (typeof rate === "number" && isFinite(rate) && rate > 0) return rate;
+        if (typeof rate === "number" && isFinite(rate) && rate > 0) {
+          console.log(`FX rate ${currencyCode}→JPY: ${rate}`);
+          return rate;
+        }
+        console.warn(`Invalid rate response for ${currencyCode}:`, data);
         throw new Error("invalid rate");
       } catch (err) {
+        console.error(`fetchFxRateToJpy error (${currencyCode}, retry ${retryCount}):`, err.message);
+        // ネットワークエラーの場合のみリトライ（最大1回まで）
+        if (retryCount === 0 && (err.name === "AbortError" || err.message.includes("fetch") || err.message.includes("Failed to"))) {
+          console.log(`Retrying FX fetch for ${currencyCode}...`);
+          await new Promise(r => setTimeout(r, 1000));
+          return fetchFxRateToJpy(currencyCode, 1);
+        }
         return null;
       }
     }
@@ -4501,7 +4520,8 @@
       showToast(`🔄 ${item.currency} の最新レートを取得中…`);
       const rate = await fetchFxRateToJpy(item.currency);
       if (rate === null) {
-        const manual = evaluateMath(prompt(`最新レートの自動取得に失敗しました。\n1 ${item.currency} が何円か手入力してください:`, item.fxRate || ""));
+        showToast(`⚠️ ${item.currency} のレート取得に失敗（ネットワーク or API障害）`, "danger");
+        const manual = evaluateMath(prompt(`最新レートの自動取得に失敗しました。\nネットワークの確認、またはブラウザのコンソール（F12）を確認してください。\n\n1 ${item.currency} が何円か手入力してください:`, item.fxRate || ""));
         if (manual === null || manual <= 0) { showToast("⚠️ レート更新をキャンセルしました", "danger"); return; }
         item.fxRate = manual;
       } else {
@@ -5327,7 +5347,8 @@
           saveBtn.disabled = false;
           saveBtn.textContent = "追加する";
           if (rate === null) {
-            const manual = evaluateMath(prompt(`最新レートの自動取得に失敗しました。\n1 ${currency} が何円か手入力してください:`, "150"));
+            showToast(`⚠️ ${currency} のレート取得に失敗（ネットワーク or API障害）`, "danger");
+            const manual = evaluateMath(prompt(`最新レートの自動取得に失敗しました。\nネットワークの確認、またはブラウザのコンソール（F12）を確認してください。\n\n1 ${currency} が何円か手入力してください:`, "150"));
             item.fxRate = (manual && manual > 0) ? manual : 1;
           } else {
             item.fxRate = rate;
