@@ -68,6 +68,16 @@
       -webkit-user-select: text;
     }
 
+    /* iOSのSafariは <body> だけに overflow-x: hidden を掛けても、
+       どこか1箇所でも数px overflow する要素があるとページ全体が横方向に
+       ラバーバンドしてしまい、position:fixed のモーダル等の右端に
+       背景がめくれて見える不具合が起きる。<html> 側にも明示することで
+       ルートごと横スクロールできないようにし、根本から抑え込む */
+    html {
+      overflow-x: hidden;
+      width: 100%;
+    }
+
     body {
       font-family: var(--font-stack);
       background-color: var(--bg);
@@ -75,6 +85,8 @@
       line-height: 1.4;
       padding-bottom: calc(75px + env(safe-area-inset-bottom));
       overflow-x: hidden;
+      width: 100%;
+      max-width: 100vw;
       transition: background 0.2s, color 0.2s;
     }
 
