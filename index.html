@@ -522,6 +522,35 @@
     .form-row { display: flex; gap: 4px; width: 100%; flex-wrap: wrap; }
     .form-row .form-group { flex: 1; min-width: 100px; }
 
+    /* スマホ縦持ちの狭い画面では、日付(input[type=date])やセレクトなど
+       OS標準UIが最低幅を要求する部品を横並びにすると、はみ出し・見切れ・
+       左右で大きさがズレる原因になるため、狭い画面では縦積みに切り替える */
+    @media (max-width: 480px) {
+      .form-row {
+        flex-direction: column;
+      }
+      .form-row .form-group {
+        width: 100%;
+        min-width: 0;
+        flex: 1 1 auto;
+      }
+    }
+
+    /* select要素はOSごとに見た目・最低幅がバラつきやすいので、
+       ネイティブ矢印を消して自前の矢印にし、input[type=date]などと
+       見た目・幅の挙動を揃える */
+    select.form-control {
+      -webkit-appearance: none;
+      appearance: none;
+      background-image:
+        linear-gradient(45deg, transparent 50%, var(--muted) 50%),
+        linear-gradient(135deg, var(--muted) 50%, transparent 50%);
+      background-position: calc(100% - 15px) center, calc(100% - 10px) center;
+      background-size: 5px 5px, 5px 5px;
+      background-repeat: no-repeat;
+      padding-right: 26px;
+    }
+
     .progress-container {
       background: var(--line);
       border-radius: 10px;
