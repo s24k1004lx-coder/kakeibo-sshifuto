@@ -53,6 +53,21 @@
       user-select: none;
     }
 
+    /* 金額・明細・診断結果などの「コピーしたい情報」は選択可能に戻す */
+    .list-item, .list-item *,
+    .day-item-card, .day-item-card *,
+    .detail-card-box, .detail-card-box *,
+    .asset-box, .asset-box *,
+    .info-banner-row, .info-banner-row *,
+    .diag-box, .diag-box *,
+    .pay-preview-hero, .pay-preview-hero *,
+    #diag-result-box, #diag-result-box *,
+    .register-pop-amount,
+    .register-pop-sub {
+      user-select: text;
+      -webkit-user-select: text;
+    }
+
     body {
       font-family: var(--font-stack);
       background-color: var(--bg);
@@ -875,7 +890,6 @@
       opacity: 0.08;
       z-index: -1;
       pointer-events: none;
-      animation: floatGlow 26s ease-in-out infinite;
     }
     body::before {
       background: var(--brand);
@@ -885,8 +899,6 @@
       background: var(--sat-color);
       bottom: -6%; left: -14%;
       opacity: 0.05;
-      animation-delay: -13s;
-      animation-duration: 32s;
     }
     @keyframes floatGlow {
       0%, 100% { transform: translate(0, 0) scale(1); }
@@ -950,7 +962,6 @@
     .day-cell:active { transform: scale(0.94); z-index: 2; }
     .day-cell.today {
       box-shadow: inset 0 0 0 1.5px var(--brand), 0 0 9px var(--brand-glow-soft);
-      animation: todayPulse 3.6s ease-in-out infinite;
     }
     @keyframes todayPulse {
       0%, 100% { box-shadow: inset 0 0 0 1.5px var(--brand), 0 0 7px var(--brand-glow-soft); }
@@ -975,7 +986,6 @@
       background: linear-gradient(135deg, var(--brand) 0%, var(--brand-dark) 100%);
       box-shadow: 0 4px 16px var(--brand-glow-soft);
       transition: transform 0.3s var(--ease-pop), background 0.3s ease, box-shadow 0.3s ease;
-      animation: fabBreathe 4.5s ease-in-out infinite;
     }
     .fab-main:active { transform: scale(0.92); }
     .fab-main.active {
@@ -1535,7 +1545,6 @@
       top: 38%; right: -10%;
       opacity: 0.13;
       background: conic-gradient(from 0deg, var(--accent-2), var(--accent-3), var(--brand), var(--accent-2));
-      animation: orbDrift 22s linear infinite, floatGlow 14s ease-in-out infinite;
     }
     @keyframes orbDrift {
       0% { transform: rotate(0deg) translate(0, 0); }
@@ -1559,7 +1568,6 @@
       background: conic-gradient(from 0deg, #fff, var(--accent-2), var(--accent-3), #fff);
       opacity: 0.55;
       filter: blur(3px);
-      animation: orbDrift 5s linear infinite;
       z-index: -1;
     }
 
@@ -1572,7 +1580,6 @@
       background-size: 220% 100%;
       border-radius: 0 0 3px 3px;
       transition: transform 0.38s var(--ease-pop);
-      animation: indicatorFlow 5s linear infinite;
       box-shadow: 0 1px 8px var(--brand-glow-soft);
     }
     @keyframes indicatorFlow {
@@ -1592,8 +1599,6 @@
       width: 30px; height: 2px;
       border-radius: 2px;
       background: linear-gradient(90deg, var(--brand), var(--accent-2), var(--accent-3));
-      background-size: 220% 100%;
-      animation: indicatorFlow 6s linear infinite;
       opacity: 0.85;
     }
     .info-banner-card .card-title::after { background: rgba(255,255,255,0.6); animation: none; }
@@ -1623,7 +1628,6 @@
     .progress-bar {
       background-image: linear-gradient(90deg, rgba(255,255,255,0.35) 0%, rgba(255,255,255,0) 40%);
       background-size: 200% 100%;
-      animation: progressShine 2.4s linear infinite;
       transition: width 0.5s var(--ease-smooth), background-color 0.3s ease;
     }
     @keyframes progressShine {
@@ -1811,17 +1815,10 @@
           </div>
           <div class="form-row">
             <div class="form-group">
-              <label>勤労学生ですか？</label>
+              <label>勤労学生ですか？（勤労学生控除の対象かどうかで非課税ラインが変わります）</label>
               <select id="diag-student-select" class="form-control">
                 <option value="yes">はい (学生)</option>
                 <option value="no">いいえ (一般)</option>
-              </select>
-            </div>
-            <div class="form-group">
-              <label>年齢 (社会保険用)</label>
-              <select id="diag-age-select" class="form-control">
-                <option value="under20">20歳未満</option>
-                <option value="over20">20歳以上</option>
               </select>
             </div>
           </div>
@@ -1933,6 +1930,17 @@
       </div>
 
       <div class="card">
+        <div class="card-title">📂 カテゴリ別 予算上限（任意）</div>
+        <div style="font-size: 10px; color: var(--muted); margin-bottom: 6px;">カテゴリごとに上限を設定できます。空欄のカテゴリは上限なし扱いになります。</div>
+        <div id="category-budget-list"></div>
+      </div>
+
+      <div class="card">
+        <div class="card-title">📆 先月・前年同月との比較</div>
+        <div id="month-comparison-box"></div>
+      </div>
+
+      <div class="card">
         <div class="card-title">💴 勤務先別の給料見込み推移</div>
         <canvas id="chart-jobs"></canvas>
       </div>
@@ -2002,11 +2010,11 @@
             <div class="form-group">
               <label>年収の壁 ターゲット</label>
               <select id="setting-wall-target" class="form-control">
-                <option value="1780000">178万円の壁 (所得税 非課税ライン)</option>
-                <option value="1060000">106万円の壁 (社会保険加入)</option>
-                <option value="1300000">130万円の壁 (社会保険扶養外)</option>
-                <option value="1500000">150万円の壁 (配偶者特別控除)</option>
-                <option value="2010000">201万円の壁 (配偶者特別控除上限)</option>
+                <option value="1060000">106万円の壁 (社会保険加入・2026年9月まで)</option>
+                <option value="1300000">130万円の壁 (社会保険の扶養から外れる)</option>
+                <option value="1500000">150万円の壁 (学生:勤労学生控除／配偶者特別控除の減額開始)</option>
+                <option value="1600000">160万円の壁 (所得税 非課税ライン・一般)</option>
+                <option value="2010000">201万円の壁 (配偶者特別控除 消滅ライン)</option>
                 <option value="custom">カスタム指定...</option>
               </select>
             </div>
@@ -2061,6 +2069,31 @@
               <button class="btn btn-outline btn-sm" id="import-json-trigger-btn">📥 JSON復元</button>
               <button class="btn btn-danger btn-sm" id="reset-data-btn" style="margin-top: 6px;">⚠️ 全データ初期化</button>
             </div>
+          </div>
+        </div>
+
+        <div class="accordion-item">
+          <button class="accordion-header" id="acc-cloud-btn">☁️ クラウド自動バックアップ (GitHub Gist)</button>
+          <div class="accordion-body" id="acc-cloud-body">
+            <div style="font-size: 10.5px; color: var(--muted); margin-bottom: 8px; line-height:1.5;">
+              GitHubの「Gist」に自分専用のデータを保存し、機種変更やブラウザのキャッシュ削除に備えます。<br>
+              1. <a href="https://github.com/settings/tokens/new?description=PayCale%20Backup&scopes=gist" target="_blank" rel="noopener">GitHubのトークン発行ページ</a>で「gist」権限のみを付けたトークンを発行<br>
+              2. 発行されたトークンを下に貼り付けて保存<br>
+              ※トークンはこの端末のブラウザ内にのみ保存され、他の場所へ送信されません。
+            </div>
+            <div class="form-group">
+              <label>GitHub Personal Access Token</label>
+              <input type="password" id="cloud-gh-token" class="form-control" placeholder="ghp_xxxxxxxxxxxx" autocomplete="off">
+            </div>
+            <div style="display:flex; gap:6px; margin-bottom:6px;">
+              <button class="btn btn-good btn-sm" id="cloud-backup-save-btn" style="flex:1;">☁️ 今すぐバックアップ</button>
+              <button class="btn btn-outline btn-sm" id="cloud-backup-restore-btn" style="flex:1;">📥 復元</button>
+            </div>
+            <div style="display:flex; align-items:center; gap:6px; margin-bottom:6px;">
+              <input type="checkbox" id="cloud-auto-backup-toggle">
+              <label for="cloud-auto-backup-toggle" style="font-size:11px; margin:0;">保存のたびに自動でバックアップする</label>
+            </div>
+            <div style="font-size: 10.5px; color: var(--muted);" id="cloud-backup-status">未設定</div>
           </div>
         </div>
 
@@ -2550,7 +2583,7 @@
       baseAsset: 119661,
       baseAssetDate: "2026-08-07",
       budgets: { monthly: 50000, savingsGoal: 0 },
-      wallTarget: 1780000,
+      wallTarget: 1600000,
       reminder: { enabled: false, time: "21:00" },
       settings: { 
         theme: "light",
@@ -2558,17 +2591,50 @@
       }
     };
 
-    let DB = JSON.parse(localStorage.getItem("SHIFT_PRO_DB")) || DEFAULT_DB;
+    let DB;
+    try {
+      const raw = localStorage.getItem("SHIFT_PRO_DB");
+      DB = raw ? JSON.parse(raw) : JSON.parse(JSON.stringify(DEFAULT_DB));
+    } catch (e) {
+      console.error("DB読み込みエラー: 保存データが壊れている可能性があります", e);
+      // 壊れたデータは上書きせずバックアップとして退避し、初期状態で起動する
+      try {
+        const raw = localStorage.getItem("SHIFT_PRO_DB");
+        if (raw) localStorage.setItem("SHIFT_PRO_DB_BROKEN_BACKUP_" + Date.now(), raw);
+      } catch (e2) { /* ここで失敗しても何もできないので無視 */ }
+      DB = JSON.parse(JSON.stringify(DEFAULT_DB));
+      window.__dbLoadFailed = true;
+    }
     if (!DB.jobs || DB.jobs.length === 0) DB.jobs = DEFAULT_DB.jobs;
     if (!DB.actualPay) DB.actualPay = {};
     if (!DB.settings) DB.settings = DEFAULT_DB.settings;
     if (!DB.settings.selectedStatsCategories) {
       DB.settings.selectedStatsCategories = DEFAULT_DB.settings.selectedStatsCategories;
     }
+    if (!DB.budgets) DB.budgets = DEFAULT_DB.budgets;
+    if (!DB.budgets.categoryBudgets) DB.budgets.categoryBudgets = {};
     DB.settings.selectedStatsCategories = DB.settings.selectedStatsCategories.filter(c => c !== "クレカ");
 
+    let __saveFailWarned = false;
     function saveDB() {
-      localStorage.setItem("SHIFT_PRO_DB", JSON.stringify(DB));
+      try {
+        localStorage.setItem("SHIFT_PRO_DB", JSON.stringify(DB));
+        if (typeof scheduleAutoBackupIfEnabled === "function") scheduleAutoBackupIfEnabled();
+        return true;
+      } catch (e) {
+        console.error("DB保存エラー", e);
+        // 容量オーバー等で保存に失敗した場合、ユーザーに気づかせる（連続表示は避ける）
+        if (!__saveFailWarned) {
+          __saveFailWarned = true;
+          setTimeout(() => { __saveFailWarned = false; }, 8000);
+          if (typeof showToast === "function") {
+            showToast("⚠️ データの保存に失敗しました。空き容量やバックアップをご確認ください", "danger");
+          } else {
+            alert("データの保存に失敗しました。空き容量やバックアップをご確認ください。");
+          }
+        }
+        return false;
+      }
     }
 
     let undoStack = [];
@@ -3309,7 +3375,7 @@
       }
 
       document.getElementById("year-income-total").textContent = `累計 ¥${yearTotal.toLocaleString()}`;
-      const targetWall = DB.wallTarget || 1780000;
+      const targetWall = DB.wallTarget || 1600000;
       const wallPct = Math.min(100, Math.round((yearTotal / targetWall) * 100));
 
       const wallBar = document.getElementById("wall-progress-bar");
@@ -3483,19 +3549,42 @@
 
       const isStudent = document.getElementById("diag-student-select").value === "yes";
 
-      const taxLimit = 1780000;
+      // 2026年9月時点の制度に基づくライン（2025年分以降の税制改正・106万円の壁の撤廃予定を反映）
+      // 所得税: 基礎控除・給与所得控除の引き上げにより「103万円の壁」は年収160万円に。
+      //         勤労学生控除（27万円）が使える学生は150万円が非課税ラインになる。
+      const taxLimit = isStudent ? 1500000 : 1600000;
       const hasTax = estInc > taxLimit;
       const taxVal = hasTax ? Math.floor((estInc - taxLimit) * 0.05) : 0;
 
-      const socialLimit = 1300000;
-      const hasSocial = estInc > socialLimit;
-      const socialVal = hasSocial ? Math.floor(estInc * 0.15) : 0;
+      // 106万円の壁（勤務先の社会保険加入）は2026年10月1日に撤廃予定で、
+      // 撤廃後は収入額ではなく「週の所定労働時間20時間以上か」が基準になる。
+      // また、昼間学生は従来から加入義務の対象外（学生除外）。
+      const kyoeiAbolishDate = new Date(2026, 9, 1); // 2026-10-01
+      const now = new Date();
+      const wall106Active = now < kyoeiAbolishDate && !isStudent;
+      const socialLimit106 = 1060000;
+      const hasSocial106 = wall106Active && estInc > socialLimit106;
+
+      // 130万円の壁（配偶者・親の扶養から外れ、自分で社会保険に入る基準）は学生でも対象。
+      const socialLimit130 = 1300000;
+      const hasSocial130 = estInc > socialLimit130;
+      const socialVal = hasSocial130 ? Math.floor(estInc * 0.15) : (hasSocial106 ? Math.floor(estInc * 0.15) : 0);
+
+      const taxLabel = isStudent ? "150万円" : "160万円";
 
       box.innerHTML = `
         <div style="font-weight:bold; margin-bottom:4px;">📊 診断結果 (見込み年収: ¥${estInc.toLocaleString()})</div>
-        <div>${!hasTax ? '🟢 <b>所得税</b>: <span style="color:var(--good); font-weight:bold;">非課税 (178万円枠内)</span>' : `🔴 <b>所得税</b>: 概算 <b>約 ¥${taxVal.toLocaleString()} / 年</b>`}</div>
-        ${isStudent && !hasTax ? '<div style="font-size:11px; color:var(--muted);">🎓 勤労学生控除の対象内です</div>' : ''}
-        <div>${!hasSocial ? '🟢 <b>社会保険料</b>: <span style="color:var(--good); font-weight:bold;">対象外 (扶養内)</span>' : `🔴 <b>社会保険料</b>: 概算 <b>約 ¥${socialVal.toLocaleString()} / 年</b>`}</div>
+        <div>${!hasTax ? `🟢 <b>所得税</b>: <span style="color:var(--good); font-weight:bold;">非課税 (${taxLabel}枠内)</span>` : `🔴 <b>所得税</b>: 概算 <b>約 ¥${taxVal.toLocaleString()} / 年</b>`}</div>
+        ${isStudent ? '<div style="font-size:11px; color:var(--muted);">🎓 勤労学生控除により非課税ラインが150万円になっています</div>' : ''}
+        <div>${!hasSocial130 ? '🟢 <b>社会保険（130万円の壁）</b>: <span style="color:var(--good); font-weight:bold;">対象外 (扶養内)</span>' : `🔴 <b>社会保険（130万円の壁）</b>: 扶養から外れる可能性 概算 <b>約 ¥${socialVal.toLocaleString()} / 年</b>`}</div>
+        ${wall106Active
+          ? `<div>${!hasSocial106 ? '🟢 <b>社会保険（106万円の壁）</b>: <span style="color:var(--good); font-weight:bold;">対象外</span>' : '🟠 <b>社会保険（106万円の壁）</b>: 勤務先の規模等の条件次第で加入対象になる可能性があります'}</div>
+             <div style="font-size:10.5px; color:var(--muted);">※106万円の壁は2026年10月1日に撤廃予定で、以降は年収ではなく週20時間以上の所定労働時間が基準になります</div>`
+          : (isStudent
+              ? '<div style="font-size:10.5px; color:var(--muted);">🎓 学生は106万円の壁（勤務先の社会保険加入）の対象外です</div>'
+              : '<div style="font-size:10.5px; color:var(--muted);">106万円の壁は撤廃済みのため、週の所定労働時間（20時間以上か）でご確認ください</div>')
+        }
+        <div style="font-size:10px; color:var(--muted); margin-top:4px;">※目安の概算です。住民税は自治体により非課税ライン（目安100万円前後）が異なり、配偶者控除・特定親族特別控除など個々の状況で変わる場合があります。正確な金額は税務署・年金事務所・勤務先にご確認ください。</div>
       `;
     }
 
@@ -3547,7 +3636,106 @@
       }
 
       renderStatsCategoryChips(statsMonthStr, budgetTotal, recoveryTotal);
+      renderCategoryBudgets(statsMonthStr);
+      renderMonthComparison(statsMonthStr);
       renderCharts();
+    }
+
+    // 📂 カテゴリ別 予算上限（空欄可）
+    const CATEGORY_BUDGET_LIST = ["食費", "交通費", "旅費", "交際費", "日用品", "趣味", "固定費", "貯金", "その他"];
+    function renderCategoryBudgets(statsMonthStr) {
+      const container = document.getElementById("category-budget-list");
+      if (!container) return;
+      if (!DB.budgets.categoryBudgets) DB.budgets.categoryBudgets = {};
+      const catBudgets = DB.budgets.categoryBudgets;
+
+      container.innerHTML = CATEGORY_BUDGET_LIST.map(cat => {
+        const used = DB.expenses
+          .filter(e => e.date.startsWith(statsMonthStr) && e.category === cat)
+          .reduce((acc, e) => acc + e.amount, 0);
+        const limitRaw = catBudgets[cat];
+        const hasLimit = limitRaw !== undefined && limitRaw !== null && limitRaw !== "";
+        const limit = hasLimit ? Number(limitRaw) : null;
+        const pct = hasLimit && limit > 0 ? Math.min(100, Math.round((used / limit) * 100)) : 0;
+        const barColor = pct > 90 ? "var(--danger)" : "var(--good)";
+        return `
+          <div style="margin-bottom: 8px; padding-bottom: 8px; border-bottom: 1px dashed var(--line);">
+            <div style="display:flex; justify-content:space-between; align-items:center; gap:6px; margin-bottom:3px;">
+              <span style="font-size:11px; font-weight:700;">${cat}</span>
+              <span style="font-size:10.5px; color:var(--muted);">使用 ¥${used.toLocaleString()}</span>
+              <input type="number" inputmode="numeric" placeholder="上限なし" value="${hasLimit ? limit : ""}"
+                style="width:96px; padding:4px 6px; border-radius:6px; border:1.5px solid var(--line); background:var(--card); color:var(--ink); text-align:right; font-size:11px;"
+                onchange="updateCategoryBudget('${cat}', this.value)">
+            </div>
+            ${hasLimit ? `
+              <div class="progress-container" style="margin:2px 0 0 0;">
+                <div class="progress-bar" style="width:${pct}%; background:${barColor};"></div>
+              </div>
+              ${used > limit ? `<div style="font-size:10px; color:var(--danger); font-weight:bold; margin-top:2px;">⚠️ 上限を¥${(used - limit).toLocaleString()}超過しています</div>` : ""}
+            ` : ""}
+          </div>
+        `;
+      }).join("");
+    }
+
+    window.updateCategoryBudget = function(cat, rawVal) {
+      if (!DB.budgets.categoryBudgets) DB.budgets.categoryBudgets = {};
+      const val = evaluateMath(rawVal);
+      if (rawVal === "" || val === null) {
+        delete DB.budgets.categoryBudgets[cat];
+      } else {
+        DB.budgets.categoryBudgets[cat] = val;
+      }
+      saveDB();
+      renderStatsTab();
+    };
+
+    // 📆 先月・前年同月との比較
+    function renderMonthComparison(statsMonthStr) {
+      const box = document.getElementById("month-comparison-box");
+      if (!box) return;
+
+      const [y, m] = statsMonthStr.split("-").map(Number);
+
+      function totalsForMonth(year, month) {
+        const mStr = `${year}-${String(month).padStart(2, "0")}`;
+        let income = 0;
+        DB.jobs.forEach(j => getJobPeriodIncomeList(j, mStr).forEach(p => income += p.income));
+        income += DB.otherIncomes.filter(i => i.date.startsWith(mStr)).reduce((acc, i) => acc + i.amount, 0);
+        const expense = DB.expenses.filter(e => e.date.startsWith(mStr)).reduce((acc, e) => acc + e.amount, 0);
+        return { income, expense };
+      }
+
+      function shiftMonth(year, month, diff) {
+        const d = new Date(year, month - 1 + diff, 1);
+        return { year: d.getFullYear(), month: d.getMonth() + 1 };
+      }
+
+      const cur = totalsForMonth(y, m);
+      const prevM = shiftMonth(y, m, -1);
+      const prev = totalsForMonth(prevM.year, prevM.month);
+      const prevY = totalsForMonth(y - 1, m);
+
+      function diffLine(label, curVal, cmpVal, cmpLabel) {
+        if (cmpVal === 0 && curVal === 0) {
+          return `<div style="font-size:10.5px; color:var(--muted);">${label} vs ${cmpLabel}: データなし</div>`;
+        }
+        const diff = curVal - cmpVal;
+        const pct = cmpVal !== 0 ? Math.round((diff / cmpVal) * 100) : null;
+        const sign = diff > 0 ? "+" : "";
+        const color = diff > 0 ? "var(--danger)" : (diff < 0 ? "var(--good)" : "var(--muted)");
+        return `<div style="font-size:11px; margin-bottom:2px;">${label} vs ${cmpLabel}: <b style="color:${color};">${sign}¥${diff.toLocaleString()}</b>${pct !== null ? ` (${sign}${pct}%)` : ""}</div>`;
+      }
+
+      box.innerHTML = `
+        <div style="font-size:10.5px; color:var(--muted); margin-bottom:6px;">今月 ¥${cur.income.toLocaleString()}収入 / ¥${cur.expense.toLocaleString()}支出</div>
+        <div style="font-weight:bold; font-size:10.5px; margin-bottom:2px;">💰 収入</div>
+        ${diffLine("今月", cur.income, prev.income, "先月")}
+        ${diffLine("今月", cur.income, prevY.income, "前年同月")}
+        <div style="font-weight:bold; font-size:10.5px; margin-top:6px; margin-bottom:2px;">💸 支出</div>
+        ${diffLine("今月", cur.expense, prev.expense, "先月")}
+        ${diffLine("今月", cur.expense, prevY.expense, "前年同月")}
+      `;
     }
 
     function renderStatsCategoryChips(statsMonthStr, budgetTotal, recoveryTotal = 0) {
@@ -4171,8 +4359,8 @@
 
       document.getElementById("setting-theme-select").value = DB.settings.theme || "light";
       document.getElementById("setting-base-asset").value = DB.baseAsset || 0;
-      document.getElementById("setting-wall-target").value = [1780000, 1060000, 1300000, 1500000, 2010000].includes(DB.wallTarget) ? DB.wallTarget : "custom";
-      if (![1780000, 1060000, 1300000, 1500000, 2010000].includes(DB.wallTarget)) {
+      document.getElementById("setting-wall-target").value = [1600000, 1060000, 1300000, 1500000, 2010000].includes(DB.wallTarget) ? DB.wallTarget : "custom";
+      if (![1600000, 1060000, 1300000, 1500000, 2010000].includes(DB.wallTarget)) {
         document.getElementById("custom-wall-group").style.display = "block";
         document.getElementById("setting-wall-custom").value = DB.wallTarget;
       }
@@ -4985,6 +5173,123 @@
       }
     }
 
+    // ☁️ クラウド自動バックアップ (GitHub Gist)
+    // トークン・Gist ID は DB(JSON書き出し対象)ではなく localStorage の別キーに保持し、
+    // バックアップファイルの共有やインポート時にトークンが漏れないようにする。
+    const GH_TOKEN_KEY = "PAYCALE_GH_TOKEN";
+    const GH_GISTID_KEY = "PAYCALE_GH_GISTID";
+    const GH_AUTOBK_KEY = "PAYCALE_GH_AUTOBACKUP";
+    const GH_LASTSYNC_KEY = "PAYCALE_GH_LASTSYNC";
+    const GIST_FILENAME = "paycale_backup.json";
+
+    function ghGetToken() { try { return localStorage.getItem(GH_TOKEN_KEY) || ""; } catch (e) { return ""; } }
+    function ghSetToken(t) { try { localStorage.setItem(GH_TOKEN_KEY, t); } catch (e) {} }
+    function ghGetGistId() { try { return localStorage.getItem(GH_GISTID_KEY) || ""; } catch (e) { return ""; } }
+    function ghSetGistId(id) { try { localStorage.setItem(GH_GISTID_KEY, id); } catch (e) {} }
+    function ghGetAutoBackup() { try { return localStorage.getItem(GH_AUTOBK_KEY) === "1"; } catch (e) { return false; } }
+    function ghSetAutoBackup(on) { try { localStorage.setItem(GH_AUTOBK_KEY, on ? "1" : "0"); } catch (e) {} }
+    function ghGetLastSync() { try { return localStorage.getItem(GH_LASTSYNC_KEY) || ""; } catch (e) { return ""; } }
+    function ghSetLastSync(iso) { try { localStorage.setItem(GH_LASTSYNC_KEY, iso); } catch (e) {} }
+
+    function updateCloudBackupStatusUI() {
+      const statusEl = document.getElementById("cloud-backup-status");
+      const tokenEl = document.getElementById("cloud-gh-token");
+      const autoEl = document.getElementById("cloud-auto-backup-toggle");
+      if (tokenEl && !tokenEl.value) tokenEl.value = ghGetToken();
+      if (autoEl) autoEl.checked = ghGetAutoBackup();
+      if (!statusEl) return;
+      const last = ghGetLastSync();
+      const gistId = ghGetGistId();
+      if (!ghGetToken()) {
+        statusEl.textContent = "未設定（トークンを入力してください）";
+      } else if (last) {
+        statusEl.textContent = `最終バックアップ: ${new Date(last).toLocaleString("ja-JP")}${gistId ? "（Gist連携済み）" : ""}`;
+      } else {
+        statusEl.textContent = "トークン設定済み・まだバックアップしていません";
+      }
+    }
+
+    async function cloudBackupSave(silent = false) {
+      const token = ghGetToken();
+      if (!token) {
+        if (!silent) showToast("⚠️ 先にGitHubトークンを設定してください", "danger");
+        return false;
+      }
+      try {
+        const backupData = Object.assign({}, DB, { actualPay: DB.actualPay || {} });
+        const gistId = ghGetGistId();
+        const url = gistId ? `https://api.github.com/gists/${gistId}` : "https://api.github.com/gists";
+        const method = gistId ? "PATCH" : "POST";
+        const res = await fetch(url, {
+          method,
+          headers: {
+            "Authorization": `Bearer ${token}`,
+            "Accept": "application/vnd.github+json",
+            "Content-Type": "application/json"
+          },
+          body: JSON.stringify({
+            description: "PayCale バックアップ（自動生成・共有しないでください）",
+            public: false,
+            files: { [GIST_FILENAME]: { content: JSON.stringify(backupData, null, 2) } }
+          })
+        });
+        if (!res.ok) {
+          if (res.status === 404 && gistId) {
+            // 以前のGistが削除された等 → 新規作成にフォールバック
+            ghSetGistId("");
+            return cloudBackupSave(silent);
+          }
+          throw new Error(`HTTP ${res.status}`);
+        }
+        const data = await res.json();
+        if (data.id) ghSetGistId(data.id);
+        ghSetLastSync(new Date().toISOString());
+        updateCloudBackupStatusUI();
+        if (!silent) showToast("☁️ クラウドにバックアップしました");
+        return true;
+      } catch (err) {
+        console.error("cloudBackupSave error", err);
+        if (!silent) showToast("⚠️ クラウドバックアップに失敗しました（トークンやネットワークをご確認ください）", "danger");
+        return false;
+      }
+    }
+
+    async function cloudBackupRestore() {
+      const token = ghGetToken();
+      const gistId = ghGetGistId();
+      if (!token) { showToast("⚠️ 先にGitHubトークンを設定してください", "danger"); return; }
+      if (!gistId) { showToast("⚠️ このトークンでのバックアップ履歴が見つかりません", "danger"); return; }
+      if (!confirm("クラウド上のバックアップで現在のデータを上書きします。よろしいですか？")) return;
+      try {
+        const res = await fetch(`https://api.github.com/gists/${gistId}`, {
+          headers: { "Authorization": `Bearer ${token}`, "Accept": "application/vnd.github+json" }
+        });
+        if (!res.ok) throw new Error(`HTTP ${res.status}`);
+        const data = await res.json();
+        const file = data.files && data.files[GIST_FILENAME];
+        if (!file || !file.content) throw new Error("バックアップファイルが見つかりません");
+        const restored = JSON.parse(file.content);
+        pushUndoState();
+        DB = Object.assign({}, DEFAULT_DB, restored);
+        if (!DB.actualPay) DB.actualPay = {};
+        if (!DB.budgets) DB.budgets = DEFAULT_DB.budgets;
+        if (!DB.budgets.categoryBudgets) DB.budgets.categoryBudgets = {};
+        saveDB(); renderAll();
+        showToast("📥 クラウドバックアップから復元しました");
+      } catch (err) {
+        console.error("cloudBackupRestore error", err);
+        showToast("⚠️ 復元に失敗しました（トークンやネットワークをご確認ください）", "danger");
+      }
+    }
+
+    // saveDB() の後にフックして、自動バックアップが有効なら控えめな頻度でバックグラウンド同期する
+    let __autoBackupTimer = null;
+    function scheduleAutoBackupIfEnabled() {
+      if (!ghGetAutoBackup() || !ghGetToken()) return;
+      if (__autoBackupTimer) clearTimeout(__autoBackupTimer);
+      __autoBackupTimer = setTimeout(() => { cloudBackupSave(true); }, 4000);
+    }
+
     window.refreshFixedFx = async (id) => {
       const item = DB.fixedExpenses.find(f => f.id === id);
       if (!item || !item.currency || item.currency === "JPY") return;
@@ -5741,7 +6046,7 @@
         showRegisterPop({ icon: "🔁", title: "繰り返し登録を完了しました", sub: `${repeatCount}件のシフトを登録しました` });
       });
 
-      const accs = ["acc-theme", "acc-jobs", "acc-pins", "acc-wall", "acc-fixed", "acc-reminder", "acc-data"];
+      const accs = ["acc-theme", "acc-jobs", "acc-pins", "acc-wall", "acc-fixed", "acc-reminder", "acc-data", "acc-cloud"];
       accs.forEach(id => {
         const btn = document.getElementById(`${id}-btn`);
         const body = document.getElementById(`${id}-body`);
@@ -5840,7 +6145,7 @@
         pushUndoState();
         DB.baseAsset = baseAssetEval;
         const wallVal = document.getElementById("setting-wall-target").value;
-        DB.wallTarget = wallVal === "custom" ? (evaluateMath(document.getElementById("setting-wall-custom").value) || 1780000) : Number(wallVal);
+        DB.wallTarget = wallVal === "custom" ? (evaluateMath(document.getElementById("setting-wall-custom").value) || 1600000) : Number(wallVal);
         DB.budgets.savingsGoal = evaluateMath(document.getElementById("setting-savings-goal").value) || 0;
         DB.budgets.monthly = evaluateMath(document.getElementById("setting-monthly-budget").value) || 0;
         saveDB(); renderAll();
@@ -5907,6 +6212,41 @@
           showToast("⚠️ データを初期化しました", "danger");
         }
       });
+
+      const cloudTokenEl = document.getElementById("cloud-gh-token");
+      if (cloudTokenEl) {
+        cloudTokenEl.addEventListener("change", () => {
+          ghSetToken(cloudTokenEl.value.trim());
+          updateCloudBackupStatusUI();
+        });
+      }
+      const cloudAutoEl = document.getElementById("cloud-auto-backup-toggle");
+      if (cloudAutoEl) {
+        cloudAutoEl.addEventListener("change", () => {
+          ghSetAutoBackup(cloudAutoEl.checked);
+          if (cloudAutoEl.checked) showToast("☁️ 自動バックアップを有効にしました");
+        });
+      }
+      const cloudSaveBtn = document.getElementById("cloud-backup-save-btn");
+      if (cloudSaveBtn) {
+        cloudSaveBtn.addEventListener("click", async () => {
+          cloudSaveBtn.disabled = true;
+          const label = cloudSaveBtn.textContent;
+          cloudSaveBtn.textContent = "同期中…";
+          await cloudBackupSave(false);
+          cloudSaveBtn.textContent = label;
+          cloudSaveBtn.disabled = false;
+        });
+      }
+      const cloudRestoreBtn = document.getElementById("cloud-backup-restore-btn");
+      if (cloudRestoreBtn) {
+        cloudRestoreBtn.addEventListener("click", async () => {
+          cloudRestoreBtn.disabled = true;
+          await cloudBackupRestore();
+          cloudRestoreBtn.disabled = false;
+        });
+      }
+      updateCloudBackupStatusUI();
     }
 
     window.addEventListener("DOMContentLoaded", () => {
@@ -5919,6 +6259,11 @@
       applyChartTheme();
       moveTabIndicator("home");
       renderAll();
+      if (window.__dbLoadFailed) {
+        setTimeout(() => {
+          showToast("⚠️ 保存データの読み込みに失敗したため初期状態で起動しました", "danger");
+        }, 400);
+      }
     });
   </script>
 </body>
