@@ -29,6 +29,7 @@
       --shadow: 0 4px 12px rgba(0, 0, 0, 0.05);
       --radius: 14px;
       --cal-grid-line: rgba(249, 115, 22, 0.12);
+      --cal-cell-bg: #fffaf5;
       --font-stack: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, "Helvetica Neue", sans-serif;
       --sat-color: #2563eb;
     }
@@ -46,6 +47,7 @@
       --shadow: 0 4px 12px rgba(0, 0, 0, 0.3);
       --sat-color: #3b82f6;
       --cal-grid-line: rgba(249, 115, 22, 0.16);
+      --cal-cell-bg: #1a1408;
     }
 
     * {
@@ -316,18 +318,15 @@
     .calendar-grid {
       display: grid;
       grid-template-columns: repeat(7, 1fr);
-      gap: 1px;
-      background: var(--cal-grid-line);
-      border-top: 1px solid var(--cal-grid-line);
-      border-bottom: 1px solid var(--cal-grid-line);
-      border-left: none;
-      border-right: none;
+      gap: 0;
+      background: transparent;
+      border: none;
       overflow: hidden;
       width: 100%;
     }
 
     .cal-day-head {
-      background: var(--bg);
+      background: transparent;
       text-align: center;
       font-size: 10px;
       font-weight: bold;
@@ -338,7 +337,7 @@
     .cal-day-head:nth-child(7) { color: var(--sat-color); }
 
     .day-cell {
-      background: var(--card);
+      background: var(--cal-cell-bg);
       height: 74px;
       min-height: 74px;
       max-height: 74px;
