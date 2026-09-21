@@ -453,6 +453,18 @@
       color: #cbd5e1 !important;
       border-color: #475569 !important;
     }
+    .cal-badge.more-badge {
+      background: var(--brand-light) !important;
+      color: var(--brand-dark) !important;
+      border: 1px solid var(--brand) !important;
+      font-weight: 800;
+      text-align: center;
+    }
+    [data-theme="dark"] .cal-badge.more-badge {
+      background: #2a1c0f !important;
+      color: #fdba74 !important;
+      border-color: #fb923c !important;
+    }
 
     .cal-day-diff {
       font-size: 7.8px;
@@ -2141,6 +2153,7 @@
           <div class="accordion-body" id="acc-data-body">
             <div style="display: flex; flex-direction: column; gap: 6px;">
               <button class="btn btn-outline btn-sm" id="export-csv-btn">📤 CSV書き出し</button>
+              <button class="btn btn-outline btn-sm" id="export-yearly-payroll-csv-btn">📅 年間の給料一覧をCSV出力（確定申告用）</button>
               <button class="btn btn-outline btn-sm" id="export-json-btn">💾 JSONバックアップ</button>
               <button class="btn btn-outline btn-sm" id="import-json-trigger-btn">📥 JSON復元</button>
               <button class="btn btn-danger btn-sm" id="reset-data-btn" style="margin-top: 6px;">⚠️ 全データ初期化</button>
@@ -2181,8 +2194,10 @@
               ※ホーム画面のアイコンから開いたPayCaleの中でボタンを押してください（Safariのタブから押しても動きません）。
             </div>
             <button class="btn btn-good btn-sm" id="enable-push-btn" style="width:100%; margin-bottom:6px;">🔔 通知を有効にする</button>
-            <button class="btn btn-outline btn-sm" id="test-push-btn" style="width:100%;">🧪 テスト通知を送る</button>
+            <button class="btn btn-outline btn-sm" id="test-push-btn" style="width:100%; margin-bottom:6px;">🧪 テスト通知を送る</button>
+            <button class="btn btn-outline btn-sm" id="check-worker-health-btn" style="width:100%;">🔌 通知サーバーの状態を確認</button>
             <div style="font-size: 10.5px; color: var(--muted); margin-top:6px;" id="push-status">未設定</div>
+            <div style="font-size: 10.5px; color: var(--muted); margin-top:4px;" id="worker-health-status"></div>
           </div>
         </div>
 
@@ -2545,6 +2560,20 @@
         <div id="fixed-expense-fx-note" style="font-size:10px; color:var(--muted); margin-top:-2px; margin-bottom:6px; display:none;">
           💡 保存時に最新の為替レートを自動取得し、円換算額を表示します。
         </div>
+        <div class="form-group">
+          <label>支払日（毎月・任意）</label>
+          <select id="fixed-expense-payday" class="form-control">
+            <option value="">設定しない（記録漏れ通知は使わない）</option>
+            <option value="1">1日</option><option value="5">5日</option>
+            <option value="10">10日</option><option value="15">15日</option>
+            <option value="20">20日</option><option value="25">25日</option>
+            <option value="27">27日</option><option value="28">28日</option>
+            <option value="末日">末日</option>
+          </select>
+          <div style="font-size:10px; color:var(--muted); margin-top:3px;">
+            設定すると、支払日に「支出として記録しましたか？」の通知が届きます。
+          </div>
+        </div>
         <div style="display:flex; gap:6px; margin-top:10px;">
           <button type="submit" class="btn" style="flex:1;" id="fixed-expense-save-btn">追加する</button>
         </div>
@@ -2713,6 +2742,8 @@
         localStorage.setItem("SHIFT_PRO_DB", JSON.stringify(DB));
         if (typeof scheduleAutoBackupIfEnabled === "function") scheduleAutoBackupIfEnabled();
         if (typeof scheduleShiftSyncIfEnabled === "function") scheduleShiftSyncIfEnabled();
+        if (typeof scheduleBudgetSyncIfEnabled === "function") scheduleBudgetSyncIfEnabled();
+        if (typeof scheduleFixedExpenseSyncIfEnabled === "function") scheduleFixedExpenseSyncIfEnabled();
         return true;
       } catch (e) {
         console.error("DB保存エラー", e);
@@ -2736,8 +2767,28 @@
       if (undoStack.length > 5) undoStack.shift();
     }
 
+    // 直前の操作を取り消す（pushUndoState()で積んだスナップショットを1つ戻す）
+    function undoLastAction() {
+      const snap = undoStack.pop();
+      if (!snap) {
+        showToast("⚠️ これ以上元に戻せません", "danger");
+        return;
+      }
+      try {
+        DB = JSON.parse(snap.dbState);
+      } catch (e) {
+        console.error("undo failed", e);
+        showToast("⚠️ 元に戻す処理に失敗しました", "danger");
+        return;
+      }
+      saveDB();
+      renderAll();
+      showToast("↩️ 元に戻しました");
+    }
+
     // 🍞 トースト通知関数
-    function showToast(message, type = "good") {
+    // action: { label, onClick } を渡すと、トースト内に「元に戻す」等のリンクボタンを表示できる
+    function showToast(message, type = "good", action = null) {
       const container = document.getElementById("toast-container");
       if (!container) return;
       const toast = document.createElement("div");
@@ -2746,20 +2797,49 @@
         background: ${bgColor}; color: white; padding: 10px 16px; border-radius: 8px;
         font-size: 12px; font-weight: bold; text-align: center; box-shadow: 0 4px 12px rgba(0,0,0,0.15);
         opacity: 0; transform: translateY(-10px); transition: all 0.3s ease; pointer-events: auto;
+        display: flex; align-items: center; justify-content: center; gap: 10px;
       `;
-      toast.textContent = message;
+      const msgSpan = document.createElement("span");
+      msgSpan.textContent = message;
+      toast.appendChild(msgSpan);
+
+      let removeTimer = null;
+      const scheduleRemove = (delay) => {
+        if (removeTimer) clearTimeout(removeTimer);
+        removeTimer = setTimeout(() => {
+          toast.style.opacity = "0";
+          toast.style.transform = "translateY(-10px)";
+          setTimeout(() => toast.remove(), 300);
+        }, delay);
+      };
+
+      if (action && action.label && typeof action.onClick === "function") {
+        const actionBtn = document.createElement("button");
+        actionBtn.textContent = action.label;
+        actionBtn.style.cssText = `
+          background: rgba(255,255,255,0.25); color: #fff; border: 1px solid rgba(255,255,255,0.6);
+          border-radius: 6px; padding: 3px 10px; font-size: 11.5px; font-weight: 800;
+          cursor: pointer; white-space: nowrap;
+        `;
+        actionBtn.onclick = () => {
+          action.onClick();
+          if (removeTimer) clearTimeout(removeTimer);
+          toast.style.opacity = "0";
+          toast.style.transform = "translateY(-10px)";
+          setTimeout(() => toast.remove(), 300);
+        };
+        toast.appendChild(actionBtn);
+      }
+
       container.appendChild(toast);
-      
+
       requestAnimationFrame(() => {
         toast.style.opacity = "1";
         toast.style.transform = "translateY(0)";
       });
 
-      setTimeout(() => {
-        toast.style.opacity = "0";
-        toast.style.transform = "translateY(-10px)";
-        setTimeout(() => toast.remove(), 300);
-      }, 2500);
+      // 元に戻すボタン付きの場合は少し長めに表示しておく
+      scheduleRemove(action ? 4500 : 2500);
     }
 
     // ✨ カレンダー登録完了ポップ（シフト・支出・収入などを登録した瞬間に表示）
@@ -3249,7 +3329,7 @@
           }
 
           let dayIncTotal = 0;
-          let badgesHtml = '<div class="cal-badge-container">';
+          const badgeParts = [];
 
           const prevDateObj = new Date(dt);
           prevDateObj.setDate(dt.getDate() - 1);
@@ -3264,7 +3344,7 @@
             if (endMins > 24 * 60) {
               const endH = Math.floor((endMins - 24 * 60) / 60);
               const endM = (endMins - 24 * 60) % 60;
-              badgesHtml += `<div class="cal-badge overnight">🌙 〜${String(endH).padStart(2,'0')}:${String(endM).padStart(2,'0')}</div>`;
+              badgeParts.push(`<div class="cal-badge overnight">🌙 〜${String(endH).padStart(2,'0')}:${String(endM).padStart(2,'0')}</div>`);
             }
           });
 
@@ -3274,18 +3354,29 @@
             const pay = calculateShiftPay(s).totalPay;
             dayIncTotal += pay;
             const jobColor = job ? job.color : 'var(--good)';
-            badgesHtml += `<div class="cal-badge shift-pay" style="border: 1px solid ${jobColor}bb; border-left: 3.5px solid ${jobColor} !important;">${formatCalBadgeAmount(pay, true)}</div>`;
+            badgeParts.push(`<div class="cal-badge shift-pay" style="border: 1px solid ${jobColor}bb; border-left: 3.5px solid ${jobColor} !important;">${formatCalBadgeAmount(pay, true)}</div>`);
           });
 
           const dayIncomes = DB.otherIncomes.filter(inc => inc.date === dateStr);
           const otherIncSum = dayIncomes.reduce((acc, inc) => acc + inc.amount, 0);
           dayIncTotal += otherIncSum;
-          if (otherIncSum > 0) badgesHtml += `<div class="cal-badge other-income">${formatCalBadgeAmount(otherIncSum, true)}</div>`;
+          if (otherIncSum > 0) badgeParts.push(`<div class="cal-badge other-income">${formatCalBadgeAmount(otherIncSum, true)}</div>`);
 
           const dayExpenses = DB.expenses.filter(e => e.date === dateStr);
           const dayExpSum = dayExpenses.reduce((acc, e) => acc + e.amount, 0);
-          if (dayExpSum > 0) badgesHtml += `<div class="cal-badge expense">${formatCalBadgeAmount(dayExpSum, false)}</div>`;
+          if (dayExpSum > 0) badgeParts.push(`<div class="cal-badge expense">${formatCalBadgeAmount(dayExpSum, false)}</div>`);
 
+          // セルの高さが固定(74px)なので、バッジが多すぎると見切れてしまう。
+          // 3件を超える分は「+N件」の省略バッジにまとめ、タップすれば日別モーダルで全件見られる
+          let badgesHtml = '<div class="cal-badge-container">';
+          const MAX_VISIBLE_BADGES = 3;
+          if (badgeParts.length > MAX_VISIBLE_BADGES) {
+            const hiddenCount = badgeParts.length - (MAX_VISIBLE_BADGES - 1);
+            badgesHtml += badgeParts.slice(0, MAX_VISIBLE_BADGES - 1).join("");
+            badgesHtml += `<div class="cal-badge more-badge">+${hiddenCount}件</div>`;
+          } else {
+            badgesHtml += badgeParts.join("");
+          }
           badgesHtml += '</div>';
 
           weekInc += dayIncTotal;
@@ -4279,11 +4370,12 @@
         "📌"
       );
       if (confirmed) {
+        pushUndoState();
         DB.pins = DB.pins.filter(p => String(p.id) !== String(pinId));
         saveDB();
         renderAll();
         closePinEditModal();
-        showToast("📌 テンプレートを削除しました", "danger");
+        showToast("📌 テンプレートを削除しました", "danger", { label: "元に戻す", onClick: undoLastAction });
       }
     }
 
@@ -4467,9 +4559,10 @@
           const cur = f.currency || "JPY";
           const rate = cur === "JPY" ? 1 : (f.fxRate || 1);
           const jpyAmount = Math.round(f.amount * rate);
-          const subText = cur === "JPY"
+          const paydayText = f.payDay ? `・支払日:${f.payDay === "末日" ? "末日" : f.payDay + "日"}` : "";
+          const subText = (cur === "JPY"
             ? `¥${f.amount.toLocaleString()}/月`
-            : `${cur} ${f.amount.toLocaleString()} ≈ ¥${jpyAmount.toLocaleString()}/月 (${f.fxUpdatedAt ? f.fxUpdatedAt + "時点レート" : "レート未取得"})`;
+            : `${cur} ${f.amount.toLocaleString()} ≈ ¥${jpyAmount.toLocaleString()}/月 (${f.fxUpdatedAt ? f.fxUpdatedAt + "時点レート" : "レート未取得"})`) + paydayText;
           const refreshBtn = cur !== "JPY"
             ? `<button class="btn btn-outline btn-sm" onclick="refreshFixedFx(${f.id})" title="最新レートに更新">🔄</button>`
             : "";
@@ -5157,7 +5250,7 @@
         pushUndoState();
         DB.shifts = DB.shifts.filter(x => String(x.id) !== String(id));
         saveDB(); renderAll(); closeEntryModal();
-        showToast("📅 シフトを削除しました", "danger");
+        showToast("📅 シフトを削除しました", "danger", { label: "元に戻す", onClick: undoLastAction });
       }
     };
     window.deleteExpense = async (id) => {
@@ -5173,7 +5266,7 @@
         pushUndoState();
         DB.expenses = DB.expenses.filter(x => String(x.id) !== String(id));
         saveDB(); renderAll(); closeEntryModal();
-        showToast("💸 支出を削除しました", "danger");
+        showToast("💸 支出を削除しました", "danger", { label: "元に戻す", onClick: undoLastAction });
       }
     };
     window.deleteIncome = async (id) => {
@@ -5189,7 +5282,7 @@
         pushUndoState();
         DB.otherIncomes = DB.otherIncomes.filter(x => String(x.id) !== String(id));
         saveDB(); renderAll(); closeEntryModal();
-        showToast("💵 収入を削除しました", "danger");
+        showToast("💵 収入を削除しました", "danger", { label: "元に戻す", onClick: undoLastAction });
       }
     };
     window.deleteJob = async (id) => {
@@ -5204,7 +5297,7 @@
         pushUndoState();
         DB.jobs = DB.jobs.filter(x => x.id !== id);
         saveDB(); renderAll();
-        showToast("🏢 勤務先を削除しました", "danger");
+        showToast("🏢 勤務先を削除しました", "danger", { label: "元に戻す", onClick: undoLastAction });
       }
     };
     window.deletePin = async (id) => {
@@ -5217,7 +5310,7 @@
         pushUndoState();
         DB.pins = DB.pins.filter(p => p.id !== id);
         saveDB(); renderAll();
-        showToast("🗑 テンプレートを削除しました", "danger");
+        showToast("🗑 テンプレートを削除しました", "danger", { label: "元に戻す", onClick: undoLastAction });
       }
     };
     window.deleteFixedConfig = async (id) => {
@@ -5232,7 +5325,7 @@
         pushUndoState();
         DB.fixedExpenses = DB.fixedExpenses.filter(f => f.id !== id);
         saveDB(); renderAll();
-        showToast("💳 固定費を削除しました", "danger");
+        showToast("💳 固定費を削除しました", "danger", { label: "元に戻す", onClick: undoLastAction });
       }
     };
 
@@ -5351,6 +5444,8 @@
         await syncReminderToPushServer();
         await syncShiftAlertSettingsToPushServer();
         await syncUpcomingShiftsToPushServer();
+        await syncBudgetStatusToPushServer();
+        await syncFixedExpensesToPushServer();
         showToast("🔔 通知を有効にしました");
         updatePushStatusUI();
       } catch (err) {
@@ -5437,6 +5532,69 @@
       __shiftSyncTimer = setTimeout(() => { syncUpcomingShiftsToPushServer(); }, 4000);
     }
 
+    // 📂 カテゴリ別予算の「上限・今月の使用額」をWorkerに送っておき、
+    // 上限を超えたらサーバー側(5分おきcron)からプッシュ通知してもらう
+    async function syncBudgetStatusToPushServer() {
+      try {
+        const monthStr = `${currentDate.getFullYear()}-${String(currentDate.getMonth() + 1).padStart(2, "0")}`;
+        const categoryBudgets = (DB.budgets && DB.budgets.categoryBudgets) || {};
+        const items = Object.keys(categoryBudgets)
+          .map((cat) => {
+            const limit = Number(categoryBudgets[cat]);
+            if (!limit) return null;
+            const used = DB.expenses
+              .filter((e) => e.date && e.date.startsWith(monthStr) && e.category === cat)
+              .reduce((acc, e) => acc + Number(e.amount || 0), 0);
+            return { category: cat, limit, used };
+          })
+          .filter(Boolean);
+
+        await fetch(`${PUSH_WORKER_URL}/budget-status`, {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ month: monthStr, items })
+        });
+      } catch (e) {
+        console.error("syncBudgetStatusToPushServer error", e);
+      }
+    }
+
+    let __budgetSyncTimer = null;
+    function scheduleBudgetSyncIfEnabled() {
+      try {
+        if (localStorage.getItem(PUSH_SUB_STATE_KEY) !== "1") return;
+      } catch (e) { return; }
+      if (__budgetSyncTimer) clearTimeout(__budgetSyncTimer);
+      __budgetSyncTimer = setTimeout(() => { syncBudgetStatusToPushServer(); }, 4000);
+    }
+
+    // 🏠 固定費（支払日つき）の一覧をWorkerに送り、支払日当日に
+    // 「支出として記録しましたか？」のプッシュ通知をしてもらう
+    async function syncFixedExpensesToPushServer() {
+      try {
+        const items = (DB.fixedExpenses || [])
+          .filter((f) => f.payDay)
+          .map((f) => ({ id: f.id, memo: f.memo, amount: Math.round(f.amount * (f.currency === "JPY" || !f.currency ? 1 : (f.fxRate || 1))), payDay: f.payDay }));
+
+        await fetch(`${PUSH_WORKER_URL}/fixed-expenses`, {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify(items)
+        });
+      } catch (e) {
+        console.error("syncFixedExpensesToPushServer error", e);
+      }
+    }
+
+    let __fixedExpenseSyncTimer = null;
+    function scheduleFixedExpenseSyncIfEnabled() {
+      try {
+        if (localStorage.getItem(PUSH_SUB_STATE_KEY) !== "1") return;
+      } catch (e) { return; }
+      if (__fixedExpenseSyncTimer) clearTimeout(__fixedExpenseSyncTimer);
+      __fixedExpenseSyncTimer = setTimeout(() => { syncFixedExpensesToPushServer(); }, 4000);
+    }
+
     async function sendTestPush() {
       try {
         const res = await fetch(`${PUSH_WORKER_URL}/test`, { method: "POST" });
@@ -5448,6 +5606,33 @@
       } catch (err) {
         console.error("sendTestPush error", err);
         showToast("⚠️ テスト通知の送信に失敗しました。先に「通知を有効にする」を押してください", "danger");
+      }
+    }
+
+    // 🔌 通知サーバー(Cloudflare Worker)がちゃんと動いているか確認する
+    async function checkWorkerHealth() {
+      const el = document.getElementById("worker-health-status");
+      if (el) el.textContent = "確認中...";
+      try {
+        const controller = new AbortController();
+        const timeoutId = setTimeout(() => controller.abort(), 6000);
+        const res = await fetch(`${PUSH_WORKER_URL}/health`, { signal: controller.signal });
+        clearTimeout(timeoutId);
+        if (!res.ok) throw new Error(`HTTP ${res.status}`);
+        const data = await res.json();
+        const time = data && data.time ? new Date(data.time).toLocaleString("ja-JP") : "";
+        if (el) {
+          el.style.color = "var(--good)";
+          el.textContent = `✅ サーバーは正常に動いています（確認時刻: ${time}）`;
+        }
+        showToast("✅ 通知サーバーは正常です");
+      } catch (err) {
+        console.error("checkWorkerHealth error", err);
+        if (el) {
+          el.style.color = "var(--danger)";
+          el.textContent = "⚠️ サーバーに接続できませんでした（Workerが停止しているか、通信環境をご確認ください）";
+        }
+        showToast("⚠️ 通知サーバーに接続できませんでした", "danger");
       }
     }
 
@@ -6160,7 +6345,7 @@
           saveDB(); selectedDates.clear(); multiSelectMode = false;
           document.getElementById("multi-select-actions").style.display = "none";
           renderAll();
-          showToast("🗑 選択したデータを削除しました", "danger");
+          showToast("🗑 選択したデータを削除しました", "danger", { label: "元に戻す", onClick: undoLastAction });
         }
       });
 
@@ -6490,6 +6675,7 @@
         document.getElementById("fixed-expense-form").reset();
         document.getElementById("fixed-expense-amount").value = "";
         document.getElementById("fixed-expense-currency").value = "JPY";
+        document.getElementById("fixed-expense-payday").value = "";
         document.getElementById("fixed-expense-fx-note").style.display = "none";
         openModalWithLock("fixed-expense-modal");
       });
@@ -6510,9 +6696,10 @@
         if (!memo) return;
         if (amount === null || amount <= 0) { showInputError(amountInput); return; }
 
+        const payDayRaw = document.getElementById("fixed-expense-payday").value;
         const saveBtn = document.getElementById("fixed-expense-save-btn");
         pushUndoState();
-        const item = { id: Date.now(), memo, amount, currency, fxRate: 1, fxUpdatedAt: null, autoApply: true };
+        const item = { id: Date.now(), memo, amount, currency, fxRate: 1, fxUpdatedAt: null, autoApply: true, payDay: payDayRaw || null };
 
         if (currency !== "JPY") {
           saveBtn.disabled = true;
@@ -6586,6 +6773,56 @@
         const a = document.createElement("a"); a.href = URL.createObjectURL(blob);
         a.download = `PayCale_export_${getLocalDateString(new Date())}.csv`; a.click();
         showToast("📤 CSVを書き出しました");
+      });
+
+      document.getElementById("export-yearly-payroll-csv-btn").addEventListener("click", () => {
+        const defaultYear = new Date().getFullYear();
+        const input = prompt("何年分の給料一覧を出力しますか？（西暦4桁）", String(defaultYear));
+        if (!input) return;
+        const year = parseInt(input, 10);
+        if (!year || year < 2000 || year > 2100) {
+          showToast("⚠️ 年の指定が正しくありません", "danger");
+          return;
+        }
+
+        // 支給日がその年に含まれる回を漏れなく拾うため、前年12月〜翌年1月までの
+        // 「収入発生月」を全て計算対象にし、実際の支給日(payDateStr)でその年分だけに絞り込む
+        const targetMonths = [`${year - 1}-12`];
+        for (let mm = 1; mm <= 12; mm++) targetMonths.push(`${year}-${String(mm).padStart(2, "0")}`);
+        targetMonths.push(`${year + 1}-01`);
+
+        const rowsByKey = new Map();
+        targetMonths.forEach((monthStr) => {
+          DB.jobs.forEach((job) => {
+            getJobPeriodIncomeList(job, monthStr).forEach((entry) => {
+              if (entry.payDateStr && entry.payDateStr.startsWith(String(year))) {
+                rowsByKey.set(entry.key, entry);
+              }
+            });
+          });
+        });
+
+        const rows = Array.from(rowsByKey.values()).sort((a, b) => a.payDateStr.localeCompare(b.payDateStr));
+
+        if (rows.length === 0) {
+          showToast("⚠️ 該当する年のデータが見つかりませんでした", "danger");
+          return;
+        }
+
+        let csv = "﻿支給日,勤務先,対象期間,金額,実額入力\n";
+        let total = 0;
+        rows.forEach((r) => {
+          total += Number(r.income) || 0;
+          csv += `${r.payDateStr},${r.name},${r.labelPeriod},${r.income},${r.isActual ? "○" : ""}\n`;
+        });
+        csv += `,,${year}年 合計,${total},\n`;
+
+        const blob = new Blob([csv], { type: "text/csv;charset=utf-8;" });
+        const a = document.createElement("a");
+        a.href = URL.createObjectURL(blob);
+        a.download = `PayCale_給料一覧_${year}年.csv`;
+        a.click();
+        showToast(`📅 ${year}年分の給料一覧を書き出しました（合計¥${total.toLocaleString()}）`);
       });
 
       document.getElementById("export-json-btn").addEventListener("click", () => {
@@ -6674,6 +6911,14 @@
           testPushBtn.disabled = true;
           await sendTestPush();
           testPushBtn.disabled = false;
+        });
+      }
+      const healthBtn = document.getElementById("check-worker-health-btn");
+      if (healthBtn) {
+        healthBtn.addEventListener("click", async () => {
+          healthBtn.disabled = true;
+          await checkWorkerHealth();
+          healthBtn.disabled = false;
         });
       }
       updatePushStatusUI();
