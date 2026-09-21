@@ -2103,6 +2103,23 @@
         </div>
 
         <div class="accordion-item">
+          <button class="accordion-header" id="acc-shiftalert-btn">⏰ シフト開始前の通知</button>
+          <div class="accordion-body" id="acc-shiftalert-body">
+            <div style="font-size: 10.5px; color: var(--muted); margin-bottom: 8px;">
+              シフト開始の指定時間前に、勤務先・時間・見込み給料と応援メッセージを通知します。（🔔プッシュ通知を有効にしている場合のみ届きます）
+            </div>
+            <div class="form-group">
+              <label><input type="checkbox" id="setting-shiftalert-enable"> シフト開始前に通知する</label>
+            </div>
+            <div class="form-group">
+              <label>何分前に通知する？</label>
+              <input type="number" id="setting-shiftalert-minutes" class="form-control" min="0" step="5" value="60">
+            </div>
+            <button class="btn btn-sm" id="save-shiftalert-btn">保存</button>
+          </div>
+        </div>
+
+        <div class="accordion-item">
           <button class="accordion-header" id="acc-data-btn">💾 データ管理・バックアップ</button>
           <div class="accordion-body" id="acc-data-body">
             <div style="display: flex; flex-direction: column; gap: 6px;">
@@ -2639,7 +2656,7 @@
       baseAssetDate: "2026-08-07",
       budgets: { monthly: 50000, savingsGoal: 0 },
       wallTarget: 1600000,
-      reminder: { enabled: false, time: "21:00" },
+      reminder: { enabled: false, time: "21:00", shiftAlertEnabled: false, shiftAlertMinutes: 60 },
       settings: { 
         theme: "light",
         selectedStatsCategories: ["食費", "交通費", "貯金", "その他", "日用品", "交際費", "趣味", "固定費"]
@@ -2668,6 +2685,9 @@
     }
     if (!DB.budgets) DB.budgets = DEFAULT_DB.budgets;
     if (!DB.budgets.categoryBudgets) DB.budgets.categoryBudgets = {};
+    if (!DB.reminder) DB.reminder = DEFAULT_DB.reminder;
+    if (DB.reminder.shiftAlertEnabled === undefined) DB.reminder.shiftAlertEnabled = false;
+    if (DB.reminder.shiftAlertMinutes === undefined) DB.reminder.shiftAlertMinutes = 60;
     DB.settings.selectedStatsCategories = DB.settings.selectedStatsCategories.filter(c => c !== "クレカ");
 
     let __saveFailWarned = false;
@@ -2675,6 +2695,7 @@
       try {
         localStorage.setItem("SHIFT_PRO_DB", JSON.stringify(DB));
         if (typeof scheduleAutoBackupIfEnabled === "function") scheduleAutoBackupIfEnabled();
+        if (typeof scheduleShiftSyncIfEnabled === "function") scheduleShiftSyncIfEnabled();
         return true;
       } catch (e) {
         console.error("DB保存エラー", e);
@@ -4451,6 +4472,11 @@
 
       document.getElementById("setting-reminder-enable").checked = DB.reminder.enabled;
       document.getElementById("setting-reminder-time").value = DB.reminder.time || "21:00";
+
+      const shiftAlertEnableEl = document.getElementById("setting-shiftalert-enable");
+      const shiftAlertMinEl = document.getElementById("setting-shiftalert-minutes");
+      if (shiftAlertEnableEl) shiftAlertEnableEl.checked = !!DB.reminder.shiftAlertEnabled;
+      if (shiftAlertMinEl) shiftAlertMinEl.value = DB.reminder.shiftAlertMinutes || 60;
     }
 
     window.updateJobConfig = function(idx, key, val) {
@@ -5304,12 +5330,93 @@
         });
         if (!res.ok) throw new Error(`HTTP ${res.status}`);
         try { localStorage.setItem(PUSH_SUB_STATE_KEY, "1"); } catch (e) {}
+        await syncReminderToPushServer();
+        await syncShiftAlertSettingsToPushServer();
+        await syncUpcomingShiftsToPushServer();
         showToast("🔔 通知を有効にしました");
         updatePushStatusUI();
       } catch (err) {
         console.error("enablePushNotifications error", err);
         showToast("⚠️ 通知の設定に失敗しました。ネットワークやWorkerのURLをご確認ください", "danger");
       }
+    }
+
+    // 入力忘れリマインダーの「有効/時刻」を通知サーバー側にも伝えておく。
+    // これをやらないと、通知サーバーはいつ通知していいか一生分からない。
+    async function syncReminderToPushServer() {
+      try {
+        await fetch(`${PUSH_WORKER_URL}/reminder`, {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({
+            enabled: !!(DB.reminder && DB.reminder.enabled),
+            time: (DB.reminder && DB.reminder.time) || "21:00"
+          })
+        });
+      } catch (e) {
+        console.error("syncReminderToPushServer error", e);
+      }
+    }
+
+    // シフト開始前通知の設定をサーバーに伝える
+    async function syncShiftAlertSettingsToPushServer() {
+      try {
+        await fetch(`${PUSH_WORKER_URL}/shift-alert-settings`, {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({
+            enabled: !!(DB.reminder && DB.reminder.shiftAlertEnabled),
+            minutesBefore: (DB.reminder && DB.reminder.shiftAlertMinutes) || 60
+          })
+        });
+      } catch (e) {
+        console.error("syncShiftAlertSettingsToPushServer error", e);
+      }
+    }
+
+    // 直近数日分のシフト予定（勤務先名・時間・見込み給料）をサーバーに送っておく。
+    // サーバー側はこのリストを見て「今がちょうど◯分前か」を判定するだけにする
+    // （給与計算のロジック自体はアプリ側でやったものをそのまま渡す）
+    async function syncUpcomingShiftsToPushServer() {
+      try {
+        const base = new Date();
+        const dateStrs = [0, 1, 2].map((offset) => {
+          const d = new Date(base);
+          d.setDate(d.getDate() + offset);
+          return getLocalDateString(d);
+        });
+        const payload = DB.shifts
+          .filter((s) => dateStrs.includes(s.date))
+          .map((s) => {
+            const job = DB.jobs.find((j) => String(j.id) === String(s.jobId));
+            const pay = calculateShiftPay(s).totalPay;
+            return {
+              date: s.date,
+              startTime: s.startTime,
+              endTime: s.endTime,
+              jobName: job ? job.name : "勤務先不明",
+              pay
+            };
+          });
+        await fetch(`${PUSH_WORKER_URL}/shifts`, {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify(payload)
+        });
+      } catch (e) {
+        console.error("syncUpcomingShiftsToPushServer error", e);
+      }
+    }
+
+    // シフトが追加・編集・削除されるたび(=saveDBが呼ばれるたび)に、
+    // 通知が有効な場合だけ控えめな頻度で最新のシフト予定をサーバーに送る
+    let __shiftSyncTimer = null;
+    function scheduleShiftSyncIfEnabled() {
+      try {
+        if (localStorage.getItem(PUSH_SUB_STATE_KEY) !== "1") return;
+      } catch (e) { return; }
+      if (__shiftSyncTimer) clearTimeout(__shiftSyncTimer);
+      __shiftSyncTimer = setTimeout(() => { syncUpcomingShiftsToPushServer(); }, 4000);
     }
 
     async function sendTestPush() {
@@ -6181,7 +6288,7 @@
         showRegisterPop({ icon: "🔁", title: "繰り返し登録を完了しました", sub: `${repeatCount}件のシフトを登録しました` });
       });
 
-      const accs = ["acc-theme", "acc-jobs", "acc-pins", "acc-wall", "acc-fixed", "acc-reminder", "acc-data", "acc-cloud", "acc-push"];
+      const accs = ["acc-theme", "acc-jobs", "acc-pins", "acc-wall", "acc-fixed", "acc-reminder", "acc-shiftalert", "acc-data", "acc-cloud", "acc-push"];
       accs.forEach(id => {
         const btn = document.getElementById(`${id}-btn`);
         const body = document.getElementById(`${id}-body`);
@@ -6292,8 +6399,22 @@
         DB.reminder.enabled = document.getElementById("setting-reminder-enable").checked;
         DB.reminder.time = document.getElementById("setting-reminder-time").value;
         saveDB(); renderAll();
+        syncReminderToPushServer();
         showToast("🔔 リマインダー設定を保存しました");
       });
+
+      const saveShiftAlertBtn = document.getElementById("save-shiftalert-btn");
+      if (saveShiftAlertBtn) {
+        saveShiftAlertBtn.addEventListener("click", () => {
+          pushUndoState();
+          DB.reminder.shiftAlertEnabled = document.getElementById("setting-shiftalert-enable").checked;
+          DB.reminder.shiftAlertMinutes = Number(document.getElementById("setting-shiftalert-minutes").value) || 60;
+          saveDB(); renderAll();
+          syncShiftAlertSettingsToPushServer();
+          syncUpcomingShiftsToPushServer();
+          showToast("⏰ シフト通知設定を保存しました");
+        });
+      }
 
       document.getElementById("export-csv-btn").addEventListener("click", () => {
         let csv = "\uFEFF日付/キー,種別,内容,金額\n";
