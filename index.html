@@ -1736,6 +1736,17 @@
         <button class="btn btn-sm btn-good" id="reminder-add-exp-btn">💸 記録する</button>
       </div>
 
+      <div class="card" id="ai-advice-card" style="background: linear-gradient(135deg, rgba(249,115,22,0.08), rgba(99,102,241,0.08)); border: 1.5px solid rgba(249,115,22,0.25);">
+        <div class="card-title" style="display:flex; align-items:center; justify-content:space-between;">
+          <span>🤖 AIアドバイス</span>
+          <button class="btn btn-outline btn-sm" id="ai-advice-refresh-btn" style="font-size: 9.5px; padding: 3px 8px;">🔄 更新</button>
+        </div>
+        <div id="ai-advice-body" style="font-size: 11.5px; line-height: 1.6; white-space: pre-wrap; color: var(--text-main, #333);">
+          読み込み中...
+        </div>
+        <div style="font-size: 9px; color: #999; margin-top: 4px;" id="ai-advice-updated"></div>
+      </div>
+
       <div class="card info-banner-card" id="info-banner-card"></div>
 
       <div class="mode-bar">
@@ -3112,6 +3123,7 @@
       renderSettingsTab();
       renderPinSelects();
       runTaxDiagnosis();
+      if (typeof initAiAdvice === "function") initAiAdvice();
     }
 
     function applyTheme() {
@@ -5430,6 +5442,144 @@
       } catch (err) {
         console.error("sendTestPush error", err);
         showToast("⚠️ テスト通知の送信に失敗しました。先に「通知を有効にする」を押してください", "danger");
+      }
+    }
+
+    // ============ AIアドバイス機能 ============
+    const AI_ADVICE_CACHE_KEY = "PAYCALE_AI_ADVICE_CACHE"; // { date: "2026-09-21", text: "...", jobsSnapshot: "..." }
+
+    function getMonthStrOffset(offset) {
+      const d = new Date();
+      d.setMonth(d.getMonth() + offset);
+      return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, "0")}`;
+    }
+
+    // 直近2〜3ヶ月分の支出・収入・シフトを、カテゴリ別集計などの「要約」だけにして
+    // AIに送る（生の明細は送らない＝プライバシー配慮＆通信量削減）
+    function buildSpendingSummary() {
+      const months = [getMonthStrOffset(-2), getMonthStrOffset(-1), getMonthStrOffset(0)];
+
+      const monthlyCategoryTotals = months.map((m) => {
+        const totals = {};
+        DB.expenses.filter((e) => e.date && e.date.startsWith(m)).forEach((e) => {
+          const cat = e.category || "その他";
+          totals[cat] = (totals[cat] || 0) + Number(e.amount || 0);
+        });
+        const totalExpense = Object.values(totals).reduce((a, b) => a + b, 0);
+        const totalIncomeOther = DB.otherIncomes
+          .filter((i) => i.date && i.date.startsWith(m))
+          .reduce((a, i) => a + Number(i.amount || 0), 0);
+        return { month: m, categoryTotals: totals, totalExpense, totalOtherIncome: totalIncomeOther };
+      });
+
+      // バイト先別の今月の稼働時間・見込み給料
+      const thisMonth = months[2];
+      const jobStats = DB.jobs.map((job) => {
+        const shifts = DB.shifts.filter((s) => s.date && s.date.startsWith(thisMonth) && String(s.jobId) === String(job.id));
+        let totalHours = 0;
+        let totalPay = 0;
+        shifts.forEach((s) => {
+          try {
+            const calc = calculateShiftPay(s);
+            totalPay += calc.totalPay || 0;
+            if (s.startTime && s.endTime) {
+              const [sh, sm] = s.startTime.split(":").map(Number);
+              const [eh, em] = s.endTime.split(":").map(Number);
+              let mins = (eh * 60 + em) - (sh * 60 + sm);
+              if (mins < 0) mins += 24 * 60;
+              totalHours += mins / 60;
+            }
+          } catch (e) { /* 計算失敗した分は無視 */ }
+        });
+        return {
+          jobName: job.name,
+          hourlyWage: job.hourlyWage,
+          shiftsCount: shifts.length,
+          totalHours: Math.round(totalHours * 10) / 10,
+          totalPay
+        };
+      });
+
+      // カテゴリ別予算に対する使用率（今月）
+      const budgetUsage = [];
+      const categoryBudgets = (DB.budgets && DB.budgets.categoryBudgets) || {};
+      Object.keys(categoryBudgets).forEach((cat) => {
+        const limit = Number(categoryBudgets[cat]);
+        if (!limit) return;
+        const used = monthlyCategoryTotals[2].categoryTotals[cat] || 0;
+        budgetUsage.push({ category: cat, limit, used, percent: Math.round((used / limit) * 100) });
+      });
+
+      return { monthlyCategoryTotals, jobStats, budgetUsage };
+    }
+
+    function renderAiAdviceCard(text, updatedAt, isError) {
+      const body = document.getElementById("ai-advice-body");
+      const updatedEl = document.getElementById("ai-advice-updated");
+      if (body) {
+        body.textContent = text || "アドバイスがありません";
+        body.style.color = isError ? "var(--danger, #ef4444)" : "";
+      }
+      if (updatedEl) {
+        updatedEl.textContent = updatedAt ? `最終更新: ${new Date(updatedAt).toLocaleString("ja-JP")}` : "";
+      }
+    }
+
+    async function fetchAiAdvice(force) {
+      const body = document.getElementById("ai-advice-body");
+      try {
+        let cache = null;
+        try {
+          const raw = localStorage.getItem(AI_ADVICE_CACHE_KEY);
+          cache = raw ? JSON.parse(raw) : null;
+        } catch (e) { cache = null; }
+
+        const todayStr = getLocalDateString(new Date());
+        if (!force && cache && cache.date === todayStr && cache.text) {
+          renderAiAdviceCard(cache.text, cache.updatedAt, false);
+          return;
+        }
+
+        if (body) body.textContent = "🤖 分析中...（数秒かかることがあります）";
+
+        const summary = buildSpendingSummary();
+        const res = await fetch(`${PUSH_WORKER_URL}/advice`, {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify(summary)
+        });
+        if (!res.ok) throw new Error(`HTTP ${res.status}`);
+        const data = await res.json();
+        const text = (data && data.advice) ? data.advice : "アドバイスの生成に失敗しました";
+        const nowIso = new Date().toISOString();
+        try {
+          localStorage.setItem(AI_ADVICE_CACHE_KEY, JSON.stringify({ date: todayStr, text, updatedAt: nowIso }));
+        } catch (e) { /* 保存失敗は無視 */ }
+        renderAiAdviceCard(text, nowIso, false);
+      } catch (err) {
+        console.error("fetchAiAdvice error", err);
+        // 通信に失敗した場合、キャッシュがあればそれを表示、なければエラーメッセージ
+        let cache = null;
+        try {
+          const raw = localStorage.getItem(AI_ADVICE_CACHE_KEY);
+          cache = raw ? JSON.parse(raw) : null;
+        } catch (e) { cache = null; }
+        if (cache && cache.text) {
+          renderAiAdviceCard(cache.text + "\n\n（※本日分の更新には失敗しました）", cache.updatedAt, false);
+        } else {
+          renderAiAdviceCard("AIアドバイスを取得できませんでした。通知機能（Cloudflare Worker）が未設定か、通信に問題がある可能性があります。", null, true);
+        }
+      }
+    }
+
+    let __aiAdviceInited = false;
+    function initAiAdvice() {
+      if (__aiAdviceInited) return; // renderAllが何度も呼ばれても初回のみ実行
+      __aiAdviceInited = true;
+      fetchAiAdvice(false);
+      const refreshBtn = document.getElementById("ai-advice-refresh-btn");
+      if (refreshBtn) {
+        refreshBtn.addEventListener("click", () => fetchAiAdvice(true));
       }
     }
 
