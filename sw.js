@@ -21,8 +21,8 @@ self.addEventListener("push", (event) => {
   event.waitUntil(
     self.registration.showNotification(data.title || "PayCale", {
       body: data.body || "",
-      icon: "https://img.icons8.com/color/192/calculator--v1.png",
-      badge: "https://img.icons8.com/color/192/calculator--v1.png"
+      icon: "icon-512.png",
+      badge: "icon-512.png"
     })
   );
 });
