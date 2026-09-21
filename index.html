@@ -625,6 +625,16 @@
       align-items: flex-start;
       padding-top: 4px;
       z-index: 100;
+      /* iOS Safari(特にホーム画面追加のPWA)では、position:fixedの要素が
+         ページ内の他のwill-change/transform要素（カレンダーのスライダー等）と
+         描画レイヤーの取り合いを起こし、スクロール中だけ固定要素が
+         本来の位置から浮いて見えることがある。専用の合成レイヤーを
+         強制的に持たせることで、他要素と競合せず常に画面下に固定されるようにする */
+      transform: translateZ(0);
+      -webkit-transform: translateZ(0);
+      backface-visibility: hidden;
+      -webkit-backface-visibility: hidden;
+      will-change: transform;
     }
     .tab-item {
       display: flex;
