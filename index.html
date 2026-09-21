@@ -28,6 +28,7 @@
       --border-color: #e2e8f0;
       --shadow: 0 4px 12px rgba(0, 0, 0, 0.05);
       --radius: 14px;
+      --cal-grid-line: rgba(249, 115, 22, 0.12);
       --font-stack: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, "Helvetica Neue", sans-serif;
       --sat-color: #2563eb;
     }
@@ -44,6 +45,7 @@
       --border-color: #24304a;
       --shadow: 0 4px 12px rgba(0, 0, 0, 0.3);
       --sat-color: #3b82f6;
+      --cal-grid-line: rgba(249, 115, 22, 0.16);
     }
 
     * {
@@ -315,9 +317,9 @@
       display: grid;
       grid-template-columns: repeat(7, 1fr);
       gap: 1px;
-      background: var(--line);
-      border-top: 1px solid var(--line);
-      border-bottom: 1px solid var(--line);
+      background: var(--cal-grid-line);
+      border-top: 1px solid var(--cal-grid-line);
+      border-bottom: 1px solid var(--cal-grid-line);
       border-left: none;
       border-right: none;
       overflow: hidden;
@@ -923,13 +925,8 @@
       --glass-border: rgba(255, 255, 255, 0.08);
     }
 
-    /* --- 背景: 微細グリッド + 浮遊グロー --- */
+    /* --- 背景: 浮遊グロー（グリッド模様は好みでないため廃止） --- */
     body {
-      background-image:
-        linear-gradient(var(--neo-grid-line) 1px, transparent 1px),
-        linear-gradient(90deg, var(--neo-grid-line) 1px, transparent 1px);
-      background-size: 26px 26px;
-      background-attachment: fixed;
       position: relative;
     }
     body::before, body::after {
