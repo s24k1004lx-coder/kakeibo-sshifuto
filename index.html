@@ -6,6 +6,7 @@
   <title>PayCale</title>
 
   <link rel="apple-touch-icon" href="https://img.icons8.com/color/192/calculator--v1.png">
+  <link rel="manifest" href="manifest.json">
 
   <script src="https://cdn.jsdelivr.net/npm/chart.js" crossorigin="anonymous"></script>
   <style>
@@ -2135,6 +2136,19 @@
               <label for="cloud-auto-backup-toggle" style="font-size:11px; margin:0;">保存のたびに自動でバックアップする</label>
             </div>
             <div style="font-size: 10.5px; color: var(--muted);" id="cloud-backup-status">未設定</div>
+          </div>
+        </div>
+
+        <div class="accordion-item">
+          <button class="accordion-header" id="acc-push-btn">🔔 プッシュ通知</button>
+          <div class="accordion-body" id="acc-push-body">
+            <div style="font-size: 10.5px; color: var(--muted); margin-bottom: 8px; line-height:1.5;">
+              ホーム画面に追加したPayCaleを閉じていても、シフトの通知などを受け取れるようにします。<br>
+              ※ホーム画面のアイコンから開いたPayCaleの中でボタンを押してください（Safariのタブから押しても動きません）。
+            </div>
+            <button class="btn btn-good btn-sm" id="enable-push-btn" style="width:100%; margin-bottom:6px;">🔔 通知を有効にする</button>
+            <button class="btn btn-outline btn-sm" id="test-push-btn" style="width:100%;">🧪 テスト通知を送る</button>
+            <div style="font-size: 10.5px; color: var(--muted); margin-top:6px;" id="push-status">未設定</div>
           </div>
         </div>
 
@@ -5232,6 +5246,86 @@
     function ghGetLastSync() { try { return localStorage.getItem(GH_LASTSYNC_KEY) || ""; } catch (e) { return ""; } }
     function ghSetLastSync(iso) { try { localStorage.setItem(GH_LASTSYNC_KEY, iso); } catch (e) {} }
 
+    // 🔔 プッシュ通知 (Web Push / Cloudflare Worker連携)
+    const PUSH_VAPID_PUBLIC = "BIxlHppIzQcfgSCQV73FhTbmk3hBql3GSvAev7rXbKBFDBWttDhg4BfWVt0mcyxK0qz6xqmYiam2zkKGQp5A8-M";
+    const PUSH_WORKER_URL = "https://paycale-push.s24k1004lx.workers.dev";
+    const PUSH_SUB_STATE_KEY = "PAYCALE_PUSH_SUBSCRIBED";
+
+    function urlBase64ToUint8Array(base64String) {
+      const padding = "=".repeat((4 - (base64String.length % 4)) % 4);
+      const base64 = (base64String + padding).replace(/-/g, "+").replace(/_/g, "/");
+      const rawData = atob(base64);
+      const outputArray = new Uint8Array(rawData.length);
+      for (let i = 0; i < rawData.length; i++) outputArray[i] = rawData.charCodeAt(i);
+      return outputArray;
+    }
+
+    function updatePushStatusUI() {
+      const el = document.getElementById("push-status");
+      if (!el) return;
+      if (!("serviceWorker" in navigator) || !("PushManager" in window)) {
+        el.textContent = "この端末・ブラウザは通知に対応していません（ホーム画面から開いた状態か確認してください）";
+        return;
+      }
+      const subscribed = (() => { try { return localStorage.getItem(PUSH_SUB_STATE_KEY) === "1"; } catch (e) { return false; } })();
+      if (Notification.permission === "denied") {
+        el.textContent = "⚠️ 通知がブロックされています（iPhoneの設定アプリ→PayCale→通知 から許可してください）";
+      } else if (subscribed && Notification.permission === "granted") {
+        el.textContent = "✅ 通知は有効です";
+      } else {
+        el.textContent = "未設定";
+      }
+    }
+
+    async function enablePushNotifications() {
+      if (!("serviceWorker" in navigator) || !("PushManager" in window)) {
+        showToast("⚠️ この端末・ブラウザはプッシュ通知に対応していません", "danger");
+        return;
+      }
+      try {
+        const reg = await navigator.serviceWorker.register("sw.js");
+        const permission = await Notification.requestPermission();
+        if (permission !== "granted") {
+          showToast("⚠️ 通知が許可されませんでした", "danger");
+          updatePushStatusUI();
+          return;
+        }
+        let sub = await reg.pushManager.getSubscription();
+        if (!sub) {
+          sub = await reg.pushManager.subscribe({
+            userVisibleOnly: true,
+            applicationServerKey: urlBase64ToUint8Array(PUSH_VAPID_PUBLIC)
+          });
+        }
+        const res = await fetch(`${PUSH_WORKER_URL}/subscribe`, {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify(sub)
+        });
+        if (!res.ok) throw new Error(`HTTP ${res.status}`);
+        try { localStorage.setItem(PUSH_SUB_STATE_KEY, "1"); } catch (e) {}
+        showToast("🔔 通知を有効にしました");
+        updatePushStatusUI();
+      } catch (err) {
+        console.error("enablePushNotifications error", err);
+        showToast("⚠️ 通知の設定に失敗しました。ネットワークやWorkerのURLをご確認ください", "danger");
+      }
+    }
+
+    async function sendTestPush() {
+      try {
+        const res = await fetch(`${PUSH_WORKER_URL}/test`, { method: "POST" });
+        if (!res.ok) {
+          const text = await res.text();
+          throw new Error(text || `HTTP ${res.status}`);
+        }
+        showToast("🧪 テスト通知を送信しました（数秒待ってね）");
+      } catch (err) {
+        console.error("sendTestPush error", err);
+        showToast("⚠️ テスト通知の送信に失敗しました。先に「通知を有効にする」を押してください", "danger");
+      }
+    }
+
     function updateCloudBackupStatusUI() {
       const statusEl = document.getElementById("cloud-backup-status");
       const tokenEl = document.getElementById("cloud-gh-token");
@@ -6087,7 +6181,7 @@
         showRegisterPop({ icon: "🔁", title: "繰り返し登録を完了しました", sub: `${repeatCount}件のシフトを登録しました` });
       });
 
-      const accs = ["acc-theme", "acc-jobs", "acc-pins", "acc-wall", "acc-fixed", "acc-reminder", "acc-data", "acc-cloud"];
+      const accs = ["acc-theme", "acc-jobs", "acc-pins", "acc-wall", "acc-fixed", "acc-reminder", "acc-data", "acc-cloud", "acc-push"];
       accs.forEach(id => {
         const btn = document.getElementById(`${id}-btn`);
         const body = document.getElementById(`${id}-body`);
@@ -6288,6 +6382,24 @@
         });
       }
       updateCloudBackupStatusUI();
+
+      const enablePushBtn = document.getElementById("enable-push-btn");
+      if (enablePushBtn) {
+        enablePushBtn.addEventListener("click", async () => {
+          enablePushBtn.disabled = true;
+          await enablePushNotifications();
+          enablePushBtn.disabled = false;
+        });
+      }
+      const testPushBtn = document.getElementById("test-push-btn");
+      if (testPushBtn) {
+        testPushBtn.addEventListener("click", async () => {
+          testPushBtn.disabled = true;
+          await sendTestPush();
+          testPushBtn.disabled = false;
+        });
+      }
+      updatePushStatusUI();
     }
 
     window.addEventListener("DOMContentLoaded", () => {
