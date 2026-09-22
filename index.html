@@ -2657,6 +2657,19 @@
     </div>
   </div>
 
+  <div class="modal-overlay" id="text-prompt-modal">
+    <div class="modal-content" id="text-prompt-content" style="padding: 24px 20px;">
+      <div style="font-size: 15px; font-weight: 800; margin-bottom: 12px; color: var(--ink);" id="text-prompt-title">入力してください</div>
+      <div class="form-group" style="margin-bottom: 0;">
+        <input type="text" id="text-prompt-input" class="form-control" placeholder="テンプレート名">
+      </div>
+      <div style="display: flex; gap: 8px; margin-top: 20px;">
+        <button type="button" class="btn btn-outline" style="flex: 1;" id="text-prompt-cancel-btn">キャンセル</button>
+        <button type="button" class="btn" style="flex: 1;" id="text-prompt-ok-btn">決定</button>
+      </div>
+    </div>
+  </div>
+
   <div class="calc-keyboard-drawer" id="calc-keyboard-drawer">
     <div class="calc-keyboard-header">
       <span>🔢 計算・入力キーボード</span>
@@ -5391,6 +5404,44 @@
       });
     };
 
+    window.showTextPrompt = (title, defaultValue = "", placeholder = "テンプレート名") => {
+      return new Promise((resolve) => {
+        const titleEl = document.getElementById("text-prompt-title");
+        const input = document.getElementById("text-prompt-input");
+        const cancelBtn = document.getElementById("text-prompt-cancel-btn");
+        const okBtn = document.getElementById("text-prompt-ok-btn");
+
+        titleEl.textContent = title;
+        input.value = defaultValue || "";
+        input.placeholder = placeholder;
+
+        const cleanup = () => {
+          cancelBtn.removeEventListener("click", handleCancel);
+          okBtn.removeEventListener("click", handleOk);
+          input.removeEventListener("keydown", handleKeydown);
+          closeModalWithLock("text-prompt-modal");
+        };
+        const handleOk = () => {
+          const val = input.value.trim();
+          cleanup();
+          resolve(val || null);
+        };
+        const handleCancel = () => {
+          cleanup();
+          resolve(null);
+        };
+        const handleKeydown = (e) => {
+          if (e.key === "Enter") { e.preventDefault(); handleOk(); }
+        };
+
+        cancelBtn.addEventListener("click", handleCancel);
+        okBtn.addEventListener("click", handleOk);
+        input.addEventListener("keydown", handleKeydown);
+        openModalWithLock("text-prompt-modal");
+        setTimeout(() => { input.focus(); input.select(); }, 80);
+      });
+    };
+
     window.deleteShift = async (id) => {
       const s = DB.shifts.find(x => String(x.id) === String(id));
       if(!s) return;
@@ -6538,7 +6589,7 @@
       });
       document.getElementById("shift-break-min").addEventListener("change", updateShiftPreview);
 
-      document.getElementById("save-as-pin-btn").addEventListener("click", () => {
+      document.getElementById("save-as-pin-btn").addEventListener("click", async () => {
         const jobId = document.getElementById("shift-job-id").value;
         const job = DB.jobs.find(j => String(j.id) === String(jobId));
         const sH = document.getElementById("shift-start-hour").value;
@@ -6555,7 +6606,7 @@
         }
 
         const defaultLabel = `${job ? job.name : 'シフト'} ${sH}:${sM}〜${eH}:${eM}`;
-        const label = prompt("テンプレート名を入力してください:", defaultLabel);
+        const label = await showTextPrompt("📌 テンプレート名を入力してください", defaultLabel);
 
         if (label && label.trim()) {
           pushUndoState();
@@ -6618,7 +6669,7 @@
         }
       });
 
-      document.getElementById("save-as-expense-pin-btn").addEventListener("click", () => {
+      document.getElementById("save-as-expense-pin-btn").addEventListener("click", async () => {
         const category = document.getElementById("expense-category").value;
         const memo = document.getElementById("expense-memo").value.trim();
         const amountInput = document.getElementById("expense-amount");
@@ -6630,7 +6681,7 @@
         }
 
         const defaultLabel = memo ? memo : category;
-        const label = prompt("テンプレート名を入力してください:", defaultLabel);
+        const label = await showTextPrompt("📌 テンプレート名を入力してください", defaultLabel);
 
         if (label && label.trim()) {
           pushUndoState();
@@ -6848,16 +6899,17 @@
         showToast("🏢 勤務先を追加しました");
       });
 
-      document.getElementById("add-pin-btn").addEventListener("click", () => {
-        const label = prompt("テンプレート名:"); if (!label) return;
+      document.getElementById("add-pin-btn").addEventListener("click", async () => {
+        const label = await showTextPrompt("📌 テンプレート名を入力してください"); if (!label) return;
         pushUndoState();
-        DB.pins.push({ id: Date.now(), label, jobId: DB.jobs[0]?.id || 1, start: "17:00", end: "22:00", breakMin: 0, transport: 0 });
+        const newId = Date.now();
+        DB.pins.push({ id: newId, label, jobId: DB.jobs[0]?.id || 1, start: "17:00", end: "22:00", breakMin: 0, transport: 0 });
         saveDB(); renderAll();
-        showToast("📌 テンプレートを追加しました");
+        openPinEditModal(newId);
       });
 
-      document.getElementById("add-expense-pin-btn").addEventListener("click", () => {
-        const label = prompt("テンプレート名:"); if (!label) return;
+      document.getElementById("add-expense-pin-btn").addEventListener("click", async () => {
+        const label = await showTextPrompt("📌 テンプレート名を入力してください"); if (!label) return;
         pushUndoState();
         const newId = Date.now();
         DB.expensePins.push({ id: newId, label, category: "食費", memo: "", amount: 0 });
