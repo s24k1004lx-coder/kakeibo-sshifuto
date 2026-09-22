@@ -6859,9 +6859,10 @@
       document.getElementById("add-expense-pin-btn").addEventListener("click", () => {
         const label = prompt("テンプレート名:"); if (!label) return;
         pushUndoState();
-        DB.expensePins.push({ id: Date.now(), label, category: "食費", memo: "", amount: 0 });
+        const newId = Date.now();
+        DB.expensePins.push({ id: newId, label, category: "食費", memo: "", amount: 0 });
         saveDB(); renderAll();
-        showToast("📌 テンプレートを追加しました");
+        openExpensePinEditModal(newId);
       });
 
       document.getElementById("add-fixed-btn").addEventListener("click", () => {
