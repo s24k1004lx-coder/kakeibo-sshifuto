@@ -2163,6 +2163,7 @@
               <button class="btn btn-outline btn-sm" id="export-csv-btn">📤 CSV書き出し</button>
               <button class="btn btn-outline btn-sm" id="export-yearly-payroll-csv-btn">📅 年間の給料一覧をCSV出力（確定申告用）</button>
               <button class="btn btn-outline btn-sm" id="export-json-btn">💾 JSONバックアップ</button>
+              <button class="btn btn-outline btn-sm" id="export-ics-btn">📅 iPhoneカレンダー用に書き出す (.ics)</button>
               <button class="btn btn-outline btn-sm" id="import-json-trigger-btn">📥 JSON復元</button>
               <button class="btn btn-danger btn-sm" id="reset-data-btn" style="margin-top: 6px;">⚠️ 全データ初期化</button>
             </div>
@@ -2206,6 +2207,26 @@
             <button class="btn btn-outline btn-sm" id="check-worker-health-btn" style="width:100%;">🔌 通知サーバーの状態を確認</button>
             <div style="font-size: 10.5px; color: var(--muted); margin-top:6px;" id="push-status">未設定</div>
             <div style="font-size: 10.5px; color: var(--muted); margin-top:4px;" id="worker-health-status"></div>
+          </div>
+        </div>
+
+        <div class="accordion-item">
+          <button class="accordion-header" id="acc-calsync-btn">📅 iPhoneカレンダー同期</button>
+          <div class="accordion-body" id="acc-calsync-body">
+            <div style="font-size: 10.5px; color: var(--muted); margin-bottom: 8px; line-height:1.5;">
+              シフト予定をiPhone標準の「カレンダー」アプリに自動で反映します(購読形式のため、更新は数時間おきになることがあります)。
+            </div>
+            <button class="btn btn-good btn-sm" id="enable-calsync-btn" style="width:100%; margin-bottom:6px;">📅 カレンダー同期を有効にする</button>
+            <div id="calsync-url-box" style="display:none; margin-top:6px;">
+              <div style="font-size: 10.5px; color: var(--muted); margin-bottom:4px;">
+                下のボタンからiPhoneの「カレンダー」アプリで直接登録できます。<br>
+                自動で開かない場合は、URLをコピーして「設定 → カレンダー → アカウントを追加 → 購読カレンダーを追加」に貼り付けてください。<br>
+                ⚠️ このURLは他人に教えないでください(あなたのシフトが見えてしまいます)。
+              </div>
+              <a id="calsync-webcal-link" class="btn btn-sm" style="width:100%; display:block; text-align:center; margin-bottom:6px; text-decoration:none;" href="#">📲 カレンダーに登録する</a>
+              <button type="button" class="btn btn-outline btn-sm" id="calsync-copy-url-btn" style="width:100%;">🔗 URLをコピー</button>
+            </div>
+            <div style="font-size: 10.5px; color: var(--muted); margin-top:6px;" id="calsync-status">未設定</div>
           </div>
         </div>
 
@@ -2820,6 +2841,7 @@
         if (typeof scheduleShiftSyncIfEnabled === "function") scheduleShiftSyncIfEnabled();
         if (typeof scheduleBudgetSyncIfEnabled === "function") scheduleBudgetSyncIfEnabled();
         if (typeof scheduleFixedExpenseSyncIfEnabled === "function") scheduleFixedExpenseSyncIfEnabled();
+        if (typeof scheduleCalendarSyncIfEnabled === "function") scheduleCalendarSyncIfEnabled();
         return true;
       } catch (e) {
         console.error("DB保存エラー", e);
@@ -5593,6 +5615,9 @@
     const PUSH_VAPID_PUBLIC = "BIxlHppIzQcfgSCQV73FhTbmk3hBql3GSvAev7rXbKBFDBWttDhg4BfWVt0mcyxK0qz6xqmYiam2zkKGQp5A8-M";
     const PUSH_WORKER_URL = "https://paycale-push.s24k1004lx.workers.dev";
     const PUSH_SUB_STATE_KEY = "PAYCALE_PUSH_SUBSCRIBED";
+    // 📅 iPhoneカレンダー同期用。Worker側(index.js)のCALENDAR_TOKENと同じ値にしておくこと。
+    const CALENDAR_TOKEN = "5abQz3fkq3jp9pMuO-YY0c50";
+    const CALENDAR_SYNC_STATE_KEY = "PAYCALE_CALENDAR_SYNC_ENABLED";
 
     function urlBase64ToUint8Array(base64String) {
       const padding = "=".repeat((4 - (base64String.length % 4)) % 4);
@@ -5736,6 +5761,83 @@
       } catch (e) { return; }
       if (__shiftSyncTimer) clearTimeout(__shiftSyncTimer);
       __shiftSyncTimer = setTimeout(() => { syncUpcomingShiftsToPushServer(); }, 4000);
+    }
+
+    // 📅 iPhoneカレンダー同期: 過去14日〜未来120日分のシフトをWorkerに送り、
+    // Worker側の /calendar.ics で読めるようにしておく（同期はカレンダー同期をONにした人だけ）
+    async function syncCalendarShiftsToPushServer() {
+      try {
+        const today = new Date();
+        today.setHours(0, 0, 0, 0);
+        const pastLimit = new Date(today); pastLimit.setDate(pastLimit.getDate() - 14);
+        const futureLimit = new Date(today); futureLimit.setDate(futureLimit.getDate() + 120);
+        const pastStr = getLocalDateString(pastLimit);
+        const futureStr = getLocalDateString(futureLimit);
+
+        const payload = DB.shifts
+          .filter((s) => s.date >= pastStr && s.date <= futureStr)
+          .map((s) => {
+            const job = DB.jobs.find((j) => String(j.id) === String(s.jobId));
+            const pay = calculateShiftPay(s).totalPay;
+            return {
+              id: s.id,
+              date: s.date,
+              startTime: s.startTime,
+              endTime: s.endTime,
+              jobName: job ? job.name : "勤務先不明",
+              pay
+            };
+          });
+
+        await fetch(`${PUSH_WORKER_URL}/calendar-shifts`, {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify(payload)
+        });
+      } catch (e) {
+        console.error("syncCalendarShiftsToPushServer error", e);
+      }
+    }
+
+    let __calendarSyncTimer = null;
+    function scheduleCalendarSyncIfEnabled() {
+      try {
+        if (localStorage.getItem(CALENDAR_SYNC_STATE_KEY) !== "1") return;
+      } catch (e) { return; }
+      if (__calendarSyncTimer) clearTimeout(__calendarSyncTimer);
+      __calendarSyncTimer = setTimeout(() => { syncCalendarShiftsToPushServer(); }, 4000);
+    }
+
+    function getCalendarSubscribeUrl() {
+      return `${PUSH_WORKER_URL}/calendar.ics?token=${CALENDAR_TOKEN}`;
+    }
+
+    function updateCalendarSyncStatusUI() {
+      const statusEl = document.getElementById("calsync-status");
+      const urlBox = document.getElementById("calsync-url-box");
+      const linkEl = document.getElementById("calsync-webcal-link");
+      if (!statusEl) return;
+      const enabled = (() => { try { return localStorage.getItem(CALENDAR_SYNC_STATE_KEY) === "1"; } catch (e) { return false; } })();
+      if (enabled) {
+        statusEl.textContent = "✅ カレンダー同期は有効です";
+        if (urlBox) urlBox.style.display = "block";
+        if (linkEl) linkEl.href = getCalendarSubscribeUrl().replace(/^https:\/\//, "webcal://");
+      } else {
+        statusEl.textContent = "未設定";
+        if (urlBox) urlBox.style.display = "none";
+      }
+    }
+
+    async function enableCalendarSync() {
+      try {
+        try { localStorage.setItem(CALENDAR_SYNC_STATE_KEY, "1"); } catch (e) {}
+        await syncCalendarShiftsToPushServer();
+        showToast("📅 カレンダー同期を有効にしました");
+        updateCalendarSyncStatusUI();
+      } catch (err) {
+        console.error("enableCalendarSync error", err);
+        showToast("⚠️ カレンダー同期の設定に失敗しました。通信環境をご確認ください", "danger");
+      }
     }
 
     // 📂 カテゴリ別予算の「上限・今月の使用額」をWorkerに送っておき、
@@ -6865,7 +6967,7 @@
         showRegisterPop({ icon: "🔁", title: "繰り返し登録を完了しました", sub: `${repeatCount}件のシフトを登録しました` });
       });
 
-      const accs = ["acc-theme", "acc-jobs", "acc-pins", "acc-expense-pins", "acc-wall", "acc-fixed", "acc-reminder", "acc-shiftalert", "acc-data", "acc-cloud", "acc-push"];
+      const accs = ["acc-theme", "acc-jobs", "acc-pins", "acc-expense-pins", "acc-wall", "acc-fixed", "acc-reminder", "acc-shiftalert", "acc-data", "acc-cloud", "acc-push", "acc-calsync"];
       accs.forEach(id => {
         const btn = document.getElementById(`${id}-btn`);
         const body = document.getElementById(`${id}-body`);
@@ -7168,6 +7270,27 @@
         });
       }
       updatePushStatusUI();
+
+      const enableCalSyncBtn = document.getElementById("enable-calsync-btn");
+      if (enableCalSyncBtn) {
+        enableCalSyncBtn.addEventListener("click", async () => {
+          enableCalSyncBtn.disabled = true;
+          await enableCalendarSync();
+          enableCalSyncBtn.disabled = false;
+        });
+      }
+      const calSyncCopyBtn = document.getElementById("calsync-copy-url-btn");
+      if (calSyncCopyBtn) {
+        calSyncCopyBtn.addEventListener("click", async () => {
+          try {
+            await navigator.clipboard.writeText(getCalendarSubscribeUrl());
+            showToast("🔗 URLをコピーしました");
+          } catch (e) {
+            showToast("⚠️ コピーに失敗しました。長押しでURLを選択してコピーしてください", "danger");
+          }
+        });
+      }
+      updateCalendarSyncStatusUI();
     }
 
     window.addEventListener("DOMContentLoaded", () => {
