@@ -5763,19 +5763,12 @@
       __shiftSyncTimer = setTimeout(() => { syncUpcomingShiftsToPushServer(); }, 4000);
     }
 
-    // 📅 iPhoneカレンダー同期: 過去14日〜未来120日分のシフトをWorkerに送り、
+    // 📅 iPhoneカレンダー同期: 登録されているシフトを全期間分(過去・未来とも制限なし)Workerに送り、
     // Worker側の /calendar.ics で読めるようにしておく（同期はカレンダー同期をONにした人だけ）
     async function syncCalendarShiftsToPushServer() {
       try {
-        const today = new Date();
-        today.setHours(0, 0, 0, 0);
-        const pastLimit = new Date(today); pastLimit.setDate(pastLimit.getDate() - 14);
-        const futureLimit = new Date(today); futureLimit.setDate(futureLimit.getDate() + 120);
-        const pastStr = getLocalDateString(pastLimit);
-        const futureStr = getLocalDateString(futureLimit);
-
+        // 期間の制限なし。登録されているシフトを過去・未来問わず全部送る
         const payload = DB.shifts
-          .filter((s) => s.date >= pastStr && s.date <= futureStr)
           .map((s) => {
             const job = DB.jobs.find((j) => String(j.id) === String(s.jobId));
             const pay = calculateShiftPay(s).totalPay;
