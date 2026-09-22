@@ -2072,6 +2072,14 @@
         </div>
 
         <div class="accordion-item">
+          <button class="accordion-header" id="acc-expense-pins-btn">💸 支出テンプレート</button>
+          <div class="accordion-body" id="acc-expense-pins-body">
+            <div id="expense-pins-config-list"></div>
+            <button class="btn btn-outline btn-sm" id="add-expense-pin-btn" style="margin-top: 6px;">＋ テンプレートを追加</button>
+          </div>
+        </div>
+
+        <div class="accordion-item">
           <button class="accordion-header" id="acc-wall-btn">🏦 総資産・年収の壁・目標設定</button>
           <div class="accordion-body" id="acc-wall-body">
             <div class="form-group">
@@ -2345,6 +2353,19 @@
 
       <form id="expense-form" style="display: none;">
         <input type="hidden" id="expense-id">
+
+        <div class="template-section">
+          <div class="template-section-head">
+            <div class="template-section-icon">📋</div>
+            <div class="template-section-title">テンプレートからワンタップ入力</div>
+          </div>
+          <div class="template-chip-row pin-container" id="expense-pin-shortcuts" style="margin-bottom:6px;"></div>
+        </div>
+
+        <div style="margin-bottom: 8px; text-align: right;">
+          <button type="button" class="btn btn-outline btn-sm" id="save-as-expense-pin-btn">＋ この内容をテンプレ保存</button>
+        </div>
+
         <div class="form-section-card">
           <div class="form-row">
             <div class="form-group" style="flex:1; min-width:0;">
@@ -2455,6 +2476,46 @@
       <div style="display:flex; gap:8px; margin-top:10px;">
         <button class="btn" style="flex:1;" onclick="saveEditedPin()">保存する</button>
         <button class="btn btn-danger" onclick="deletePinFromModal()">削除</button>
+      </div>
+    </div>
+  </div>
+
+  <div class="modal-overlay" id="expense-pin-edit-modal">
+    <div class="modal-content" style="max-width:380px; padding-bottom:20px;">
+      <div class="modal-header">
+        <div class="modal-title">✏️ 支出テンプレートの編集</div>
+        <button class="icon-btn" onclick="closeExpensePinEditModal()" style="color:var(--ink);">✕</button>
+      </div>
+      <input type="hidden" id="edit-expense-pin-id">
+      <div class="form-group">
+        <label>テンプレート名</label>
+        <input type="text" id="edit-expense-pin-label" class="form-control">
+      </div>
+      <div class="form-group">
+        <label>カテゴリ</label>
+        <select id="edit-expense-pin-category" class="form-control">
+          <option value="食費">🍔 食費</option>
+          <option value="交通費">🚃 交通費</option>
+          <option value="旅費">🛫 旅費</option>
+          <option value="交際費">🎉 交際費</option>
+          <option value="日用品">🛒 日用品</option>
+          <option value="趣味">🎮 趣味</option>
+          <option value="固定費">🏠 固定費</option>
+          <option value="貯金">🪙 小銭貯金</option>
+          <option value="その他">📦 その他</option>
+        </select>
+      </div>
+      <div class="form-group">
+        <label>メモ (任意)</label>
+        <input type="text" id="edit-expense-pin-memo" class="form-control">
+      </div>
+      <div class="form-group">
+        <label>金額 (円)</label>
+        <input type="text" id="edit-expense-pin-amount" class="form-control calc-input" readonly>
+      </div>
+      <div style="display:flex; gap:8px; margin-top:10px;">
+        <button class="btn" style="flex:1;" onclick="saveEditedExpensePin()">保存する</button>
+        <button class="btn btn-danger" onclick="deleteExpensePinFromModal()">削除</button>
       </div>
     </div>
   </div>
@@ -2693,6 +2754,7 @@
         }
       ],
       pins: [],
+      expensePins: [],
       shifts: [],
       expenses: [],
       otherIncomes: [],
@@ -2724,6 +2786,7 @@
       window.__dbLoadFailed = true;
     }
     if (!DB.jobs || DB.jobs.length === 0) DB.jobs = DEFAULT_DB.jobs;
+    if (!DB.expensePins) DB.expensePins = [];
     if (!DB.actualPay) DB.actualPay = {};
     if (!DB.settings) DB.settings = DEFAULT_DB.settings;
     if (!DB.settings.selectedStatsCategories) {
@@ -3195,6 +3258,7 @@
     let quickMode = false;
     let quickTemplateId = null;
     let selectedShortcutKey = null;
+    let selectedExpenseShortcutKey = null;
     let currentGachaVal = null;
     let activeCalcInput = null;
 
@@ -4379,6 +4443,63 @@
       }
     }
 
+    window.openExpensePinEditModal = function(pinId) {
+      const pin = DB.expensePins.find(p => String(p.id) === String(pinId));
+      if (!pin) return;
+      document.getElementById("edit-expense-pin-id").value = pin.id;
+      document.getElementById("edit-expense-pin-label").value = pin.label;
+      document.getElementById("edit-expense-pin-category").value = pin.category || "食費";
+      document.getElementById("edit-expense-pin-memo").value = pin.memo || "";
+      document.getElementById("edit-expense-pin-amount").value = pin.amount || 0;
+
+      openModalWithLock("expense-pin-edit-modal");
+    };
+
+    function closeExpensePinEditModal() {
+      closeModalWithLock("expense-pin-edit-modal");
+    }
+
+    function saveEditedExpensePin() {
+      const pinId = document.getElementById("edit-expense-pin-id").value;
+      const idx = DB.expensePins.findIndex(p => String(p.id) === String(pinId));
+      if (idx !== -1) {
+        const amountInput = document.getElementById("edit-expense-pin-amount");
+        const evalAmount = evaluateMath(amountInput.value);
+        if (evalAmount === null) {
+          showInputError(amountInput);
+          return;
+        }
+        DB.expensePins[idx] = {
+          id: Number(pinId) || pinId,
+          label: document.getElementById("edit-expense-pin-label").value.trim() || "テンプレート",
+          category: document.getElementById("edit-expense-pin-category").value,
+          memo: document.getElementById("edit-expense-pin-memo").value.trim(),
+          amount: evalAmount
+        };
+        saveDB();
+        renderAll();
+        closeExpensePinEditModal();
+        showToast("✅ テンプレートを更新しました");
+      }
+    }
+
+    async function deleteExpensePinFromModal() {
+      const pinId = document.getElementById("edit-expense-pin-id").value;
+      const confirmed = await showDeleteConfirm(
+        `テンプレートを削除しますか？`,
+        `<span style="font-size:11px; color:var(--muted);">この操作は取り消せません</span>`,
+        "📌"
+      );
+      if (confirmed) {
+        pushUndoState();
+        DB.expensePins = DB.expensePins.filter(p => String(p.id) !== String(pinId));
+        saveDB();
+        renderAll();
+        closeExpensePinEditModal();
+        showToast("📌 テンプレートを削除しました", "danger", { label: "元に戻す", onClick: undoLastAction });
+      }
+    }
+
     function renderSettingsTab() {
       const jobsConfig = document.getElementById("jobs-config-list");
       if (jobsConfig) {
@@ -4543,6 +4664,20 @@
         `).join("") : '<div style="font-size:11px; color:var(--muted); text-align:center; padding:8px;">テンプレートがありません</div>';
       }
 
+      const expensePinsConfig = document.getElementById("expense-pins-config-list");
+      if (expensePinsConfig) {
+        expensePinsConfig.innerHTML = DB.expensePins.length ? DB.expensePins.map(p => `
+          <div class="template-manage-card" onclick="openExpensePinEditModal(${p.id})">
+            <div class="template-manage-card-icon">💸</div>
+            <div class="template-manage-card-body">
+              <div class="template-manage-card-title">${p.label}</div>
+              <div class="template-manage-card-sub">${p.category} ・ ¥${(p.amount || 0).toLocaleString()}</div>
+            </div>
+            <button class="btn btn-outline btn-sm" onclick="event.stopPropagation(); openExpensePinEditModal(${p.id})">✏️ 編集</button>
+          </div>
+        `).join("") : '<div style="font-size:11px; color:var(--muted); text-align:center; padding:8px;">テンプレートがありません</div>';
+      }
+
       document.getElementById("setting-theme-select").value = DB.settings.theme || "light";
       document.getElementById("setting-base-asset").value = DB.baseAsset || 0;
       document.getElementById("setting-wall-target").value = [1600000, 1060000, 1300000, 1500000, 2010000].includes(DB.wallTarget) ? DB.wallTarget : "custom";
@@ -4695,7 +4830,25 @@
           return `<button type="button" class="template-chip-v2 hist-chip ${selectedShortcutKey === key ? 'active' : ''}" onclick="applyShortcutData({jobId:${s.jobId}, start:'${s.start}', end:'${s.end}', breakMin:${s.breakMin}, transport:${s.transport||0}}, '${key}')"><span class="chip-dot">↩️</span>${s.jobName} ${s.start}~${s.end}</button>`;
         }).join("") || '<span class="template-chip-empty">過去履歴なし</span>';
       }
+
+      const expensePinContainer = document.getElementById("expense-pin-shortcuts");
+      if (expensePinContainer) {
+        expensePinContainer.innerHTML = DB.expensePins.map(p => {
+          const key = `epin_${p.id}`;
+          return `<button type="button" class="template-chip-v2 ${selectedExpenseShortcutKey === key ? 'active' : ''}" onclick="applyExpenseShortcutData(${JSON.stringify(String(p.id))}, ${JSON.stringify(key)})"><span class="chip-dot">📌</span>${p.label}</button>`;
+        }).join("") || '<span class="template-chip-empty">テンプレートなし</span>';
+      }
     }
+
+    window.applyExpenseShortcutData = (pinId, key) => {
+      const p = DB.expensePins.find(x => String(x.id) === String(pinId));
+      if (!p) return;
+      selectedExpenseShortcutKey = key;
+      document.getElementById("expense-category").value = p.category || "食費";
+      document.getElementById("expense-memo").value = p.memo || "";
+      document.getElementById("expense-amount").value = p.amount || 0;
+      renderFormShortcuts();
+    };
 
     window.applyShortcutData = (data, key) => {
       selectedShortcutKey = key;
@@ -4757,6 +4910,7 @@
 
     function openEntryModal(dateStr, defaultType = "shift") {
       selectedShortcutKey = null;
+      selectedExpenseShortcutKey = null;
       clearFormErrors();
       const content = document.getElementById("entry-modal-content");
       if (content) {
@@ -4795,6 +4949,7 @@
 
     window.openEditModalById = (type, id) => {
       selectedShortcutKey = null;
+      selectedExpenseShortcutKey = null;
       clearFormErrors();
       const content = document.getElementById("entry-modal-content");
       if (content) {
@@ -6463,6 +6618,36 @@
         }
       });
 
+      document.getElementById("save-as-expense-pin-btn").addEventListener("click", () => {
+        const category = document.getElementById("expense-category").value;
+        const memo = document.getElementById("expense-memo").value.trim();
+        const amountInput = document.getElementById("expense-amount");
+        const evalAmount = evaluateMath(amountInput.value);
+
+        if (evalAmount === null) {
+          showInputError(amountInput);
+          return;
+        }
+
+        const defaultLabel = memo ? memo : category;
+        const label = prompt("テンプレート名を入力してください:", defaultLabel);
+
+        if (label && label.trim()) {
+          pushUndoState();
+          DB.expensePins.push({
+            id: Date.now(),
+            label: label.trim(),
+            category: category,
+            memo: memo,
+            amount: evalAmount
+          });
+          saveDB();
+          renderFormShortcuts();
+          renderSettingsTab();
+          showToast("📌 テンプレートとして保存しました");
+        }
+      });
+
       document.getElementById("expense-form").addEventListener("submit", e => {
         e.preventDefault();
         clearFormErrors();
@@ -6629,7 +6814,7 @@
         showRegisterPop({ icon: "🔁", title: "繰り返し登録を完了しました", sub: `${repeatCount}件のシフトを登録しました` });
       });
 
-      const accs = ["acc-theme", "acc-jobs", "acc-pins", "acc-wall", "acc-fixed", "acc-reminder", "acc-shiftalert", "acc-data", "acc-cloud", "acc-push"];
+      const accs = ["acc-theme", "acc-jobs", "acc-pins", "acc-expense-pins", "acc-wall", "acc-fixed", "acc-reminder", "acc-shiftalert", "acc-data", "acc-cloud", "acc-push"];
       accs.forEach(id => {
         const btn = document.getElementById(`${id}-btn`);
         const body = document.getElementById(`${id}-body`);
@@ -6667,6 +6852,14 @@
         const label = prompt("テンプレート名:"); if (!label) return;
         pushUndoState();
         DB.pins.push({ id: Date.now(), label, jobId: DB.jobs[0]?.id || 1, start: "17:00", end: "22:00", breakMin: 0, transport: 0 });
+        saveDB(); renderAll();
+        showToast("📌 テンプレートを追加しました");
+      });
+
+      document.getElementById("add-expense-pin-btn").addEventListener("click", () => {
+        const label = prompt("テンプレート名:"); if (!label) return;
+        pushUndoState();
+        DB.expensePins.push({ id: Date.now(), label, category: "食費", memo: "", amount: 0 });
         saveDB(); renderAll();
         showToast("📌 テンプレートを追加しました");
       });
