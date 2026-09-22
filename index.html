@@ -1959,7 +1959,7 @@
       </div>
 
       <div class="card">
-        <div class="card-title">📈 総資産の推移 (前後15日間・今日が中心)</div>
+        <div class="card-title">📈 総資産の推移 (過去21日・今後9日)</div>
         <canvas id="chart-budget-line" style="max-height: 150px !important;"></canvas>
       </div>
 
@@ -4137,7 +4137,7 @@
         const futureAssetData = [];
         const lastKnownAsset = calculateTotalAssetOnDate(todayStr);
 
-        for (let i = -15; i <= 15; i++) {
+        for (let i = -21; i <= 9; i++) {
           const d = new Date(todayObj);
           d.setDate(todayObj.getDate() + i);
           const dateStr = getLocalDateString(d);
