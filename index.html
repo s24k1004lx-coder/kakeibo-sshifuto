@@ -610,15 +610,158 @@
     }
     .accordion-header:active { transform: scale(0.985); }
     .accordion-header::after {
-      content: '＋';
-      font-size: 13px;
-      color: var(--muted);
+      content: '';
+      width: 8px;
+      height: 8px;
+      border-right: 1.6px solid var(--muted);
+      border-bottom: 1.6px solid var(--muted);
+      transform: rotate(-45deg);
       display: inline-block;
-      transition: transform 0.28s var(--ease-smooth), color 0.2s ease;
+      margin-top: -4px;
+      transition: transform 0.28s var(--ease-smooth), border-color 0.2s ease;
     }
     .accordion-header.active { color: var(--brand-dark); }
-    .accordion-header.active::after { content: '＋'; color: var(--brand); transform: rotate(135deg); }
+    .accordion-header.active::after { border-color: var(--brand); transform: rotate(45deg); margin-top: 0; }
     .accordion-body { display: none; padding-bottom: 10px; }
+    .btn-add {
+      position: relative;
+      padding-left: 26px;
+    }
+    .btn-add::before {
+      content: '+';
+      position: absolute;
+      left: 12px;
+      top: 50%;
+      transform: translateY(-51%);
+      font-size: 14px;
+      font-weight: 600;
+      line-height: 1;
+    }
+
+    /* 設定タブ: グループ見出し・アイコン・トグルスイッチ */
+    .settings-group-label {
+      font-size: 10.5px;
+      font-weight: 700;
+      letter-spacing: 0.06em;
+      color: var(--muted);
+      text-transform: uppercase;
+      margin: 16px 4px 6px;
+    }
+    .settings-group-label:first-child { margin-top: 2px; }
+    .settings-card { padding: 2px 10px; }
+    .acc-title {
+      display: flex;
+      align-items: center;
+      gap: 9px;
+      min-width: 0;
+    }
+    .acc-icon {
+      display: inline-flex;
+      align-items: center;
+      justify-content: center;
+      flex-shrink: 0;
+      width: 26px;
+      height: 26px;
+      border-radius: 8px;
+      background: var(--bg);
+      color: var(--muted);
+      transition: background 0.2s ease, color 0.2s ease;
+    }
+    .accordion-header.active .acc-icon {
+      background: color-mix(in srgb, var(--brand) 14%, transparent);
+      color: var(--brand-dark);
+    }
+    .toggle-row { margin-bottom: 10px; }
+    .toggle-label {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      gap: 10px;
+      font-size: 12px;
+      font-weight: 500;
+      cursor: pointer;
+    }
+    .switch {
+      position: relative;
+      display: inline-block;
+      width: 38px;
+      height: 22px;
+      flex-shrink: 0;
+    }
+    .switch input {
+      position: absolute;
+      opacity: 0;
+      width: 100%;
+      height: 100%;
+      margin: 0;
+      cursor: pointer;
+      z-index: 1;
+    }
+    .switch-track {
+      position: absolute;
+      inset: 0;
+      background: var(--line);
+      border-radius: 999px;
+      transition: background 0.2s ease;
+    }
+    .switch-track::before {
+      content: '';
+      position: absolute;
+      top: 2px;
+      left: 2px;
+      width: 18px;
+      height: 18px;
+      border-radius: 50%;
+      background: #fff;
+      box-shadow: 0 1px 3px rgba(0,0,0,0.25);
+      transition: transform 0.2s var(--ease-pop);
+    }
+    .switch input:checked ~ .switch-track { background: var(--brand); }
+    .switch input:checked ~ .switch-track::before { transform: translateX(16px); }
+
+    /* 選択肢が少ない設定: 開かずその場でタップできるクイック行 */
+    .quick-row-card { padding: 10px 12px; }
+    .quick-row {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      gap: 10px;
+    }
+    .quick-row-label {
+      display: flex;
+      align-items: center;
+      gap: 9px;
+      font-size: 12px;
+      font-weight: 700;
+      color: var(--ink);
+    }
+    .segmented-control {
+      display: flex;
+      background: var(--bg);
+      border-radius: 9px;
+      padding: 2px;
+      gap: 2px;
+    }
+    .segmented-btn {
+      border: none;
+      background: none;
+      font-size: 11px;
+      font-weight: 600;
+      color: var(--muted);
+      padding: 6px 12px;
+      border-radius: 7px;
+      cursor: pointer;
+      transition: background 0.18s ease, color 0.18s ease, box-shadow 0.18s ease;
+      -webkit-tap-highlight-color: transparent;
+    }
+    .segmented-btn:active { transform: scale(0.96); }
+    .segmented-btn.active {
+      background: var(--card);
+      color: var(--brand-dark);
+      box-shadow: 0 1px 4px rgba(0,0,0,0.12);
+    }
+    .icon-only-btn { display: inline-flex; align-items: center; justify-content: center; padding-left: 8px; padding-right: 8px; }
+
     .accordion-body.active { display: block; animation: accordionOpen 0.28s var(--ease-smooth) both; }
     @keyframes accordionOpen {
       from { opacity: 0; transform: translateY(-4px); }
@@ -1519,13 +1662,23 @@
       border-radius: 50%;
       background: linear-gradient(135deg, var(--brand) 0%, var(--brand-dark) 100%);
       display: flex; align-items: center; justify-content: center;
-      font-size: 15px;
+      color: #fff;
       flex-shrink: 0;
       box-shadow: 0 3px 8px var(--brand-glow);
     }
     .template-manage-card-body { flex: 1; min-width: 0; }
     .template-manage-card-title { font-size: 11.5px; font-weight: 800; color: var(--ink); }
     .template-manage-card-sub { font-size: 9.5px; color: var(--muted); margin-top: 1px; }
+    .template-manage-card-chevron {
+      width: 7px;
+      height: 7px;
+      border-right: 1.6px solid var(--muted);
+      border-bottom: 1.6px solid var(--muted);
+      transform: rotate(-45deg);
+      flex-shrink: 0;
+      margin-right: 2px;
+      opacity: 0.7;
+    }
 
     /* --- この日の登録データ 一覧 --- */
     .day-item-card {
@@ -1669,8 +1822,8 @@
     }
     .accordion-header { transition: transform 0.15s var(--ease-pop), color 0.2s ease; }
     .accordion-header:active { transform: scale(0.985); }
-    .accordion-header::after { transition: transform 0.25s var(--ease-pop); display: inline-block; }
-    .accordion-header.active::after { transform: rotate(180deg); }
+    .accordion-header::after { transition: transform 0.25s var(--ease-pop), border-color 0.2s ease; display: inline-block; }
+    .accordion-header.active::after { transform: rotate(45deg); margin-top: 0; }
     .list-item { transition: background 0.2s ease, transform 0.12s var(--ease-pop); }
     .list-item:active { transform: scale(0.985); }
     .pin-chip:active { transform: scale(0.92); }
@@ -2039,69 +2192,53 @@
     </div>
 
     <div id="tab-settings" class="tab-content">
-      <div class="card">
-        <div class="card-title">アプリ設定</div>
 
-        <div class="accordion-item">
-          <button class="accordion-header" id="acc-theme-btn">🎨 テーマ・外観設定</button>
-          <div class="accordion-body" id="acc-theme-body">
-            <div class="form-group">
-              <label>表示テーマ</label>
-              <select id="setting-theme-select" class="form-control">
-                <option value="light">☀️ ライトモード</option>
-                <option value="dark">🌙 ダークモード</option>
-              </select>
-            </div>
+      <div class="settings-group-label">表示</div>
+      <div class="card settings-card quick-row-card">
+        <div class="quick-row">
+          <span class="quick-row-label"><span class="acc-icon"><svg viewBox="0 0 16 16" width="15" height="15" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><circle cx="8" cy="8" r="5.5"/><path d="M8 2.5a5.5 5.5 0 000 11z" fill="currentColor" stroke="none"/></svg></span>テーマ</span>
+          <div class="segmented-control" id="theme-segmented">
+            <button type="button" class="segmented-btn" id="theme-quick-light-btn" data-value="light">ライト</button>
+            <button type="button" class="segmented-btn" id="theme-quick-dark-btn" data-value="dark">ダーク</button>
           </div>
         </div>
+        <select id="setting-theme-select" class="form-control" style="display:none;" aria-hidden="true" tabindex="-1">
+          <option value="light">ライトモード</option>
+          <option value="dark">ダークモード</option>
+        </select>
+      </div>
 
+      <div class="settings-group-label">勤務先・テンプレート</div>
+      <div class="card settings-card">
         <div class="accordion-item">
-          <button class="accordion-header" id="acc-jobs-btn">🏢 勤務先・締め日・給料日設定</button>
+          <button class="accordion-header" id="acc-jobs-btn"><span class="acc-title"><span class="acc-icon"><svg viewBox="0 0 16 16" width="15" height="15" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><rect x="1.5" y="5" width="13" height="8.5" rx="1.5"/><path d="M6 5V3.8a1.8 1.8 0 011.8-1.8h.4A1.8 1.8 0 0110 3.8V5"/><line x1="1.5" y1="9" x2="14.5" y2="9"/></svg></span>勤務先・締め日・給料日設定</span></button>
           <div class="accordion-body" id="acc-jobs-body">
             <div id="jobs-config-list"></div>
-            <button class="btn btn-outline btn-sm" id="add-job-btn" style="margin-top: 6px; width: 100%;">＋ 新しい勤務先を追加</button>
+            <button class="btn btn-outline btn-sm btn-add" id="add-job-btn" style="margin-top: 6px; width: 100%;">新しい勤務先を追加</button>
           </div>
         </div>
 
         <div class="accordion-item">
-          <button class="accordion-header" id="acc-bulkimport-btn">📥 シフト一括インポート</button>
-          <div class="accordion-body" id="acc-bulkimport-body">
-            <div style="font-size: 10.5px; color: var(--muted); margin-bottom: 8px; line-height:1.7;">
-              過去のシフト(シフトボードなど他アプリの記録)をまとめて登録できます。<br>
-              1行に1シフト、<strong>日付,勤務先名,開始時刻,終了時刻</strong>の形式でテキストエリアに貼り付けてください。<br>
-              例:<br>
-              <code style="font-size:10px; background:var(--bg); padding:2px 4px; border-radius:4px; display:inline-block; margin-top:2px;">
-                2025-03-01,協栄,10:30,17:00<br>
-                2025-03-03,協栄,13:00,20:00<br>
-                2025-03-05,ベストテン,17:00,22:00
-              </code><br>
-              <span style="color:var(--danger);">※「勤務先名」は、上の「勤務先・締め日・給料日設定」に登録済みの名前と完全に一致している必要があります(先に勤務先を登録しておいてください)</span><br>
-              休憩時間・交通費は0円として登録されるので、必要ならあとで各シフトを編集してください。
-            </div>
-            <textarea id="bulk-import-textarea" class="form-control" rows="6" placeholder="2025-03-01,協栄,10:30,17:00&#10;2025-03-03,協栄,13:00,20:00" style="font-family: monospace; font-size: 11px;"></textarea>
-            <button class="btn btn-good btn-sm" id="bulk-import-run-btn" style="margin-top: 8px; width: 100%;">📥 まとめて登録する</button>
-            <div style="font-size: 10.5px; color: var(--muted); margin-top:6px; white-space: pre-wrap;" id="bulk-import-result"></div>
-          </div>
-        </div>
-
-        <div class="accordion-item">
-          <button class="accordion-header" id="acc-pins-btn">📌 シフトテンプレート</button>
+          <button class="accordion-header" id="acc-pins-btn"><span class="acc-title"><span class="acc-icon"><svg viewBox="0 0 16 16" width="15" height="15" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><path d="M4 2.2h8a.8.8 0 01.8.8v10.5l-4.8-2.9-4.8 2.9V3a.8.8 0 01.8-.8z"/></svg></span>シフトテンプレート</span></button>
           <div class="accordion-body" id="acc-pins-body">
             <div id="pins-config-list"></div>
-            <button class="btn btn-outline btn-sm" id="add-pin-btn" style="margin-top: 6px;">＋ テンプレートを追加</button>
+            <button class="btn btn-outline btn-sm btn-add" id="add-pin-btn" style="margin-top: 6px;">テンプレートを追加</button>
           </div>
         </div>
 
         <div class="accordion-item">
-          <button class="accordion-header" id="acc-expense-pins-btn">💸 支出テンプレート</button>
+          <button class="accordion-header" id="acc-expense-pins-btn"><span class="acc-title"><span class="acc-icon"><svg viewBox="0 0 16 16" width="15" height="15" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><path d="M4 1.8h8v12.4l-1.6-1-1.6 1-1.6-1-1.6 1-1.6-1V1.8z"/><line x1="6" y1="5" x2="10" y2="5"/><line x1="6" y1="8" x2="10" y2="8"/></svg></span>支出テンプレート</span></button>
           <div class="accordion-body" id="acc-expense-pins-body">
             <div id="expense-pins-config-list"></div>
-            <button class="btn btn-outline btn-sm" id="add-expense-pin-btn" style="margin-top: 6px;">＋ テンプレートを追加</button>
+            <button class="btn btn-outline btn-sm btn-add" id="add-expense-pin-btn" style="margin-top: 6px;">テンプレートを追加</button>
           </div>
         </div>
+      </div>
 
+      <div class="settings-group-label">資産・固定費</div>
+      <div class="card settings-card">
         <div class="accordion-item">
-          <button class="accordion-header" id="acc-wall-btn">🏦 総資産・年収の壁・目標設定</button>
+          <button class="accordion-header" id="acc-wall-btn"><span class="acc-title"><span class="acc-icon"><svg viewBox="0 0 16 16" width="15" height="15" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><rect x="1.5" y="4" width="13" height="9.5" rx="1.5"/><path d="M1.5 7h13"/><circle cx="11.3" cy="10.2" r="0.9" fill="currentColor" stroke="none"/></svg></span>総資産・年収の壁・目標設定</span></button>
           <div class="accordion-body" id="acc-wall-body">
             <div class="form-group">
               <label>8月7日時点のベース総資産 (円)</label>
@@ -2135,22 +2272,28 @@
         </div>
 
         <div class="accordion-item">
-          <button class="accordion-header" id="acc-fixed-btn">🏠 毎月の固定費自動登録</button>
+          <button class="accordion-header" id="acc-fixed-btn"><span class="acc-title"><span class="acc-icon"><svg viewBox="0 0 16 16" width="15" height="15" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><path d="M2.8 6.2a5.2 5.2 0 018.7-3.7M13.2 9.8a5.2 5.2 0 01-8.7 3.7"/><polyline points="10.2 1.2 11.5 3.5 9 4.3"/><polyline points="5.8 14.8 4.5 12.5 7 11.7"/></svg></span>固定費の自動登録</span></button>
           <div class="accordion-body" id="acc-fixed-body">
             <div id="fixed-expenses-config-list"></div>
-            <button class="btn btn-outline btn-sm" id="add-fixed-btn" style="margin-top: 6px;">＋ 固定費を追加</button>
+            <button class="btn btn-outline btn-sm btn-add" id="add-fixed-btn" style="margin-top: 6px;">固定費を追加</button>
             <div style="font-size:10.5px; color:var(--muted); margin-top:8px; line-height:1.5;">
-              💡 円以外の通貨（USD, EUR など）も登録できます。追加時・🔄ボタン押下時にその場で最新の為替レートを自動取得し、円換算額と取得日時を表示します（為替は毎月変動するため、参考表示は常にその時点のレートで再計算されます）。<br>
+              円以外の通貨（USD, EURなど）も登録できます。追加時・更新ボタン押下時にその場で最新の為替レートを自動取得し、円換算額と取得日時を表示します（為替は毎月変動するため、参考表示は常にその時点のレートで再計算されます）。<br>
               ※ この円換算額は「総資産・年収の壁」の自動計算には反映されません。為替レートで推定値がぶれて資産計算が不正確になるのを避けるため、実際に引き落とされた金額は都度「支出」として記録することをおすすめします。
             </div>
           </div>
         </div>
+      </div>
 
+      <div class="settings-group-label">通知</div>
+      <div class="card settings-card">
         <div class="accordion-item">
-          <button class="accordion-header" id="acc-reminder-btn">🔔 入力忘れ防止リマインダー</button>
+          <button class="accordion-header" id="acc-reminder-btn"><span class="acc-title"><span class="acc-icon"><svg viewBox="0 0 16 16" width="15" height="15" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><path d="M8 1.8a3.2 3.2 0 00-3.2 3.2v1.8c0 1.2-.5 2.2-1.5 3.2h9.4c-1-1-1.5-2-1.5-3.2V5A3.2 3.2 0 008 1.8z"/><path d="M6.3 12.8a1.7 1.7 0 003.4 0"/></svg></span>入力忘れ防止リマインダー</span></button>
           <div class="accordion-body" id="acc-reminder-body">
-            <div class="form-group">
-              <label><input type="checkbox" id="setting-reminder-enable"> リマインダー通知を有効化</label>
+            <div class="form-group toggle-row">
+              <label class="toggle-label">
+                <span>リマインダー通知を有効化</span>
+                <span class="switch"><input type="checkbox" id="setting-reminder-enable"><span class="switch-track"></span></span>
+              </label>
             </div>
             <div class="form-group">
               <label>通知時刻</label>
@@ -2161,13 +2304,16 @@
         </div>
 
         <div class="accordion-item">
-          <button class="accordion-header" id="acc-shiftalert-btn">⏰ シフト開始前の通知</button>
+          <button class="accordion-header" id="acc-shiftalert-btn"><span class="acc-title"><span class="acc-icon"><svg viewBox="0 0 16 16" width="15" height="15" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><circle cx="8" cy="8" r="6"/><path d="M8 4.8v3.4l2.3 1.6"/></svg></span>シフト開始前の通知</span></button>
           <div class="accordion-body" id="acc-shiftalert-body">
             <div style="font-size: 10.5px; color: var(--muted); margin-bottom: 8px;">
-              シフト開始の指定時間前に、勤務先・時間・見込み給料と応援メッセージを通知します。（🔔プッシュ通知を有効にしている場合のみ届きます）
+              シフト開始の指定時間前に、勤務先・時間・見込み給料と応援メッセージを通知します。（プッシュ通知を有効にしている場合のみ届きます）
             </div>
-            <div class="form-group">
-              <label><input type="checkbox" id="setting-shiftalert-enable"> シフト開始前に通知する</label>
+            <div class="form-group toggle-row">
+              <label class="toggle-label">
+                <span>シフト開始前に通知する</span>
+                <span class="switch"><input type="checkbox" id="setting-shiftalert-enable"><span class="switch-track"></span></span>
+              </label>
             </div>
             <div class="form-group">
               <label>何分前に通知する？</label>
@@ -2178,21 +2324,39 @@
         </div>
 
         <div class="accordion-item">
-          <button class="accordion-header" id="acc-data-btn">💾 データ管理・バックアップ</button>
+          <button class="accordion-header" id="acc-push-btn"><span class="acc-title"><span class="acc-icon"><svg viewBox="0 0 16 16" width="15" height="15" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><path d="M8 1.8a3.2 3.2 0 00-3.2 3.2v1.8c0 1.2-.5 2.2-1.5 3.2h9.4c-1-1-1.5-2-1.5-3.2V5A3.2 3.2 0 008 1.8z"/><path d="M6.3 12.8a1.7 1.7 0 003.4 0"/><path d="M12.5 3.2c.9.9 1.4 2 1.4 3.2M3.5 3.2c-.9.9-1.4 2-1.4 3.2" opacity="0.6"/></svg></span>プッシュ通知</span></button>
+          <div class="accordion-body" id="acc-push-body">
+            <div style="font-size: 10.5px; color: var(--muted); margin-bottom: 8px; line-height:1.5;">
+              ホーム画面に追加したPayCaleを閉じていても、シフトの通知などを受け取れるようにします。<br>
+              ※ホーム画面のアイコンから開いたPayCaleの中でボタンを押してください（Safariのタブから押しても動きません）。
+            </div>
+            <button class="btn btn-good btn-sm" id="enable-push-btn" style="width:100%; margin-bottom:6px;">通知を有効にする</button>
+            <button class="btn btn-outline btn-sm" id="test-push-btn" style="width:100%; margin-bottom:6px;">テスト通知を送る</button>
+            <button class="btn btn-outline btn-sm" id="check-worker-health-btn" style="width:100%;">通知サーバーの状態を確認</button>
+            <div style="font-size: 10.5px; color: var(--muted); margin-top:6px;" id="push-status">未設定</div>
+            <div style="font-size: 10.5px; color: var(--muted); margin-top:4px;" id="worker-health-status"></div>
+          </div>
+        </div>
+      </div>
+
+      <div class="settings-group-label">データ・連携</div>
+      <div class="card settings-card">
+        <div class="accordion-item">
+          <button class="accordion-header" id="acc-data-btn"><span class="acc-title"><span class="acc-icon"><svg viewBox="0 0 16 16" width="15" height="15" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><path d="M8 2v7.5M5 6.5L8 9.5l3-3"/><path d="M2.8 11.2h10.4v2.6H2.8z"/></svg></span>データ管理・バックアップ</span></button>
           <div class="accordion-body" id="acc-data-body">
             <div style="display: flex; flex-direction: column; gap: 6px;">
-              <button class="btn btn-outline btn-sm" id="export-csv-btn">📤 CSV書き出し</button>
-              <button class="btn btn-outline btn-sm" id="export-yearly-payroll-csv-btn">📅 年間の給料一覧をCSV出力（確定申告用）</button>
-              <button class="btn btn-outline btn-sm" id="export-json-btn">💾 JSONバックアップ</button>
-              <button class="btn btn-outline btn-sm" id="export-ics-btn">📅 iPhoneカレンダー用に書き出す (.ics)</button>
-              <button class="btn btn-outline btn-sm" id="import-json-trigger-btn">📥 JSON復元</button>
-              <button class="btn btn-danger btn-sm" id="reset-data-btn" style="margin-top: 6px;">⚠️ 全データ初期化</button>
+              <button class="btn btn-outline btn-sm" id="export-csv-btn">CSV書き出し</button>
+              <button class="btn btn-outline btn-sm" id="export-yearly-payroll-csv-btn">年間の給料一覧をCSV出力（確定申告用）</button>
+              <button class="btn btn-outline btn-sm" id="export-json-btn">JSONバックアップ</button>
+              <button class="btn btn-outline btn-sm" id="export-ics-btn">iPhoneカレンダー用に書き出す (.ics)</button>
+              <button class="btn btn-outline btn-sm" id="import-json-trigger-btn">JSON復元</button>
+              <button class="btn btn-danger btn-sm" id="reset-data-btn" style="margin-top: 6px;">全データ初期化</button>
             </div>
           </div>
         </div>
 
         <div class="accordion-item">
-          <button class="accordion-header" id="acc-cloud-btn">☁️ クラウド自動バックアップ (GitHub Gist)</button>
+          <button class="accordion-header" id="acc-cloud-btn"><span class="acc-title"><span class="acc-icon"><svg viewBox="0 0 16 16" width="15" height="15" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><path d="M4.8 11.8a3 3 0 01-.4-5.98A4.2 4.2 0 0113 6.3a2.7 2.7 0 01-.4 5.5H4.8z"/></svg></span>クラウド自動バックアップ (GitHub Gist)</span></button>
           <div class="accordion-body" id="acc-cloud-body">
             <div style="font-size: 10.5px; color: var(--muted); margin-bottom: 8px; line-height:1.5;">
               GitHubの「Gist」に自分専用のデータを保存し、機種変更やブラウザのキャッシュ削除に備えます。<br>
@@ -2205,53 +2369,40 @@
               <input type="password" id="cloud-gh-token" class="form-control" placeholder="ghp_xxxxxxxxxxxx" autocomplete="off">
             </div>
             <div style="display:flex; gap:6px; margin-bottom:6px;">
-              <button class="btn btn-good btn-sm" id="cloud-backup-save-btn" style="flex:1;">☁️ 今すぐバックアップ</button>
-              <button class="btn btn-outline btn-sm" id="cloud-backup-restore-btn" style="flex:1;">📥 復元</button>
+              <button class="btn btn-good btn-sm" id="cloud-backup-save-btn" style="flex:1;">今すぐバックアップ</button>
+              <button class="btn btn-outline btn-sm" id="cloud-backup-restore-btn" style="flex:1;">復元</button>
             </div>
-            <div style="display:flex; align-items:center; gap:6px; margin-bottom:6px;">
-              <input type="checkbox" id="cloud-auto-backup-toggle">
-              <label for="cloud-auto-backup-toggle" style="font-size:11px; margin:0;">保存のたびに自動でバックアップする</label>
+            <div class="form-group toggle-row" style="margin-bottom:6px;">
+              <label class="toggle-label" style="font-size:11px;">
+                <span>保存のたびに自動でバックアップする</span>
+                <span class="switch"><input type="checkbox" id="cloud-auto-backup-toggle"><span class="switch-track"></span></span>
+              </label>
             </div>
             <div style="font-size: 10.5px; color: var(--muted);" id="cloud-backup-status">未設定</div>
           </div>
         </div>
 
         <div class="accordion-item">
-          <button class="accordion-header" id="acc-push-btn">🔔 プッシュ通知</button>
-          <div class="accordion-body" id="acc-push-body">
-            <div style="font-size: 10.5px; color: var(--muted); margin-bottom: 8px; line-height:1.5;">
-              ホーム画面に追加したPayCaleを閉じていても、シフトの通知などを受け取れるようにします。<br>
-              ※ホーム画面のアイコンから開いたPayCaleの中でボタンを押してください（Safariのタブから押しても動きません）。
-            </div>
-            <button class="btn btn-good btn-sm" id="enable-push-btn" style="width:100%; margin-bottom:6px;">🔔 通知を有効にする</button>
-            <button class="btn btn-outline btn-sm" id="test-push-btn" style="width:100%; margin-bottom:6px;">🧪 テスト通知を送る</button>
-            <button class="btn btn-outline btn-sm" id="check-worker-health-btn" style="width:100%;">🔌 通知サーバーの状態を確認</button>
-            <div style="font-size: 10.5px; color: var(--muted); margin-top:6px;" id="push-status">未設定</div>
-            <div style="font-size: 10.5px; color: var(--muted); margin-top:4px;" id="worker-health-status"></div>
-          </div>
-        </div>
-
-        <div class="accordion-item">
-          <button class="accordion-header" id="acc-calsync-btn">📅 iPhoneカレンダー同期</button>
+          <button class="accordion-header" id="acc-calsync-btn"><span class="acc-title"><span class="acc-icon"><svg viewBox="0 0 16 16" width="15" height="15" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><rect x="1.8" y="3" width="12.4" height="11.2" rx="1.5"/><line x1="1.8" y1="6.6" x2="14.2" y2="6.6"/><line x1="5" y1="1.3" x2="5" y2="4.3"/><line x1="11" y1="1.3" x2="11" y2="4.3"/></svg></span>iPhoneカレンダー同期</span></button>
           <div class="accordion-body" id="acc-calsync-body">
             <div style="font-size: 10.5px; color: var(--muted); margin-bottom: 8px; line-height:1.5;">
               シフト予定をiPhone標準の「カレンダー」アプリに自動で反映します(購読形式のため、更新は数時間おきになることがあります)。
             </div>
-            <button class="btn btn-good btn-sm" id="enable-calsync-btn" style="width:100%; margin-bottom:6px;">📅 カレンダー同期を有効にする</button>
+            <button class="btn btn-good btn-sm" id="enable-calsync-btn" style="width:100%; margin-bottom:6px;">カレンダー同期を有効にする</button>
             <div id="calsync-url-box" style="display:none; margin-top:6px;">
               <div style="font-size: 10.5px; color: var(--muted); margin-bottom:4px;">
                 下のボタンからiPhoneの「カレンダー」アプリで直接登録できます。<br>
                 自動で開かない場合は、URLをコピーして「設定 → カレンダー → アカウントを追加 → 購読カレンダーを追加」に貼り付けてください。<br>
-                ⚠️ このURLは他人に教えないでください(あなたのシフトが見えてしまいます)。
+                ※このURLは他人に教えないでください(あなたのシフトが見えてしまいます)。
               </div>
-              <a id="calsync-webcal-link" class="btn btn-sm" style="width:100%; display:block; text-align:center; margin-bottom:6px; text-decoration:none;" href="#">📲 カレンダーに登録する</a>
-              <button type="button" class="btn btn-outline btn-sm" id="calsync-copy-url-btn" style="width:100%;">🔗 URLをコピー</button>
+              <a id="calsync-webcal-link" class="btn btn-sm" style="width:100%; display:block; text-align:center; margin-bottom:6px; text-decoration:none;" href="#">カレンダーに登録する</a>
+              <button type="button" class="btn btn-outline btn-sm" id="calsync-copy-url-btn" style="width:100%;">URLをコピー</button>
             </div>
             <div style="font-size: 10.5px; color: var(--muted); margin-top:6px;" id="calsync-status">未設定</div>
           </div>
         </div>
-
       </div>
+
     </div>
   </main>
 
@@ -2805,6 +2956,11 @@
   </div>
 
   <script>
+    const ICOSVG = {
+      pins: '<svg viewBox="0 0 16 16" width="15" height="15" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><path d="M4 2.2h8a.8.8 0 01.8.8v10.5l-4.8-2.9-4.8 2.9V3a.8.8 0 01.8-.8z"/></svg>',
+      receipt: '<svg viewBox="0 0 16 16" width="15" height="15" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><path d="M4 1.8h8v12.4l-1.6-1-1.6 1-1.6-1-1.6 1-1.6-1V1.8z"/><line x1="6" y1="5" x2="10" y2="5"/><line x1="6" y1="8" x2="10" y2="8"/></svg>',
+    };
+
     const DEFAULT_DB = {
       jobs: [
         {
@@ -4615,6 +4771,13 @@
       }
     }
 
+    function syncThemeSegmented() {
+      const val = document.getElementById("setting-theme-select").value || "light";
+      document.querySelectorAll("#theme-segmented .segmented-btn").forEach(btn => {
+        btn.classList.toggle("active", btn.dataset.value === val);
+      });
+    }
+
     function renderSettingsTab() {
       const jobsConfig = document.getElementById("jobs-config-list");
       if (jobsConfig) {
@@ -4623,7 +4786,7 @@
           const periodsHtml = isMultiPeriod ? (j.periods || []).map((p, pIdx) => `
             <div class="period-setting-card">
               <div class="period-setting-head">
-                <strong>📌 ${p.label || `支給${pIdx + 1}`}</strong>
+                <strong>${p.label || `支給${pIdx + 1}`}</strong>
                 <button class="btn btn-danger btn-sm" onclick="deletePeriod(${idx}, ${pIdx})">削除</button>
               </div>
               <div class="form-group">
@@ -4711,12 +4874,12 @@
 
             ${j.type === 'multi_period' ? `
               <div style="font-size:10px; color:var(--brand-dark); background:var(--brand-light); padding:4px 6px; border-radius:4px; margin:4px 0;">
-                💡 支給回ごとに「集計期間」「支給月・支給日」「土日祝調整」を自由に設定できます。
+                支給回ごとに「集計期間」「支給月・支給日」「土日祝調整」を自由に設定できます。
               </div>
               <div id="periods-list-${idx}">
                 ${periodsHtml || '<div style="font-size:11px; color:var(--muted); text-align:center; padding:6px;">支給回が設定されていません</div>'}
               </div>
-              <button class="btn btn-outline btn-sm" style="width:100%; margin-top:4px;" onclick="addPeriod(${idx})">＋ 支給回を追加</button>
+              <button class="btn btn-outline btn-sm btn-add" style="width:100%; margin-top:4px;" onclick="addPeriod(${idx})">支給回を追加</button>
             ` : `
             <div class="form-row">
               <div class="form-group">
@@ -4769,12 +4932,12 @@
       if (pinsConfig) {
         pinsConfig.innerHTML = DB.pins.length ? DB.pins.map(p => `
           <div class="template-manage-card" onclick="openPinEditModal(${p.id})">
-            <div class="template-manage-card-icon">📌</div>
+            <div class="template-manage-card-icon">${ICOSVG.pins}</div>
             <div class="template-manage-card-body">
               <div class="template-manage-card-title">${p.label}</div>
               <div class="template-manage-card-sub">${p.start} ~ ${p.end}</div>
             </div>
-            <button class="btn btn-outline btn-sm" onclick="event.stopPropagation(); openPinEditModal(${p.id})">✏️ 編集</button>
+            <span class="template-manage-card-chevron"></span>
           </div>
         `).join("") : '<div style="font-size:11px; color:var(--muted); text-align:center; padding:8px;">テンプレートがありません</div>';
       }
@@ -4783,17 +4946,18 @@
       if (expensePinsConfig) {
         expensePinsConfig.innerHTML = DB.expensePins.length ? DB.expensePins.map(p => `
           <div class="template-manage-card" onclick="openExpensePinEditModal(${p.id})">
-            <div class="template-manage-card-icon">💸</div>
+            <div class="template-manage-card-icon">${ICOSVG.receipt}</div>
             <div class="template-manage-card-body">
               <div class="template-manage-card-title">${p.label}</div>
               <div class="template-manage-card-sub">${p.category} ・ ¥${(p.amount || 0).toLocaleString()}</div>
             </div>
-            <button class="btn btn-outline btn-sm" onclick="event.stopPropagation(); openExpensePinEditModal(${p.id})">✏️ 編集</button>
+            <span class="template-manage-card-chevron"></span>
           </div>
         `).join("") : '<div style="font-size:11px; color:var(--muted); text-align:center; padding:8px;">テンプレートがありません</div>';
       }
 
       document.getElementById("setting-theme-select").value = DB.settings.theme || "light";
+      syncThemeSegmented();
       document.getElementById("setting-base-asset").value = DB.baseAsset || 0;
       document.getElementById("setting-wall-target").value = [1600000, 1060000, 1300000, 1500000, 2010000].includes(DB.wallTarget) ? DB.wallTarget : "custom";
       if (![1600000, 1060000, 1300000, 1500000, 2010000].includes(DB.wallTarget)) {
@@ -4810,15 +4974,15 @@
           const rate = cur === "JPY" ? 1 : (f.fxRate || 1);
           const jpyAmount = Math.round(f.amount * rate);
           const paydayText = f.payDay ? `・引き落とし日:${f.payDay === "末日" ? "末日" : f.payDay + "日"}` : "・引き落とし日未設定";
-          const autoApplyText = !f.payDay ? "" : (f.autoApply === false ? "・🔕 天引きOFF(通知のみ)" : "・🔔 天引きON");
+          const autoApplyText = !f.payDay ? "" : (f.autoApply === false ? "・天引きOFF(通知のみ)" : "・天引きON");
           const subText = (cur === "JPY"
             ? `¥${f.amount.toLocaleString()}/月`
             : `${cur} ${f.amount.toLocaleString()} ≈ ¥${jpyAmount.toLocaleString()}/月 (${f.fxUpdatedAt ? f.fxUpdatedAt + "時点レート" : "レート未取得"}・引き落とし時は自動で当日レート取得)`) + paydayText + autoApplyText;
           const refreshBtn = cur !== "JPY"
-            ? `<button class="btn btn-outline btn-sm" onclick="event.stopPropagation(); refreshFixedFx(${f.id})" title="最新レートに更新">🔄</button>`
+            ? `<button class="btn btn-outline btn-sm icon-only-btn" onclick="event.stopPropagation(); refreshFixedFx(${f.id})" title="最新レートに更新"><svg viewBox="0 0 16 16" width="13" height="13" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"><path d="M2.8 6.2a5.2 5.2 0 018.7-3.7M13.2 9.8a5.2 5.2 0 01-8.7 3.7"/><polyline points="10.2 1.2 11.5 3.5 9 4.3"/><polyline points="5.8 14.8 4.5 12.5 7 11.7"/></svg></button>`
             : "";
           const toggleBtn = f.payDay
-            ? `<button class="btn btn-outline btn-sm" onclick="event.stopPropagation(); toggleFixedAutoApply(${f.id})" title="天引きのON/OFF切り替え">${f.autoApply === false ? "🔕" : "🔔"}</button>`
+            ? `<button class="btn btn-outline btn-sm" onclick="event.stopPropagation(); toggleFixedAutoApply(${f.id})" title="天引きのON/OFF切り替え">${f.autoApply === false ? "OFF" : "ON"}</button>`
             : "";
           return `
           <div class="list-item" onclick="openFixedExpenseEditModal(${f.id})" style="cursor:pointer;">
@@ -7098,7 +7262,18 @@
         DB.settings.theme = e.target.value;
         saveDB();
         applyTheme();
+        syncThemeSegmented();
         showToast("🎨 テーマを変更しました");
+      });
+
+      document.querySelectorAll("#theme-segmented .segmented-btn").forEach(btn => {
+        btn.addEventListener("click", () => {
+          const val = btn.dataset.value;
+          const sel = document.getElementById("setting-theme-select");
+          if (sel.value === val) return;
+          sel.value = val;
+          sel.dispatchEvent(new Event("change"));
+        });
       });
 
       document.getElementById("close-override-modal-btn").addEventListener("click", () => closeModalWithLock("override-pay-modal"));
@@ -7163,7 +7338,7 @@
         showRegisterPop({ icon: "🔁", title: "繰り返し登録を完了しました", sub: `${repeatCount}件のシフトを登録しました` });
       });
 
-      const accs = ["acc-theme", "acc-jobs", "acc-bulkimport", "acc-pins", "acc-expense-pins", "acc-wall", "acc-fixed", "acc-reminder", "acc-shiftalert", "acc-data", "acc-cloud", "acc-push", "acc-calsync"];
+      const accs = ["acc-jobs", "acc-pins", "acc-expense-pins", "acc-wall", "acc-fixed", "acc-reminder", "acc-shiftalert", "acc-data", "acc-cloud", "acc-push", "acc-calsync"];
       accs.forEach(id => {
         const btn = document.getElementById(`${id}-btn`);
         const body = document.getElementById(`${id}-body`);
@@ -7195,79 +7370,6 @@
         saveDB();
         renderAll();
         showToast("🏢 勤務先を追加しました");
-      });
-
-      document.getElementById("bulk-import-run-btn").addEventListener("click", () => {
-        const textarea = document.getElementById("bulk-import-textarea");
-        const resultEl = document.getElementById("bulk-import-result");
-        const rawText = textarea.value;
-        if (!rawText || !rawText.trim()) {
-          if (resultEl) resultEl.textContent = "⚠️ テキストが入力されていません";
-          return;
-        }
-
-        const lines = rawText.split("\n").map(l => l.trim()).filter(l => l.length > 0);
-        const newShifts = [];
-        const errors = [];
-
-        lines.forEach((line, idx) => {
-          const lineNo = idx + 1;
-          const parts = line.split(",").map(p => p.trim());
-          if (parts.length < 4) {
-            errors.push(`${lineNo}行目: 項目が足りません(日付,勤務先名,開始,終了 の4つが必要) → "${line}"`);
-            return;
-          }
-          const [dateStr, jobName, startRaw, endRaw] = parts;
-
-          if (!/^\d{4}-\d{2}-\d{2}$/.test(dateStr)) {
-            errors.push(`${lineNo}行目: 日付の形式が違います(例: 2025-03-01) → "${dateStr}"`);
-            return;
-          }
-
-          const job = DB.jobs.find(j => j.name === jobName);
-          if (!job) {
-            errors.push(`${lineNo}行目: 勤務先「${jobName}」が見つかりません(先に勤務先設定で登録してください)`);
-            return;
-          }
-
-          const timePattern = /^([01]?\d|2[0-3]):([0-5]\d)$/;
-          const startMatch = startRaw.match(timePattern);
-          const endMatch = endRaw.match(timePattern);
-          if (!startMatch || !endMatch) {
-            errors.push(`${lineNo}行目: 時刻の形式が違います(例: 10:30) → "${startRaw}〜${endRaw}"`);
-            return;
-          }
-          const startTime = `${startMatch[1].padStart(2, "0")}:${startMatch[2]}`;
-          const endTime = `${endMatch[1].padStart(2, "0")}:${endMatch[2]}`;
-
-          newShifts.push({
-            id: Date.now() + idx + Math.random(),
-            jobId: job.id,
-            date: dateStr,
-            startTime,
-            endTime,
-            breakMin: 0,
-            transport: 0
-          });
-        });
-
-        if (newShifts.length > 0) {
-          pushUndoState();
-          DB.shifts.push(...newShifts);
-          saveDB();
-          renderAll();
-        }
-
-        let resultText = `✅ ${newShifts.length}件のシフトを登録しました`;
-        if (errors.length > 0) {
-          resultText += `\n⚠️ ${errors.length}件失敗:\n` + errors.join("\n");
-        }
-        if (resultEl) resultEl.textContent = resultText;
-
-        if (newShifts.length > 0) {
-          showToast(`📥 ${newShifts.length}件のシフトを一括登録しました`, "good", { label: "元に戻す", onClick: undoLastAction });
-          if (errors.length === 0) textarea.value = "";
-        }
       });
 
       document.getElementById("add-pin-btn").addEventListener("click", async () => {
