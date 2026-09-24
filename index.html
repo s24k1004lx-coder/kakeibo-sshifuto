@@ -2064,6 +2064,27 @@
         </div>
 
         <div class="accordion-item">
+          <button class="accordion-header" id="acc-bulkimport-btn">📥 シフト一括インポート</button>
+          <div class="accordion-body" id="acc-bulkimport-body">
+            <div style="font-size: 10.5px; color: var(--muted); margin-bottom: 8px; line-height:1.7;">
+              過去のシフト(シフトボードなど他アプリの記録)をまとめて登録できます。<br>
+              1行に1シフト、<strong>日付,勤務先名,開始時刻,終了時刻</strong>の形式でテキストエリアに貼り付けてください。<br>
+              例:<br>
+              <code style="font-size:10px; background:var(--bg); padding:2px 4px; border-radius:4px; display:inline-block; margin-top:2px;">
+                2025-03-01,協栄,10:30,17:00<br>
+                2025-03-03,協栄,13:00,20:00<br>
+                2025-03-05,ベストテン,17:00,22:00
+              </code><br>
+              <span style="color:var(--danger);">※「勤務先名」は、上の「勤務先・締め日・給料日設定」に登録済みの名前と完全に一致している必要があります(先に勤務先を登録しておいてください)</span><br>
+              休憩時間・交通費は0円として登録されるので、必要ならあとで各シフトを編集してください。
+            </div>
+            <textarea id="bulk-import-textarea" class="form-control" rows="6" placeholder="2025-03-01,協栄,10:30,17:00&#10;2025-03-03,協栄,13:00,20:00" style="font-family: monospace; font-size: 11px;"></textarea>
+            <button class="btn btn-good btn-sm" id="bulk-import-run-btn" style="margin-top: 8px; width: 100%;">📥 まとめて登録する</button>
+            <div style="font-size: 10.5px; color: var(--muted); margin-top:6px; white-space: pre-wrap;" id="bulk-import-result"></div>
+          </div>
+        </div>
+
+        <div class="accordion-item">
           <button class="accordion-header" id="acc-pins-btn">📌 シフトテンプレート</button>
           <div class="accordion-body" id="acc-pins-body">
             <div id="pins-config-list"></div>
@@ -4870,7 +4891,7 @@
       if (expensePinContainer) {
         expensePinContainer.innerHTML = DB.expensePins.map(p => {
           const key = `epin_${p.id}`;
-          return `<button type="button" class="template-chip-v2 ${selectedExpenseShortcutKey === key ? 'active' : ''}" onclick="applyExpenseShortcutData(${JSON.stringify(String(p.id))}, ${JSON.stringify(key)})"><span class="chip-dot">📌</span>${p.label}</button>`;
+          return `<button type="button" class="template-chip-v2 ${selectedExpenseShortcutKey === key ? 'active' : ''}" onclick="applyExpenseShortcutData('${p.id}', '${key}')"><span class="chip-dot">📌</span>${p.label}</button>`;
         }).join("") || '<span class="template-chip-empty">テンプレートなし</span>';
       }
     }
@@ -5564,7 +5585,9 @@
       try {
         const controller = new AbortController();
         const timeoutId = setTimeout(() => controller.abort(), 8000); // 8秒タイムアウト
-        const res = await fetch(`https://api.frankfurter.app/latest?from=${encodeURIComponent(currencyCode)}&to=JPY`, {
+        // ※ api.frankfurter.app は api.frankfurter.dev に移転済み。
+        //   旧URLは302リダイレクトを返すだけで、ブラウザからのfetchだとCORSエラーで失敗するため、新URLを直接指定する。
+        const res = await fetch(`https://api.frankfurter.dev/v1/latest?from=${encodeURIComponent(currencyCode)}&to=JPY`, {
           signal: controller.signal,
           headers: { "Accept": "application/json" }
         });
@@ -6960,7 +6983,7 @@
         showRegisterPop({ icon: "🔁", title: "繰り返し登録を完了しました", sub: `${repeatCount}件のシフトを登録しました` });
       });
 
-      const accs = ["acc-theme", "acc-jobs", "acc-pins", "acc-expense-pins", "acc-wall", "acc-fixed", "acc-reminder", "acc-shiftalert", "acc-data", "acc-cloud", "acc-push", "acc-calsync"];
+      const accs = ["acc-theme", "acc-jobs", "acc-bulkimport", "acc-pins", "acc-expense-pins", "acc-wall", "acc-fixed", "acc-reminder", "acc-shiftalert", "acc-data", "acc-cloud", "acc-push", "acc-calsync"];
       accs.forEach(id => {
         const btn = document.getElementById(`${id}-btn`);
         const body = document.getElementById(`${id}-body`);
@@ -6992,6 +7015,79 @@
         saveDB();
         renderAll();
         showToast("🏢 勤務先を追加しました");
+      });
+
+      document.getElementById("bulk-import-run-btn").addEventListener("click", () => {
+        const textarea = document.getElementById("bulk-import-textarea");
+        const resultEl = document.getElementById("bulk-import-result");
+        const rawText = textarea.value;
+        if (!rawText || !rawText.trim()) {
+          if (resultEl) resultEl.textContent = "⚠️ テキストが入力されていません";
+          return;
+        }
+
+        const lines = rawText.split("\n").map(l => l.trim()).filter(l => l.length > 0);
+        const newShifts = [];
+        const errors = [];
+
+        lines.forEach((line, idx) => {
+          const lineNo = idx + 1;
+          const parts = line.split(",").map(p => p.trim());
+          if (parts.length < 4) {
+            errors.push(`${lineNo}行目: 項目が足りません(日付,勤務先名,開始,終了 の4つが必要) → "${line}"`);
+            return;
+          }
+          const [dateStr, jobName, startRaw, endRaw] = parts;
+
+          if (!/^\d{4}-\d{2}-\d{2}$/.test(dateStr)) {
+            errors.push(`${lineNo}行目: 日付の形式が違います(例: 2025-03-01) → "${dateStr}"`);
+            return;
+          }
+
+          const job = DB.jobs.find(j => j.name === jobName);
+          if (!job) {
+            errors.push(`${lineNo}行目: 勤務先「${jobName}」が見つかりません(先に勤務先設定で登録してください)`);
+            return;
+          }
+
+          const timePattern = /^([01]?\d|2[0-3]):([0-5]\d)$/;
+          const startMatch = startRaw.match(timePattern);
+          const endMatch = endRaw.match(timePattern);
+          if (!startMatch || !endMatch) {
+            errors.push(`${lineNo}行目: 時刻の形式が違います(例: 10:30) → "${startRaw}〜${endRaw}"`);
+            return;
+          }
+          const startTime = `${startMatch[1].padStart(2, "0")}:${startMatch[2]}`;
+          const endTime = `${endMatch[1].padStart(2, "0")}:${endMatch[2]}`;
+
+          newShifts.push({
+            id: Date.now() + idx + Math.random(),
+            jobId: job.id,
+            date: dateStr,
+            startTime,
+            endTime,
+            breakMin: 0,
+            transport: 0
+          });
+        });
+
+        if (newShifts.length > 0) {
+          pushUndoState();
+          DB.shifts.push(...newShifts);
+          saveDB();
+          renderAll();
+        }
+
+        let resultText = `✅ ${newShifts.length}件のシフトを登録しました`;
+        if (errors.length > 0) {
+          resultText += `\n⚠️ ${errors.length}件失敗:\n` + errors.join("\n");
+        }
+        if (resultEl) resultEl.textContent = resultText;
+
+        if (newShifts.length > 0) {
+          showToast(`📥 ${newShifts.length}件のシフトを一括登録しました`, "good", { label: "元に戻す", onClick: undoLastAction });
+          if (errors.length === 0) textarea.value = "";
+        }
       });
 
       document.getElementById("add-pin-btn").addEventListener("click", async () => {
