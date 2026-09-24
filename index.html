@@ -2664,18 +2664,20 @@
           💡 保存時に最新の為替レートを自動取得し、円換算額を表示します。
         </div>
         <div class="form-group">
-          <label>支払日（毎月・任意）</label>
+          <label>引き落とし日（毎月・任意）</label>
           <select id="fixed-expense-payday" class="form-control">
-            <option value="">設定しない（記録漏れ通知は使わない）</option>
-            <option value="1">1日</option><option value="5">5日</option>
-            <option value="10">10日</option><option value="15">15日</option>
-            <option value="20">20日</option><option value="25">25日</option>
-            <option value="27">27日</option><option value="28">28日</option>
-            <option value="末日">末日</option>
+            <option value="">設定しない（自動天引き・通知どちらも使わない）</option>
           </select>
           <div style="font-size:10px; color:var(--muted); margin-top:3px;">
-            設定すると、支払日に「支出として記録しましたか？」の通知が届きます。
+            設定すると、この日に自動で「支出」として記録されます（下のチェックがONの場合）。あわせて支払日には通知も届きます。
           </div>
+        </div>
+        <div class="form-group" style="display:flex; align-items:center; gap:6px;">
+          <input type="checkbox" id="fixed-expense-autoapply" checked style="width:16px; height:16px;">
+          <label for="fixed-expense-autoapply" style="margin:0; font-size:12px;">引き落とし日になったら自動で支出として記帳する（天引き）</label>
+        </div>
+        <div style="font-size:10px; color:var(--muted); margin-top:-4px; margin-bottom:6px;" id="fixed-expense-autoapply-note">
+          ※ 外貨の場合、記帳のたびに「その引き落とし日時点」の為替レートを自動取得して円換算します。
         </div>
         <div style="display:flex; gap:6px; margin-top:10px;">
           <button type="submit" class="btn" style="flex:1;" id="fixed-expense-save-btn">追加する</button>
@@ -4750,12 +4752,16 @@
           const cur = f.currency || "JPY";
           const rate = cur === "JPY" ? 1 : (f.fxRate || 1);
           const jpyAmount = Math.round(f.amount * rate);
-          const paydayText = f.payDay ? `・支払日:${f.payDay === "末日" ? "末日" : f.payDay + "日"}` : "";
+          const paydayText = f.payDay ? `・引き落とし日:${f.payDay === "末日" ? "末日" : f.payDay + "日"}` : "・引き落とし日未設定";
+          const autoApplyText = !f.payDay ? "" : (f.autoApply === false ? "・🔕 天引きOFF(通知のみ)" : "・🔔 天引きON");
           const subText = (cur === "JPY"
             ? `¥${f.amount.toLocaleString()}/月`
-            : `${cur} ${f.amount.toLocaleString()} ≈ ¥${jpyAmount.toLocaleString()}/月 (${f.fxUpdatedAt ? f.fxUpdatedAt + "時点レート" : "レート未取得"})`) + paydayText;
+            : `${cur} ${f.amount.toLocaleString()} ≈ ¥${jpyAmount.toLocaleString()}/月 (${f.fxUpdatedAt ? f.fxUpdatedAt + "時点レート" : "レート未取得"}・引き落とし時は自動で当日レート取得)`) + paydayText + autoApplyText;
           const refreshBtn = cur !== "JPY"
             ? `<button class="btn btn-outline btn-sm" onclick="refreshFixedFx(${f.id})" title="最新レートに更新">🔄</button>`
+            : "";
+          const toggleBtn = f.payDay
+            ? `<button class="btn btn-outline btn-sm" onclick="toggleFixedAutoApply(${f.id})" title="天引きのON/OFF切り替え">${f.autoApply === false ? "🔕" : "🔔"}</button>`
             : "";
           return `
           <div class="list-item">
@@ -4764,6 +4770,7 @@
               <span style="font-size:11px; color:var(--muted); margin-left:4px;">(${subText})</span>
             </div>
             <div class="list-item-right">
+              ${toggleBtn}
               ${refreshBtn}
               <button class="btn btn-danger btn-sm" onclick="deleteFixedConfig(${f.id})">削除</button>
             </div>
@@ -5616,6 +5623,94 @@
       }
     }
 
+    // 指定した日付(引き落とし日)時点のレートを取得する。
+    // 今日以降(または今日)の日付なら最新レート、過去日付ならその日の historical レートを使う。
+    async function fetchFxRateToJpyOnDate(currencyCode, dateStr) {
+      if (!currencyCode || currencyCode === "JPY") return 1;
+      const todayStr = getLocalDateString(new Date());
+      try {
+        const controller = new AbortController();
+        const timeoutId = setTimeout(() => controller.abort(), 8000);
+        const path = (dateStr && dateStr < todayStr) ? dateStr : "latest";
+        const res = await fetch(`https://api.frankfurter.dev/v1/${path}?from=${encodeURIComponent(currencyCode)}&to=JPY`, {
+          signal: controller.signal,
+          headers: { "Accept": "application/json" }
+        });
+        clearTimeout(timeoutId);
+        if (!res.ok) throw new Error(`HTTP ${res.status}`);
+        const data = await res.json();
+        const rate = data && data.rates && data.rates.JPY;
+        if (typeof rate === "number" && isFinite(rate) && rate > 0) return rate;
+        throw new Error("invalid rate");
+      } catch (err) {
+        console.error(`fetchFxRateToJpyOnDate error (${currencyCode}, ${dateStr}):`, err.message);
+        return null;
+      }
+    }
+
+    // 🏠 固定費の自動天引き
+    // 各固定費の「引き落とし日」が来ていて、かつ自動天引きがONのものを、
+    // まだ計上していない月について DB.expenses に自動で追加する。
+    // アプリを開くたびに1回呼ばれ、開いていなかった間の分もまとめて追いつく(バックフィル)。
+    async function processFixedExpenseAutoDeductions() {
+      if (!DB.fixedExpenses || DB.fixedExpenses.length === 0) return;
+      const todayStr = getLocalDateString(new Date());
+      const [todayY, todayM] = todayStr.split("-").map(Number);
+      let changed = false;
+      let appliedCount = 0;
+
+      for (const item of DB.fixedExpenses) {
+        if (!item.payDay) continue;
+        if (item.autoApply === false) continue;
+        if (!item.appliedMonths) item.appliedMonths = [];
+        // 既存データ(この機能追加より前に登録された固定費)は、今日を起点にする
+        // (過去分をいきなり大量に自動計上しないようにするための安全策)
+        if (!item.createdAt) item.createdAt = todayStr;
+
+        let [y, m] = item.createdAt.split("-").map(Number);
+
+        while (y < todayY || (y === todayY && m <= todayM)) {
+          const monthKey = `${y}-${String(m).padStart(2, "0")}`;
+          if (item.appliedMonths.includes(monthKey)) {
+            m++; if (m > 12) { m = 1; y++; }
+            continue;
+          }
+
+          const lastDayOfMonth = new Date(y, m, 0).getDate();
+          const targetDay = item.payDay === "末日" ? lastDayOfMonth : Math.min(Number(item.payDay), lastDayOfMonth);
+          const targetDateStr = `${y}-${String(m).padStart(2, "0")}-${String(targetDay).padStart(2, "0")}`;
+
+          // 引き落とし日がまだ来ていない月は打ち切り(それ以降の月はさらに先なので終了)
+          if (targetDateStr > todayStr) break;
+
+          let jpyAmount = item.amount;
+          if (item.currency && item.currency !== "JPY") {
+            const rateOnDate = await fetchFxRateToJpyOnDate(item.currency, targetDateStr);
+            jpyAmount = Math.round(item.amount * (rateOnDate !== null ? rateOnDate : (item.fxRate || 1)));
+          }
+
+          DB.expenses.push({
+            id: Date.now() + Math.random(),
+            date: targetDateStr,
+            category: "固定費",
+            memo: item.memo,
+            amount: jpyAmount
+          });
+          item.appliedMonths.push(monthKey);
+          changed = true;
+          appliedCount++;
+
+          m++; if (m > 12) { m = 1; y++; }
+        }
+      }
+
+      if (changed) {
+        saveDB();
+        renderAll();
+        showToast(`🏠 固定費 ${appliedCount}件を自動で支出に記帳しました`);
+      }
+    }
+
     // ☁️ クラウド自動バックアップ (GitHub Gist)
     // トークン・Gist ID は DB(JSON書き出し対象)ではなく localStorage の別キーに保持し、
     // バックアップファイルの共有やインポート時にトークンが漏れないようにする。
@@ -5898,7 +5993,7 @@
       try {
         const items = (DB.fixedExpenses || [])
           .filter((f) => f.payDay)
-          .map((f) => ({ id: f.id, memo: f.memo, amount: Math.round(f.amount * (f.currency === "JPY" || !f.currency ? 1 : (f.fxRate || 1))), payDay: f.payDay }));
+          .map((f) => ({ id: f.id, memo: f.memo, amount: Math.round(f.amount * (f.currency === "JPY" || !f.currency ? 1 : (f.fxRate || 1))), payDay: f.payDay, autoApply: f.autoApply !== false }));
 
         await fetch(`${PUSH_WORKER_URL}/fixed-expenses`, {
           method: "POST",
@@ -6214,6 +6309,18 @@
       saveDB();
       renderSettingsTab();
       showToast(`✅ ${item.currency}→円 のレートを更新しました (¥${item.fxRate.toLocaleString(undefined, { maximumFractionDigits: 2 })})`);
+    };
+
+    window.toggleFixedAutoApply = (id) => {
+      const item = DB.fixedExpenses.find(f => f.id === id);
+      if (!item) return;
+      item.autoApply = item.autoApply === false ? true : false;
+      saveDB();
+      renderSettingsTab();
+      showToast(item.autoApply === false ? "🔕 自動天引きをOFFにしました(通知のみ)" : "🔔 自動天引きをONにしました");
+      if (item.autoApply !== false && typeof processFixedExpenseAutoDeductions === "function") {
+        processFixedExpenseAutoDeductions();
+      }
     };
 
     window.selectQuickTemplate = pinId => {
@@ -7108,11 +7215,21 @@
         openExpensePinEditModal(newId);
       });
 
+      // 支払日(引き落とし日)セレクトの選択肢を1〜31日+末日で生成しておく
+      const paydaySelectEl = document.getElementById("fixed-expense-payday");
+      if (paydaySelectEl) {
+        let paydayOptionsHtml = `<option value="">設定しない（自動天引き・通知どちらも使わない）</option>`;
+        for (let d = 1; d <= 31; d++) paydayOptionsHtml += `<option value="${d}">${d}日</option>`;
+        paydayOptionsHtml += `<option value="末日">末日</option>`;
+        paydaySelectEl.innerHTML = paydayOptionsHtml;
+      }
+
       document.getElementById("add-fixed-btn").addEventListener("click", () => {
         document.getElementById("fixed-expense-form").reset();
         document.getElementById("fixed-expense-amount").value = "";
         document.getElementById("fixed-expense-currency").value = "JPY";
         document.getElementById("fixed-expense-payday").value = "";
+        document.getElementById("fixed-expense-autoapply").checked = true;
         document.getElementById("fixed-expense-fx-note").style.display = "none";
         openModalWithLock("fixed-expense-modal");
       });
@@ -7134,9 +7251,20 @@
         if (amount === null || amount <= 0) { showInputError(amountInput); return; }
 
         const payDayRaw = document.getElementById("fixed-expense-payday").value;
+        const autoApply = document.getElementById("fixed-expense-autoapply").checked;
         const saveBtn = document.getElementById("fixed-expense-save-btn");
         pushUndoState();
-        const item = { id: Date.now(), memo, amount, currency, fxRate: 1, fxUpdatedAt: null, autoApply: true, payDay: payDayRaw || null };
+        const item = {
+          id: Date.now(),
+          memo, amount, currency,
+          fxRate: 1,
+          fxUpdatedAt: null,
+          autoApply,
+          payDay: payDayRaw || null,
+          // 天引き自動計上の管理用: いつからこの固定費が有効か、どの月まで計上済みか
+          createdAt: getLocalDateString(new Date()),
+          appliedMonths: []
+        };
 
         if (currency !== "JPY") {
           saveBtn.disabled = true;
@@ -7159,6 +7287,7 @@
         closeModalWithLock("fixed-expense-modal");
         renderAll();
         showToast("🏠 固定費を追加しました");
+        if (typeof processFixedExpenseAutoDeductions === "function") processFixedExpenseAutoDeductions();
       });
 
       document.getElementById("save-asset-settings-btn").addEventListener("click", () => {
@@ -7397,6 +7526,8 @@
           showToast("⚠️ 保存データの読み込みに失敗したため初期状態で起動しました", "danger");
         }, 400);
       }
+      // 起動のたびに、固定費の自動天引き(未計上分のバックフィル含む)を確認する
+      processFixedExpenseAutoDeductions();
     });
   </script>
 </body>
