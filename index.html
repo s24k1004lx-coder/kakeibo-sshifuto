@@ -2686,6 +2686,63 @@
     </div>
   </div>
 
+  <div class="modal-overlay" id="fixed-expense-edit-modal">
+    <div class="modal-content" style="padding-bottom:20px;">
+      <div class="modal-header">
+        <div class="modal-title">✏️ 固定費の編集</div>
+        <button class="icon-btn" id="close-fixed-expense-edit-modal-btn" style="color:var(--ink);">✕</button>
+      </div>
+      <form id="fixed-expense-edit-form">
+        <input type="hidden" id="edit-fixed-id">
+        <div class="form-group">
+          <label>項目名</label>
+          <input type="text" id="edit-fixed-memo" class="form-control" placeholder="例: 家賃、サブスクなど" required>
+        </div>
+        <div class="form-row">
+          <div class="form-group" style="flex:2;">
+            <label>金額</label>
+            <input type="text" id="edit-fixed-amount" class="form-control calc-input" placeholder="0" readonly required>
+          </div>
+          <div class="form-group" style="flex:1; min-width:90px;">
+            <label>通貨</label>
+            <select id="edit-fixed-currency" class="form-control">
+              <option value="JPY">🇯🇵 JPY（円）</option>
+              <option value="USD">🇺🇸 USD（米ドル）</option>
+              <option value="EUR">🇪🇺 EUR（ユーロ）</option>
+              <option value="GBP">🇬🇧 GBP（英ポンド）</option>
+              <option value="CNY">🇨🇳 CNY（人民元）</option>
+              <option value="KRW">🇰🇷 KRW（ウォン）</option>
+              <option value="AUD">🇦🇺 AUD（豪ドル）</option>
+              <option value="CAD">🇨🇦 CAD（加ドル）</option>
+              <option value="CHF">🇨🇭 CHF（スイスフラン）</option>
+              <option value="HKD">🇭🇰 HKD（香港ドル）</option>
+              <option value="SGD">🇸🇬 SGD（シンガポールドル）</option>
+              <option value="THB">🇹🇭 THB（バーツ）</option>
+              <option value="TWD">🇹🇼 TWD（台湾ドル）</option>
+            </select>
+          </div>
+        </div>
+        <div style="font-size:10px; color:var(--muted); margin-top:-2px; margin-bottom:6px;" id="edit-fixed-fx-note">
+          通貨を変更すると、保存時に最新レートを再取得します。
+        </div>
+        <div class="form-group">
+          <label>引き落とし日（毎月・任意）</label>
+          <select id="edit-fixed-payday" class="form-control">
+            <option value="">設定しない（自動天引き・通知どちらも使わない）</option>
+          </select>
+        </div>
+        <div class="form-group" style="display:flex; align-items:center; gap:6px;">
+          <input type="checkbox" id="edit-fixed-autoapply" style="width:16px; height:16px;">
+          <label for="edit-fixed-autoapply" style="margin:0; font-size:12px;">引き落とし日になったら自動で支出として記帳する（天引き）</label>
+        </div>
+        <div style="display:flex; gap:8px; margin-top:10px;">
+          <button type="submit" class="btn" style="flex:1;" id="fixed-expense-edit-save-btn">保存する</button>
+          <button type="button" class="btn btn-danger" id="fixed-expense-edit-delete-btn">削除</button>
+        </div>
+      </form>
+    </div>
+  </div>
+
   <!-- ✨ 削除確認モーダル（モダンデザイン） -->
   <div class="modal-overlay" id="delete-confirm-modal">
     <div class="modal-content" id="delete-confirm-content" style="text-align: center; padding: 32px 24px;">
@@ -4758,13 +4815,13 @@
             ? `¥${f.amount.toLocaleString()}/月`
             : `${cur} ${f.amount.toLocaleString()} ≈ ¥${jpyAmount.toLocaleString()}/月 (${f.fxUpdatedAt ? f.fxUpdatedAt + "時点レート" : "レート未取得"}・引き落とし時は自動で当日レート取得)`) + paydayText + autoApplyText;
           const refreshBtn = cur !== "JPY"
-            ? `<button class="btn btn-outline btn-sm" onclick="refreshFixedFx(${f.id})" title="最新レートに更新">🔄</button>`
+            ? `<button class="btn btn-outline btn-sm" onclick="event.stopPropagation(); refreshFixedFx(${f.id})" title="最新レートに更新">🔄</button>`
             : "";
           const toggleBtn = f.payDay
-            ? `<button class="btn btn-outline btn-sm" onclick="toggleFixedAutoApply(${f.id})" title="天引きのON/OFF切り替え">${f.autoApply === false ? "🔕" : "🔔"}</button>`
+            ? `<button class="btn btn-outline btn-sm" onclick="event.stopPropagation(); toggleFixedAutoApply(${f.id})" title="天引きのON/OFF切り替え">${f.autoApply === false ? "🔕" : "🔔"}</button>`
             : "";
           return `
-          <div class="list-item">
+          <div class="list-item" onclick="openFixedExpenseEditModal(${f.id})" style="cursor:pointer;">
             <div class="list-item-left">
               <strong>${f.memo}</strong>
               <span style="font-size:11px; color:var(--muted); margin-left:4px;">(${subText})</span>
@@ -4772,7 +4829,7 @@
             <div class="list-item-right">
               ${toggleBtn}
               ${refreshBtn}
-              <button class="btn btn-danger btn-sm" onclick="deleteFixedConfig(${f.id})">削除</button>
+              <button class="btn btn-danger btn-sm" onclick="event.stopPropagation(); deleteFixedConfig(${f.id})">削除</button>
             </div>
           </div>
         `;
@@ -6323,6 +6380,22 @@
       }
     };
 
+    window.openFixedExpenseEditModal = function(id) {
+      const item = DB.fixedExpenses.find(f => f.id === id);
+      if (!item) return;
+      document.getElementById("edit-fixed-id").value = item.id;
+      document.getElementById("edit-fixed-memo").value = item.memo;
+      document.getElementById("edit-fixed-amount").value = item.amount;
+      document.getElementById("edit-fixed-currency").value = item.currency || "JPY";
+      document.getElementById("edit-fixed-payday").value = item.payDay || "";
+      document.getElementById("edit-fixed-autoapply").checked = item.autoApply !== false;
+      openModalWithLock("fixed-expense-edit-modal");
+    };
+
+    function closeFixedExpenseEditModal() {
+      closeModalWithLock("fixed-expense-edit-modal");
+    }
+
     window.selectQuickTemplate = pinId => {
       quickTemplateId = quickTemplateId === pinId ? null : pinId;
       renderPinSelects();
@@ -7215,14 +7288,15 @@
         openExpensePinEditModal(newId);
       });
 
-      // 支払日(引き落とし日)セレクトの選択肢を1〜31日+末日で生成しておく
-      const paydaySelectEl = document.getElementById("fixed-expense-payday");
-      if (paydaySelectEl) {
+      // 支払日(引き落とし日)セレクトの選択肢を1〜31日+末日で生成しておく(追加用・編集用の両方)
+      ["fixed-expense-payday", "edit-fixed-payday"].forEach((id) => {
+        const sel = document.getElementById(id);
+        if (!sel) return;
         let paydayOptionsHtml = `<option value="">設定しない（自動天引き・通知どちらも使わない）</option>`;
         for (let d = 1; d <= 31; d++) paydayOptionsHtml += `<option value="${d}">${d}日</option>`;
         paydayOptionsHtml += `<option value="末日">末日</option>`;
-        paydaySelectEl.innerHTML = paydayOptionsHtml;
-      }
+        sel.innerHTML = paydayOptionsHtml;
+      });
 
       document.getElementById("add-fixed-btn").addEventListener("click", () => {
         document.getElementById("fixed-expense-form").reset();
@@ -7288,6 +7362,65 @@
         renderAll();
         showToast("🏠 固定費を追加しました");
         if (typeof processFixedExpenseAutoDeductions === "function") processFixedExpenseAutoDeductions();
+      });
+
+      document.getElementById("close-fixed-expense-edit-modal-btn").addEventListener("click", closeFixedExpenseEditModal);
+
+      document.getElementById("fixed-expense-edit-form").addEventListener("submit", async (e) => {
+        e.preventDefault();
+        const id = Number(document.getElementById("edit-fixed-id").value);
+        const item = DB.fixedExpenses.find(f => f.id === id);
+        if (!item) return;
+
+        const memo = document.getElementById("edit-fixed-memo").value.trim();
+        const currency = document.getElementById("edit-fixed-currency").value;
+        const amountInput = document.getElementById("edit-fixed-amount");
+        const amount = evaluateMath(amountInput.value);
+
+        if (!memo) return;
+        if (amount === null || amount <= 0) { showInputError(amountInput); return; }
+
+        const payDayRaw = document.getElementById("edit-fixed-payday").value;
+        const autoApply = document.getElementById("edit-fixed-autoapply").checked;
+        const saveBtn = document.getElementById("fixed-expense-edit-save-btn");
+        const currencyChanged = currency !== (item.currency || "JPY");
+
+        pushUndoState();
+        item.memo = memo;
+        item.amount = amount;
+        item.currency = currency;
+        item.payDay = payDayRaw || null;
+        item.autoApply = autoApply;
+
+        if (currency !== "JPY" && currencyChanged) {
+          saveBtn.disabled = true;
+          saveBtn.textContent = "レート取得中…";
+          const rate = await fetchFxRateToJpy(currency);
+          saveBtn.disabled = false;
+          saveBtn.textContent = "保存する";
+          if (rate === null) {
+            showToast(`⚠️ ${currency} のレート取得に失敗（ネットワーク or API障害）`, "danger");
+            const manual = evaluateMath(prompt(`最新レートの自動取得に失敗しました。\nネットワークの確認、またはブラウザのコンソール（F12）を確認してください。\n\n1 ${currency} が何円か手入力してください:`, item.fxRate || "150"));
+            item.fxRate = (manual && manual > 0) ? manual : 1;
+          } else {
+            item.fxRate = rate;
+          }
+          item.fxUpdatedAt = getLocalDateString(new Date());
+        } else if (currency === "JPY") {
+          item.fxRate = 1;
+        }
+
+        saveDB();
+        closeFixedExpenseEditModal();
+        renderAll();
+        showToast("✅ 固定費を更新しました");
+        if (typeof processFixedExpenseAutoDeductions === "function") processFixedExpenseAutoDeductions();
+      });
+
+      document.getElementById("fixed-expense-edit-delete-btn").addEventListener("click", async () => {
+        const id = Number(document.getElementById("edit-fixed-id").value);
+        closeFixedExpenseEditModal();
+        await deleteFixedConfig(id);
       });
 
       document.getElementById("save-asset-settings-btn").addEventListener("click", () => {
