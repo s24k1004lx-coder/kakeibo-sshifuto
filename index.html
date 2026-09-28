@@ -1273,7 +1273,7 @@
       align-items: center; justify-content: center;
       background: rgba(4, 8, 16, 0.28);
       backdrop-filter: blur(3px);
-      pointer-events: none;
+      pointer-events: auto;
     }
     .register-pop-overlay.active { display: flex; animation: overlayFade 0.18s ease both; }
     .register-pop-card {
@@ -6356,6 +6356,15 @@
       }
     }
 
+    const AI_ADVICE_AUTO_INTERVAL_DAYS = 7; // 自動更新の間隔（週1回）
+
+    function daysSinceIso(iso) {
+      if (!iso) return Infinity;
+      const then = new Date(iso).getTime();
+      if (isNaN(then)) return Infinity;
+      return (Date.now() - then) / (1000 * 60 * 60 * 24);
+    }
+
     async function fetchAiAdvice(force) {
       const body = document.getElementById("ai-advice-body");
       try {
@@ -6366,9 +6375,20 @@
         } catch (e) { cache = null; }
 
         const todayStr = getLocalDateString(new Date());
-        if (!force && cache && cache.date === todayStr && cache.text) {
-          renderAiAdviceCard(cache.text, cache.updatedAt, false);
-          return;
+
+        if (force) {
+          // 手動更新は1日1回まで
+          if (cache && cache.text && cache.lastManualDate === todayStr) {
+            renderAiAdviceCard(cache.text, cache.updatedAt, false);
+            showToast("手動更新は1日1回までです。また明日更新できます", "danger");
+            return;
+          }
+        } else {
+          // 自動更新は週1回（前回の更新から7日経っていなければキャッシュ表示のみ）
+          if (cache && cache.text && daysSinceIso(cache.updatedAt) < AI_ADVICE_AUTO_INTERVAL_DAYS) {
+            renderAiAdviceCard(cache.text, cache.updatedAt, false);
+            return;
+          }
         }
 
         if (body) body.textContent = "🤖 分析中...（数秒かかることがあります）";
@@ -6384,9 +6404,15 @@
         const text = (data && data.advice) ? data.advice : "アドバイスの生成に失敗しました";
         const nowIso = new Date().toISOString();
         try {
-          localStorage.setItem(AI_ADVICE_CACHE_KEY, JSON.stringify({ date: todayStr, text, updatedAt: nowIso }));
+          localStorage.setItem(AI_ADVICE_CACHE_KEY, JSON.stringify({
+            date: todayStr,
+            text,
+            updatedAt: nowIso,
+            lastManualDate: force ? todayStr : (cache ? cache.lastManualDate : undefined)
+          }));
         } catch (e) { /* 保存失敗は無視 */ }
         renderAiAdviceCard(text, nowIso, false);
+        if (force) showToast("AIアドバイスを更新しました");
       } catch (err) {
         console.error("fetchAiAdvice error", err);
         // 通信に失敗した場合、キャッシュがあればそれを表示、なければエラーメッセージ
