@@ -2574,6 +2574,7 @@
                 <option value="交際費">🎉 交際費</option>
                 <option value="日用品">🛒 日用品</option>
                 <option value="趣味">🎮 趣味</option>
+                <option value="嗜好品">🍷 嗜好品</option>
                 <option value="固定費">🏠 固定費</option>
                 <option value="貯金">🪙 小銭貯金</option>
                 <option value="その他">📦 その他</option>
@@ -2693,6 +2694,7 @@
           <option value="交際費">🎉 交際費</option>
           <option value="日用品">🛒 日用品</option>
           <option value="趣味">🎮 趣味</option>
+          <option value="嗜好品">🍷 嗜好品</option>
           <option value="固定費">🏠 固定費</option>
           <option value="貯金">🪙 小銭貯金</option>
           <option value="その他">📦 その他</option>
@@ -3037,7 +3039,7 @@
       reminder: { enabled: false, time: "21:00", shiftAlertEnabled: false, shiftAlertMinutes: 60 },
       settings: { 
         theme: "light",
-        selectedStatsCategories: ["食費", "交通費", "貯金", "その他", "日用品", "交際費", "趣味", "固定費"]
+        selectedStatsCategories: ["食費", "交通費", "貯金", "その他", "日用品", "交際費", "趣味", "嗜好品", "固定費"]
       }
     };
 
@@ -3961,7 +3963,7 @@
         subSel.innerHTML = opts;
       } else if (filter === "expense") {
         subSel.style.display = "block";
-        const expenseCategories = ["食費", "交通費", "旅費", "交際費", "日用品", "趣味", "固定費", "貯金", "その他"];
+        const expenseCategories = ["食費", "交通費", "旅費", "交際費", "日用品", "趣味", "嗜好品", "固定費", "貯金", "その他"];
         let opts = `<option value="all">全カテゴリ</option>`;
         expenseCategories.forEach(c => {
           opts += `<option value="${c}">${c}</option>`;
@@ -4162,7 +4164,7 @@
     }
 
     // 📂 カテゴリ別 予算上限（空欄可）
-    const CATEGORY_BUDGET_LIST = ["食費", "交通費", "旅費", "交際費", "日用品", "趣味", "固定費", "貯金", "その他"];
+    const CATEGORY_BUDGET_LIST = ["食費", "交通費", "旅費", "交際費", "日用品", "趣味", "嗜好品", "固定費", "貯金", "その他"];
     function renderCategoryBudgets(statsMonthStr) {
       const container = document.getElementById("category-budget-list");
       if (!container) return;
@@ -4262,7 +4264,7 @@
       const container = document.getElementById("stats-category-chips");
       if (!container) return;
 
-      const allCategories = ["食費", "交通費", "旅費", "交際費", "日用品", "趣味", "固定費", "貯金", "その他"];
+      const allCategories = ["食費", "交通費", "旅費", "交際費", "日用品", "趣味", "嗜好品", "固定費", "貯金", "その他"];
       let selectedCats = DB.settings.selectedStatsCategories || [];
 
       container.innerHTML = allCategories.map(cat => {
