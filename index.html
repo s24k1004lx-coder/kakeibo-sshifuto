@@ -2638,6 +2638,33 @@
     </div>
   </div>
 
+  <div class="modal-overlay" id="wage-change-modal">
+    <div class="modal-content" style="max-width:380px; padding-bottom:20px;">
+      <div class="modal-header">
+        <div class="modal-title">時給の変更を記録</div>
+        <button class="icon-btn" id="close-wage-change-modal-btn">✕</button>
+      </div>
+      <form id="wage-change-form">
+        <div style="font-size:10.5px; color:var(--muted); margin-bottom:10px; line-height:1.6;">
+          指定した日付以降のシフトに新しい時給が自動で適用されます。それより前のシフトには、これまでの時給がそのまま使われます。
+        </div>
+        <div class="form-group">
+          <label>この時給が適用される開始日</label>
+          <input type="date" id="wage-change-date" class="form-control" required>
+        </div>
+        <div class="form-group">
+          <label>新しい時給 (円)</label>
+          <input type="text" id="wage-change-hourly" class="form-control" required>
+        </div>
+        <div class="form-group">
+          <label>新しい深夜時給 (円・任意)</label>
+          <input type="text" id="wage-change-night" class="form-control" placeholder="空欄なら時給の1.25倍">
+        </div>
+        <button type="submit" class="btn btn-sm" style="width:100%;">記録する</button>
+      </form>
+    </div>
+  </div>
+
   <div class="modal-overlay" id="pin-edit-modal">
     <div class="modal-content" style="max-width:380px; padding-bottom:20px;">
       <div class="modal-header">
@@ -3356,6 +3383,28 @@
       return dt;
     }
 
+    // 途中から時給が変わった場合に対応: そのシフトの日付時点で有効だった時給を履歴から探す。
+    // 履歴が無い（または対象日がどの履歴より前の）場合は、現在設定されている時給にフォールバックする。
+    function getWageForJobOnDate(job, dateStr) {
+      const baseHourly = Number(job.hourlyWage) || 0;
+      const baseNight = job.nightWage ? Number(job.nightWage) : Math.floor(baseHourly * 1.25);
+      const history = job.wageHistory;
+      if (!history || !history.length || !dateStr) {
+        return { hourlyWage: baseHourly, nightWage: baseNight };
+      }
+      const applicable = history.filter(w => w.effectiveFrom && w.effectiveFrom <= dateStr);
+      let entry;
+      if (applicable.length) {
+        entry = applicable.reduce((a, b) => (a.effectiveFrom > b.effectiveFrom ? a : b));
+      } else {
+        // 対象日が記録されている履歴より前 → 一番古い履歴の時給を使う(それ以前の記録はないため)
+        entry = history.reduce((a, b) => (a.effectiveFrom < b.effectiveFrom ? a : b));
+      }
+      const hourlyWage = Number(entry.hourlyWage) || baseHourly;
+      const nightWage = entry.nightWage ? Number(entry.nightWage) : Math.floor(hourlyWage * 1.25);
+      return { hourlyWage, nightWage };
+    }
+
     function calculateShiftPay(shift) {
       const job = DB.jobs.find(j => String(j.id) === String(shift.jobId));
       if (!job) return { totalPay: 0, dayMins: 0, nightMins: 0, transport: 0, totalHours: 0 };
@@ -3395,8 +3444,7 @@
       const realNightMins = Math.max(0, nightGross * (1 - breakRatio));
       const realDayMins = Math.max(0, netMins - realNightMins);
 
-      const hourlyWage = Number(job.hourlyWage) || 0;
-      const nightWage = job.nightWage ? Number(job.nightWage) : Math.floor(hourlyWage * 1.25);
+      const { hourlyWage, nightWage } = getWageForJobOnDate(job, shift.date);
 
       const dayPay = Math.floor(realDayMins * (hourlyWage / 60));
       const nightPay = Math.floor(realNightMins * (nightWage / 60));
@@ -4864,6 +4912,21 @@
               <div class="form-group"><label>交通費/日 (円)</label><input type="text" value="${j.transport}" class="form-control" onchange="updateJobConfig(${idx}, 'transport', evaluateMath(this.value)||0)"></div>
             </div>
 
+            <div style="margin-top:2px; margin-bottom:6px;">
+              ${(j.wageHistory && j.wageHistory.length > 1) ? `
+                <div style="font-size:10px; color:var(--muted); margin-bottom:3px;">時給の変更履歴（古い順）</div>
+                <div style="display:flex; flex-direction:column; gap:3px; margin-bottom:6px;">
+                  ${[...j.wageHistory].sort((a,b) => a.effectiveFrom < b.effectiveFrom ? -1 : (a.effectiveFrom > b.effectiveFrom ? 1 : 0)).map(w => `
+                    <div style="display:flex; align-items:center; justify-content:space-between; background:var(--bg); border-radius:6px; padding:4px 8px; font-size:10.5px;">
+                      <span>${w.effectiveFrom === '2000-01-01' ? 'それ以前' : w.effectiveFrom + '〜'} ・ 時給¥${Number(w.hourlyWage).toLocaleString()}${w.nightWage ? `(深夜¥${Number(w.nightWage).toLocaleString()})` : ''}</span>
+                      <button type="button" class="btn btn-outline btn-sm icon-only-btn" style="padding:2px 6px;" onclick="deleteWageHistoryEntry(${idx}, ${w.id})" title="この履歴を削除"><svg viewBox="0 0 16 16" width="11" height="11" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"><line x1="3" y1="3" x2="13" y2="13"/><line x1="13" y1="3" x2="3" y2="13"/></svg></button>
+                    </div>
+                  `).join("")}
+                </div>
+              ` : ""}
+              <button type="button" class="btn btn-outline btn-sm" style="width:100%;" onclick="openWageChangeModal(${idx})">時給の変更を記録する（途中から時給が変わる場合）</button>
+            </div>
+
             <div class="form-row">
               <div class="form-group">
                 <label>給与計算タイプ</label>
@@ -5020,9 +5083,36 @@
           ];
         }
         DB.jobs[idx][key] = val;
+        // 時給/深夜時給を直接編集した場合、変更履歴があれば「現在(最新)の履歴エントリ」も合わせて更新する
+        // (履歴の途中に新しい日付の変更を「記録」したい場合は openWageChangeModal を使う)
+        if ((key === 'hourlyWage' || key === 'nightWage') && DB.jobs[idx].wageHistory && DB.jobs[idx].wageHistory.length) {
+          const hist = DB.jobs[idx].wageHistory;
+          const latest = hist.reduce((a, b) => (a.effectiveFrom > b.effectiveFrom ? a : b));
+          latest[key] = val;
+        }
         saveDB();
         renderAll();
       }
+    };
+
+    let currentWageChangeJobIdx = null;
+    window.openWageChangeModal = function(jobIdx) {
+      const job = DB.jobs[jobIdx];
+      if (!job) return;
+      currentWageChangeJobIdx = jobIdx;
+      document.getElementById("wage-change-date").value = getLocalDateString(new Date());
+      document.getElementById("wage-change-hourly").value = job.hourlyWage || "";
+      document.getElementById("wage-change-night").value = "";
+      openModalWithLock("wage-change-modal");
+    };
+
+    window.deleteWageHistoryEntry = function(jobIdx, entryId) {
+      const job = DB.jobs[jobIdx];
+      if (!job || !job.wageHistory) return;
+      pushUndoState();
+      job.wageHistory = job.wageHistory.filter(w => w.id !== entryId);
+      saveDB();
+      renderAll();
     };
 
     window.addPeriod = function(jobIdx) {
@@ -7302,6 +7392,54 @@
           sel.value = val;
           sel.dispatchEvent(new Event("change"));
         });
+      });
+
+      document.getElementById("close-wage-change-modal-btn").addEventListener("click", () => closeModalWithLock("wage-change-modal"));
+      document.getElementById("wage-change-form").addEventListener("submit", e => {
+        e.preventDefault();
+        const job = DB.jobs[currentWageChangeJobIdx];
+        if (!job) { closeModalWithLock("wage-change-modal"); return; }
+
+        const effectiveFrom = document.getElementById("wage-change-date").value;
+        const hourlyWage = evaluateMath(document.getElementById("wage-change-hourly").value);
+        const nightRaw = document.getElementById("wage-change-night").value;
+        const nightWage = nightRaw ? evaluateMath(nightRaw) : Math.floor((hourlyWage || 0) * 1.25);
+
+        if (!effectiveFrom) { showToast("適用開始日を入力してください", "danger"); return; }
+        if (!hourlyWage || hourlyWage <= 0) { showToast("新しい時給を入力してください", "danger"); return; }
+
+        pushUndoState();
+        if (!job.wageHistory) job.wageHistory = [];
+        // 履歴が未記録なら、これまでの時給を「それ以前からずっと適用されていたもの」として履歴に残す
+        if (job.wageHistory.length === 0) {
+          job.wageHistory.push({
+            id: Date.now() - 1,
+            effectiveFrom: "2000-01-01",
+            hourlyWage: job.hourlyWage,
+            nightWage: job.nightWage || Math.floor((Number(job.hourlyWage) || 0) * 1.25)
+          });
+        }
+        // 同じ開始日の履歴が既にあれば上書き、なければ新規追加
+        const existing = job.wageHistory.find(w => w.effectiveFrom === effectiveFrom);
+        if (existing) {
+          existing.hourlyWage = hourlyWage;
+          existing.nightWage = nightWage;
+        } else {
+          job.wageHistory.push({ id: Date.now(), effectiveFrom, hourlyWage, nightWage });
+        }
+        job.wageHistory.sort((a, b) => a.effectiveFrom < b.effectiveFrom ? -1 : (a.effectiveFrom > b.effectiveFrom ? 1 : 0));
+
+        // 一番新しい変更なら「現在の時給」欄にも反映する
+        const latest = job.wageHistory.reduce((a, b) => (a.effectiveFrom > b.effectiveFrom ? a : b));
+        if (latest.effectiveFrom === effectiveFrom) {
+          job.hourlyWage = hourlyWage;
+          job.nightWage = nightWage;
+        }
+
+        saveDB();
+        renderAll();
+        closeModalWithLock("wage-change-modal");
+        showToast("時給の変更を記録しました");
       });
 
       document.getElementById("close-override-modal-btn").addEventListener("click", () => closeModalWithLock("override-pay-modal"));
