@@ -4638,7 +4638,7 @@ function renderStatsTab() {
     bBarNoTravel.style.background = pctNT > 90 ? "var(--danger)" : "var(--good)";
   }
 
-  renderStatsCategoryChips(statsMonthStr, budgetTotal, recoveryTotal);
+  renderStatsCategoryChips(statsMonthStr, budgetTotal);
   renderCategoryBudgets(statsMonthStr);
   renderMonthComparison(statsMonthStr);
   renderCharts();
@@ -4724,7 +4724,7 @@ function renderMonthComparison(statsMonthStr) {
   `;
 }
 
-function renderStatsCategoryChips(statsMonthStr, budgetTotal, recoveryTotal = 0) {
+function renderStatsCategoryChips(statsMonthStr, budgetTotal) {
   const container = document.getElementById("stats-category-chips");
   if (!container) return;
 
@@ -4735,12 +4735,13 @@ function renderStatsCategoryChips(statsMonthStr, budgetTotal, recoveryTotal = 0)
     return `<div class="pin-chip ${isSelected ? 'active' : ''}" onclick="toggleStatsCategory('${cat}')">${cat}</div>`;
   }).join("");
 
-  const rawCustomTotal = DB.expenses
+  // 回収（立て替え分の戻り）はどのカテゴリの支出か分からないため、ここでは差し引かない。
+  // 差し引くと、選んだカテゴリの支出が回収額より少ないだけで ¥0 と表示されてしまう
+  const customTotal = DB.expenses
     .filter(e => e.date.startsWith(statsMonthStr) && selectedCats.includes(e.category))
     .reduce((acc, e) => acc + e.amount, 0);
-  const customTotal = Math.max(0, rawCustomTotal - recoveryTotal);
 
-  document.getElementById("stats-custom-used").textContent = `¥${customTotal.toLocaleString()}${recoveryTotal > 0 ? ' (実質)' : ''}`;
+  document.getElementById("stats-custom-used").textContent = `¥${customTotal.toLocaleString()}`;
   document.getElementById("stats-custom-budget").textContent = `¥${budgetTotal.toLocaleString()}`;
 
   const customBar = document.getElementById("stats-custom-progress-bar");
