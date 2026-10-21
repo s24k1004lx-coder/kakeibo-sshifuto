@@ -10,7 +10,7 @@
  *   2. 「プロジェクトの設定」→「スクリプト プロパティ」に以下を追加
  *        GH_TOKEN : PayCale のクラウドバックアップで使っている GitHub トークン (gist 権限)
  *        GIST_ID  : PayCale 設定画面「ショートカットに設定する Gist ID」に表示されるID
- *   3. `setup` を1回実行して Gmail へのアクセスを承認 (10分おきのトリガーも作成される)
+ *   3. `setup` を1回実行して Gmail へのアクセスを承認 (30分おきのトリガーも作成される)
  *   4. `dryRun` を実行し、ログで「どのメールからいくらを読み取るか」を確認してから運用する
  *
  * 取りこぼし/二重登録の防止:
@@ -47,8 +47,8 @@ function setup() {
   ScriptApp.getProjectTriggers()
     .filter(t => t.getHandlerFunction() === "processPaymentMails")
     .forEach(t => ScriptApp.deleteTrigger(t));
-  ScriptApp.newTrigger("processPaymentMails").timeBased().everyMinutes(10).create();
-  Logger.log("セットアップ完了: 10分おきに processPaymentMails を実行します");
+  ScriptApp.newTrigger("processPaymentMails").timeBased().everyMinutes(30).create();
+  Logger.log("セットアップ完了: 30分おきに processPaymentMails を実行します");
 }
 
 // ===== 本体 =====
