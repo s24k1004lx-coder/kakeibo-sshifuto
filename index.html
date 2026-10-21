@@ -2380,6 +2380,22 @@ input[type="checkbox"]:active, input[type="radio"]:active { transform: scale(1.1
               </label>
             </div>
             <div style="font-size: 10.5px; color: var(--muted);" id="cloud-backup-status">未設定</div>
+
+            <div style="margin-top:12px; padding-top:10px; border-top:1px dashed var(--border, #e2e8f0);">
+              <div style="font-size:12px; font-weight:700; margin-bottom:4px;">🚃 Suica利用の自動記録 (iPhoneショートカット)</div>
+              <div style="font-size: 10.5px; color: var(--muted); line-height:1.6; margin-bottom:8px;">
+                iPhoneの「ショートカット」→オートメーション→「取引」でモバイルSuicaの支払いを検知し、下のGist宛に
+                <code>paycale_inbox_&lt;時刻&gt;.json</code> というファイルを PATCH で追加します。内容は
+                <code>{"amount":210,"memo":"モバイルSuica","date":"2026-10-21"}</code>（category は省略時「交通費」）。<br>
+                PayCaleを開くたびにそれを支出として取り込み、取り込み済みのファイルは自動で削除します。<br>
+                ※先に上の「今すぐバックアップ」を1回押すと Gist ID が表示されます。
+              </div>
+              <div class="form-group">
+                <label>ショートカットに設定する Gist ID</label>
+                <input type="text" id="inbox-gist-id" class="form-control" readonly placeholder="（バックアップ後に表示）">
+              </div>
+              <button class="btn btn-outline btn-sm" id="inbox-import-btn" style="width:100%;">今すぐ取り込む</button>
+            </div>
           </div>
         </div>
 
@@ -6398,6 +6414,7 @@ async function cloudBackupSave(silent = false) {
     if (data.id) ghSetGistId(data.id);
     ghSetLastSync(new Date().toISOString());
     updateCloudBackupStatusUI();
+    if (typeof updateInboxGistIdUI === "function") updateInboxGistIdUI();
     if (!silent) showToast("☁️ クラウドにバックアップしました");
     return true;
   } catch (err) {
@@ -6439,6 +6456,87 @@ function scheduleAutoBackupIfEnabled() {
   if (__autoBackupTimer) clearTimeout(__autoBackupTimer);
   __autoBackupTimer = setTimeout(() => { cloudBackupSave(true); }, 4000);
 }
+  </script>
+  <script>
+// ---- js/app/inbox-import.js ----
+// ショートカット等が Gist に置いた「paycale_inbox_*.json」を支出として取り込む
+// （モバイルSuica等の支払い自動記録用。iPhone のホーム画面アプリは Safari と
+//  localStorage が別なので、URLスキームではなく Gist を中継点にしている）
+
+const INBOX_FILE_PREFIX = "paycale_inbox_";
+let __inboxImporting = false;
+
+async function importInboxFromGist(silent = true) {
+  const token = ghGetToken();
+  const gistId = ghGetGistId();
+  if (!token || !gistId) {
+    if (!silent) showToast("⚠️ 先にトークン設定とバックアップを行ってください", "danger");
+    return 0;
+  }
+  if (__inboxImporting) return 0;
+  __inboxImporting = true;
+  try {
+    const headers = { "Authorization": `Bearer ${token}`, "Accept": "application/vnd.github+json" };
+    const res = await fetch(`https://api.github.com/gists/${gistId}`, { headers });
+    if (!res.ok) throw new Error(`HTTP ${res.status}`);
+    const data = await res.json();
+    const names = Object.keys(data.files || {}).filter(n => n.startsWith(INBOX_FILE_PREFIX)).sort();
+
+    const added = [];
+    const consumed = [];
+    names.forEach((name, i) => {
+      const f = data.files[name];
+      consumed.push(name);
+      let item;
+      try { item = JSON.parse(f.content); } catch (e) { return; }
+      const amount = Math.round(Math.abs(Number(String(item.amount).replace(/[,¥円]/g, ""))));
+      if (!Number.isFinite(amount) || amount <= 0) return;
+      const date = /^\d{4}-\d{2}-\d{2}$/.test(item.date) ? item.date : getLocalDateString(new Date());
+      const category = EXPENSE_CATEGORIES.includes(item.category) ? item.category : "交通費";
+      const memo = String(item.memo || "モバイルSuica").slice(0, 60);
+      added.push({ id: Date.now() + i, date, category, memo, amount });
+    });
+
+    if (added.length) {
+      pushUndoState();
+      DB.expenses.push(...added);
+      saveDB(); renderAll();
+    }
+    // 取り込み(または不正で読めなかった)ファイルを Gist から削除
+    if (consumed.length) {
+      const files = {};
+      consumed.forEach(n => { files[n] = null; });
+      const del = await fetch(`https://api.github.com/gists/${gistId}`, {
+        method: "PATCH",
+        headers: { ...headers, "Content-Type": "application/json" },
+        body: JSON.stringify({ files })
+      });
+      if (!del.ok) console.error("inbox cleanup failed", del.status);
+    }
+    if (added.length) {
+      const total = added.reduce((a, e) => a + e.amount, 0);
+      showToast(`🚃 ${added.length}件の支出を自動取り込みしました（計 ¥${total.toLocaleString()}）`);
+    } else if (!silent) {
+      showToast("取り込む新しい支払いはありませんでした");
+    }
+    return added.length;
+  } catch (err) {
+    console.error("importInboxFromGist error", err);
+    if (!silent) showToast("⚠️ 取り込みに失敗しました（トークンやネットワークをご確認ください）", "danger");
+    return 0;
+  } finally {
+    __inboxImporting = false;
+  }
+}
+
+function updateInboxGistIdUI() {
+  const el = document.getElementById("inbox-gist-id");
+  if (el) el.value = ghGetGistId();
+}
+
+document.addEventListener("visibilitychange", () => {
+  if (document.visibilityState === "visible") importInboxFromGist(true);
+});
   </script>
   <script>
 // ---- js/app/push-sync.js ----
@@ -8148,6 +8246,11 @@ window.addEventListener("DOMContentLoaded", () => {
   }
   // 起動のたびに、固定費の自動天引き(未計上分のバックフィル含む)を確認する
   processFixedExpenseAutoDeductions();
+  // ショートカットが Gist に置いた支払い(モバイルSuica等)を取り込む
+  updateInboxGistIdUI();
+  importInboxFromGist(true);
+  const inboxBtn = document.getElementById("inbox-import-btn");
+  if (inboxBtn) inboxBtn.addEventListener("click", () => { updateInboxGistIdUI(); importInboxFromGist(false); });
 });
   </script>
 </body>
