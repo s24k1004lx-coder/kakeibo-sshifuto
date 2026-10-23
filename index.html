@@ -3704,6 +3704,7 @@ function saveDB() {
     scheduleAutoBackupIfEnabled();
     scheduleShiftSyncIfEnabled();
     scheduleBudgetSyncIfEnabled();
+    scheduleReminderSyncIfEnabled();
     scheduleFixedExpenseSyncIfEnabled();
     scheduleCalendarSyncIfEnabled();
     return true;
@@ -6620,18 +6621,39 @@ async function enablePushNotifications() {
 // これをやらないと、通知サーバーはいつ通知していいか一生分からない。
 async function syncReminderToPushServer() {
   try {
+    const todayDate = getLocalDateString(new Date());
     await fetch(`${PUSH_WORKER_URL}/reminder`, {
       method: "POST",
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify({
         enabled: !!(DB.reminder && DB.reminder.enabled),
-        time: (DB.reminder && DB.reminder.time) || "21:00"
+        time: (DB.reminder && DB.reminder.time) || "21:00",
+        // 通知時刻の時点で今日の支出が未入力のときだけ通知するための情報。
+        // サーバー側は todayDate が自分の「今日」と一致するときだけ hasExpenseToday を信用し、
+        // true なら入力忘れ通知をスキップする。
+        todayDate,
+        hasExpenseToday: (DB.expenses || []).some((e) => e.date === todayDate)
       })
     });
   } catch (e) {
     console.error("syncReminderToPushServer error", e);
   }
 }
+
+// 支出の追加・削除のたびに「今日の入力有無」をサーバーへ伝え直す
+let __reminderSyncTimer = null;
+function scheduleReminderSyncIfEnabled() {
+  try {
+    if (localStorage.getItem(PUSH_SUB_STATE_KEY) !== "1") return;
+  } catch (e) { return; }
+  if (__reminderSyncTimer) clearTimeout(__reminderSyncTimer);
+  __reminderSyncTimer = setTimeout(() => { syncReminderToPushServer(); }, 4000);
+}
+
+// アプリを開き直したとき（日付が変わった直後など）にも状態を最新にしておく
+document.addEventListener("visibilitychange", () => {
+  if (document.visibilityState === "visible") scheduleReminderSyncIfEnabled();
+});
 
 // シフト開始前通知の設定をサーバーに伝える
 async function syncShiftAlertSettingsToPushServer() {
