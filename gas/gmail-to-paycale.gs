@@ -70,6 +70,16 @@ const RULES = [
     category: "その他",
   },
   {
+    // 1通に複数の注文が入るので、注文番号ごとに分割して1注文=1件で登録する
+    name: "Amazon 注文確認",
+    query: "from:auto-confirm@amazon.co.jp subject:注文済み",
+    splitRe: /注文番号/,
+    amountRe: /合計\s*([\d,]+)\s*JPY/,
+    shopRe: /\*\s*([^\r\n]{1,40})/,
+    memoPrefix: "Amazon: ",
+    category: "日用品",
+  },
+  {
     name: "汎用: 支払い/決済完了メール (未検証)",
     query: "subject:(支払い完了 OR お支払い完了 OR 決済完了 OR 決済が完了) -from:digiq.jp",
     amountRe: /(?:お支払い金額|支払金額|ご利用金額|決済金額|合計金額)[^\d¥￥]{0,12}[¥￥]?\s*([\d,]+)\s*円?/,
@@ -113,10 +123,11 @@ function run_(dry) {
         const id = msg.getId();
         if (done.has(id) || msg.getDate().getTime() < since) continue;
         done.add(id);   // 金額が読めなかったメールも再処理しない (後続ルールでの二重処理も防ぐ)
-        const item = parse_(rule, msg);
-        Logger.log(`[${rule.name}] ${msg.getSubject()} -> ${item ? JSON.stringify(item) : "金額を読み取れず(スキップ)"}`);
-        if (!item) continue;
-        files[`${INBOX_PREFIX}${msg.getDate().getTime()}_${id}.json`] = { content: JSON.stringify(item) };
+        const items = parse_(rule, msg);
+        Logger.log(`[${rule.name}] ${msg.getSubject()} -> ${items.length ? JSON.stringify(items) : "金額を読み取れず(スキップ)"}`);
+        items.forEach((item, i) => {
+          files[`${INBOX_PREFIX}${msg.getDate().getTime()}_${id}_${i}.json`] = { content: JSON.stringify(item) };
+        });
       }
     }
   }
@@ -128,24 +139,32 @@ function run_(dry) {
   Logger.log(`${n}件を PayCale 受信箱に追加しました`);
 }
 
+// 1通のメールから登録する支出の配列を返す (読み取れなければ空配列)
 function parse_(rule, msg) {
   // プレーンテキストで読めなければ、HTML からタグを除いた本文でも試す
   const texts = [msg.getPlainBody() || "", stripHtml_(msg.getBody() || "")];
   for (const text of texts) {
-    const m = text.match(rule.amountRe);
-    if (!m) continue;
-    const amount = parseInt(m[1].replace(/,/g, ""), 10);
-    if (!(amount > 0)) continue;
-    const shop = rule.shopRe && text.match(rule.shopRe);
-    const name = (shop && shop[1].trim()) || msg.getSubject();
-    return {
-      amount: amount,
-      memo: ((rule.memoPrefix || "") + name).slice(0, 60),
-      category: rule.category,
-      date: Utilities.formatDate(msg.getDate(), "Asia/Tokyo", "yyyy-MM-dd"),
-    };
+    // splitRe があるルールは、区切りごと(先頭の見出し部分は除く)に1件として読む
+    const blocks = rule.splitRe ? text.split(rule.splitRe).slice(1) : [text];
+    const items = blocks.map(b => parseBlock_(rule, msg, b)).filter(Boolean);
+    if (items.length) return items;
   }
-  return null;
+  return [];
+}
+
+function parseBlock_(rule, msg, text) {
+  const m = text.match(rule.amountRe);
+  if (!m) return null;
+  const amount = parseInt(m[1].replace(/,/g, ""), 10);
+  if (!(amount > 0)) return null;
+  const shop = rule.shopRe && text.match(rule.shopRe);
+  const name = (shop && shop[1].trim()) || msg.getSubject();
+  return {
+    amount: amount,
+    memo: ((rule.memoPrefix || "") + name).slice(0, 60),
+    category: rule.category,
+    date: Utilities.formatDate(msg.getDate(), "Asia/Tokyo", "yyyy-MM-dd"),
+  };
 }
 
 function stripHtml_(html) {
