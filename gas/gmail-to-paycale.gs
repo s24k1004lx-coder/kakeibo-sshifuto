@@ -24,6 +24,7 @@
 // amountRe   : 金額を取り出す正規表現 (第1キャプチャが数字)。配列なら先頭から順に試す
 // shopRe     : 店名/メモを取り出す正規表現 (第1キャプチャ。無ければ件名を使う)
 // memoPrefix : メモの先頭に付ける文字 (任意)
+// autoCategory: true なら、下の CATEGORY_KEYWORDS で category を自動判定 (当てはまらなければ category)
 // category   : PayCale のカテゴリ
 //              (食費/交通費/旅費/交際費/日用品/趣味/嗜好品/固定費/貯金/その他)
 // ※ 上から順に評価し、先にマッチしたルールで登録したメールは後続ルールでは無視する。
@@ -78,6 +79,7 @@ const RULES = [
     shopRe: /\*\s*([^\r\n]{1,40})/,
     memoPrefix: "Amazon: ",
     category: "日用品",
+    autoCategory: true,
   },
   {
     // 上のどれにも当てはまらないメールの受け皿。本文(件名だけでなく)に支払い完了の
@@ -93,8 +95,31 @@ const RULES = [
     ],
     shopRe: /(?:ご利用店|ご利用先|お支払い先|店舗名|加盟店)[\s:：]*([^\r\n]{1,40})/,
     category: "その他",
+    autoCategory: true,
   },
 ];
+
+// ===== カテゴリの自動判定 =====
+// autoCategory: true のルールだけ、件名・店名/商品名・本文の冒頭に含まれる語句でカテゴリを決める。
+// 上から順に評価して最初に当てはまったものを採用し、どれにも当てはまらなければ
+// そのルールの category (既定値) を使う。語句は自由に足してよい。
+// (固定費は PayCale の自動天引きと二重になるので、ここでは使わない)
+const CATEGORY_KEYWORDS = [
+  ["旅費", /航空券|航空|フライト|搭乗|ピーチ|Peach|ジェットスター|スカイマーク|\bANA\b|\bJAL\b|新幹線|宿泊|ホテル|旅館|じゃらん|楽天トラベル|Booking\.com|Agoda|エアトリ|高速バス|夜行バス|レンタカー|ツアー/i],
+  ["交通費", /乗車券|定期券|Suica|PASMO|ICOCA|タクシー|電車|乗車|運賃/i],
+  ["交際費", /飲み放題|宴会|懇親|歓迎会|送別会|忘年会|新年会|結婚祝|ご祝儀|BBQ/i],
+  ["嗜好品", /たばこ|タバコ|煙草|ビール|ワイン|日本酒|ウイスキー|焼酎|酒類|コーヒー豆/i],
+  ["趣味", /前売|チケット|ライブ|コンサート|公演|映画|入場券|ゲーム|Steam|PlayStation|Nintendo|書籍|漫画|マンガ|コミック|Kindle|アプリ内|LINE\s*Coin|Netflix|Spotify|イヤホン|ヘッドホン|カメラ|フィギュア/i],
+  ["食費", /マクドナルド|ウェンディーズ|モバイルオーダー|レストラン|居酒屋|食品|食料品|飲料|弁当|ピザ|デリバリー|Uber\s*Eats|出前館|グルメ|カフェ|お米|白米|無洗米|お菓子|ミネラルウォーター|ラーメン|寿司/i],
+  ["日用品", /化粧品|化粧水|スキンケア|ヘアミルク|ヘアトリートメント|トリートメント|シャンプー|コンディショナー|洗顔|洗剤|柔軟剤|ティッシュ|トイレットペーパー|歯ブラシ|歯磨き|ドラッグストア|日用品|衣類|下着|靴下|ウォーター/i],
+];
+
+function guessCategory_(text, fallback) {
+  for (const [category, re] of CATEGORY_KEYWORDS) {
+    if (re.test(text)) return category;
+  }
+  return fallback;
+}
 
 const INBOX_PREFIX = "paycale_inbox_";
 const MAX_PER_RUN = 30;
@@ -171,10 +196,12 @@ function parseBlock_(rule, msg, text) {
   if (!(amount > 0)) return null;
   const shop = rule.shopRe && text.match(rule.shopRe);
   const name = (shop && shop[1].trim()) || msg.getSubject();
+  // 注文ごとに分割するルールは、件名に別の注文の商品名が入るので判定に使わない
+  const clue = `${rule.splitRe ? "" : msg.getSubject()} ${name} ${text.slice(0, 2000)}`;
   return {
     amount: amount,
     memo: ((rule.memoPrefix || "") + name).slice(0, 60),
-    category: rule.category,
+    category: rule.autoCategory ? guessCategory_(clue, rule.category) : rule.category,
     date: Utilities.formatDate(msg.getDate(), "Asia/Tokyo", "yyyy-MM-dd"),
   };
 }
