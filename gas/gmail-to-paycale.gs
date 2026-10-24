@@ -21,7 +21,7 @@
 
 // ===== 設定: 検知ルール =====
 // query      : Gmail の検索演算子 (直近 WINDOW_DAYS 日は自動で付く)
-// amountRe   : 金額を取り出す正規表現 (第1キャプチャが数字)
+// amountRe   : 金額を取り出す正規表現 (第1キャプチャが数字)。配列なら先頭から順に試す
 // shopRe     : 店名/メモを取り出す正規表現 (第1キャプチャ。無ければ件名を使う)
 // memoPrefix : メモの先頭に付ける文字 (任意)
 // category   : PayCale のカテゴリ
@@ -80,9 +80,17 @@ const RULES = [
     category: "日用品",
   },
   {
-    name: "汎用: 支払い/決済完了メール (未検証)",
-    query: "subject:(支払い完了 OR お支払い完了 OR 決済完了 OR 決済が完了) -from:digiq.jp",
-    amountRe: /(?:お支払い金額|支払金額|ご利用金額|決済金額|合計金額)[^\d¥￥]{0,12}[¥￥]?\s*([\d,]+)\s*円?/,
+    // 上のどれにも当てはまらないメールの受け皿。本文(件名だけでなく)に支払い完了の
+    // 文言があり、円の金額が読めれば何でも登録する。誤登録は PayCale 側で削除する前提。
+    // 金額は「ラベル付きの金額」を優先し、無ければ本文中の最初の円表記を使う。
+    name: "汎用: 支払い/決済完了メール",
+    query: '("支払い完了" OR "お支払い完了" OR "支払いが完了" OR "お支払いが完了" OR "支払い済み" OR "決済完了" OR "決済が完了") -category:promotions -from:me',
+    amountRe: [
+      /(?:お支払い金額|お支払金額|支払い?金額|ご利用金額|決済金額|ご請求金額|請求金額|合計金額|お支払い合計|お支払い総額|総額|合計)[^\d¥￥]{0,15}[¥￥]\s*(\d[\d,]*)/,
+      /(?:お支払い金額|お支払金額|支払い?金額|ご利用金額|決済金額|ご請求金額|請求金額|合計金額|お支払い合計|お支払い総額|総額|合計)[^\d¥￥]{0,15}(\d[\d,]*)\s*(?:円|JPY)/,
+      /[¥￥]\s*(\d[\d,]*)/,
+      /(\d[\d,]*)\s*(?:円|JPY)/,
+    ],
     shopRe: /(?:ご利用店|ご利用先|お支払い先|店舗名|加盟店)[\s:：]*([^\r\n]{1,40})/,
     category: "その他",
   },
@@ -153,9 +161,13 @@ function parse_(rule, msg) {
 }
 
 function parseBlock_(rule, msg, text) {
-  const m = text.match(rule.amountRe);
-  if (!m) return null;
-  const amount = parseInt(m[1].replace(/,/g, ""), 10);
+  // amountRe は配列なら先頭から順に試し、最初に正の金額が読めたものを使う
+  let amount = 0;
+  for (const re of [].concat(rule.amountRe)) {
+    const m = text.match(re);
+    amount = m ? parseInt(m[1].replace(/,/g, ""), 10) : 0;
+    if (amount > 0) break;
+  }
   if (!(amount > 0)) return null;
   const shop = rule.shopRe && text.match(rule.shopRe);
   const name = (shop && shop[1].trim()) || msg.getSubject();
