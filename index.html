@@ -2405,6 +2405,11 @@ input[type="checkbox"]:active, input[type="radio"]:active { transform: scale(1.1
             <div style="font-size: 10.5px; color: var(--muted); margin-bottom: 8px; line-height:1.5;">
               シフト予定をiPhone標準の「カレンダー」アプリに自動で反映します(購読形式のため、更新は数時間おきになることがあります)。
             </div>
+            <div class="form-group">
+              <label>カレンダー用トークン</label>
+              <input type="password" id="calsync-token" class="form-control" placeholder="Worker側のCALENDAR_TOKENと同じ値" autocomplete="off">
+              <div style="font-size: 10.5px; color: var(--muted); margin-top:2px;">※この端末のブラウザ内にのみ保存されます。</div>
+            </div>
             <button class="btn btn-good btn-sm" id="enable-calsync-btn" style="width:100%; margin-bottom:6px;">カレンダー同期を有効にする</button>
             <div id="calsync-url-box" style="display:none; margin-top:6px;">
               <div style="font-size: 10.5px; color: var(--muted); margin-bottom:4px;">
@@ -6546,8 +6551,11 @@ document.addEventListener("visibilitychange", () => {
 const PUSH_VAPID_PUBLIC = "BIxlHppIzQcfgSCQV73FhTbmk3hBql3GSvAev7rXbKBFDBWttDhg4BfWVt0mcyxK0qz6xqmYiam2zkKGQp5A8-M";
 const PUSH_WORKER_URL = "https://paycale-push.s24k1004lx.workers.dev";
 const PUSH_SUB_STATE_KEY = "PAYCALE_PUSH_SUBSCRIBED";
-// 📅 iPhoneカレンダー同期用。Worker側(index.js)のCALENDAR_TOKENと同じ値にしておくこと。
-const CALENDAR_TOKEN = "5abQz3fkq3jp9pMuO-YY0c50";
+// 📅 iPhoneカレンダー同期用トークン。Worker側のCALENDAR_TOKENと同じ値を設定画面で入力する。
+// ソースには埋め込まず、この端末の localStorage にのみ保持する（GitHubトークンと同様）。
+const CALENDAR_TOKEN_KEY = "PAYCALE_CALENDAR_TOKEN";
+function calGetToken() { try { return localStorage.getItem(CALENDAR_TOKEN_KEY) || ""; } catch (e) { return ""; } }
+function calSetToken(t) { try { localStorage.setItem(CALENDAR_TOKEN_KEY, t); } catch (e) {} }
 const CALENDAR_SYNC_STATE_KEY = "PAYCALE_CALENDAR_SYNC_ENABLED";
 
 function urlBase64ToUint8Array(base64String) {
@@ -6733,7 +6741,7 @@ function scheduleCalendarSyncIfEnabled() {
 }
 
 function getCalendarSubscribeUrl() {
-  return `${PUSH_WORKER_URL}/calendar.ics?token=${CALENDAR_TOKEN}`;
+  return `${PUSH_WORKER_URL}/calendar.ics?token=${encodeURIComponent(calGetToken())}`;
 }
 
 function updateCalendarSyncStatusUI() {
@@ -6754,6 +6762,10 @@ function updateCalendarSyncStatusUI() {
 
 async function enableCalendarSync() {
   try {
+    if (!calGetToken()) {
+      showToast("⚠️ 先にカレンダー用トークンを入力してください", "danger");
+      return;
+    }
     try { localStorage.setItem(CALENDAR_SYNC_STATE_KEY, "1"); } catch (e) {}
     await syncCalendarShiftsToPushServer();
     showToast("📅 カレンダー同期を有効にしました");
@@ -8207,6 +8219,14 @@ function bindEvents() {
   }
   updatePushStatusUI();
 
+  const calSyncTokenEl = document.getElementById("calsync-token");
+  if (calSyncTokenEl) {
+    calSyncTokenEl.value = calGetToken();
+    calSyncTokenEl.addEventListener("change", () => {
+      calSetToken(calSyncTokenEl.value.trim());
+      updateCalendarSyncStatusUI();
+    });
+  }
   const enableCalSyncBtn = document.getElementById("enable-calsync-btn");
   if (enableCalSyncBtn) {
     enableCalSyncBtn.addEventListener("click", async () => {
