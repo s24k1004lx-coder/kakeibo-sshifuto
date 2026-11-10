@@ -1590,13 +1590,13 @@ header {
 
 /* --- ヒーロー保存ボタン --- */
 .save-bar-sticky {
+  /* モーダル下端(padding 70px の外側)まで密着させる。背景は上端だけ透明→カード色に溶かす */
   position: sticky;
-  bottom: 0;
+  bottom: -70px;
   z-index: 5;
-  background: var(--card);
-  padding: 8px 0 calc(env(safe-area-inset-bottom, 0px) + 8px) 0;
-  margin-top: 6px;
-  box-shadow: 0 -8px 10px -6px var(--card);
+  margin: 6px -14px -70px -14px;
+  padding: 18px 14px calc(env(safe-area-inset-bottom, 0px) + 30px) 14px;
+  background: linear-gradient(to bottom, transparent 0, var(--card) 16px);
 }
 .btn-hero-save {
   flex: 1;
