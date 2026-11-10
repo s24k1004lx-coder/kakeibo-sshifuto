@@ -990,7 +990,7 @@ select.form-control {
   z-index: 1000;
   display: none;
   flex-direction: column;
-  padding: 8px;
+  padding: 8px 8px calc(env(safe-area-inset-bottom, 0px) + 28px) 8px; /* 下端のホームバー(Siri起動)領域を避ける */
   gap: 6px;
   max-width: 600px;
   margin: 0 auto;
@@ -1589,6 +1589,15 @@ header {
 .pay-preview-hero.is-warn .pay-preview-hero-amount { color: var(--danger); }
 
 /* --- ヒーロー保存ボタン --- */
+.save-bar-sticky {
+  position: sticky;
+  bottom: 0;
+  z-index: 5;
+  background: var(--card);
+  padding: 8px 0 calc(env(safe-area-inset-bottom, 0px) + 8px) 0;
+  margin-top: 6px;
+  box-shadow: 0 -8px 10px -6px var(--card);
+}
 .btn-hero-save {
   flex: 1;
   display: flex;
@@ -2070,6 +2079,11 @@ input[type="checkbox"]:active, input[type="radio"]:active { transform: scale(1.1
               <div style="font-size:9.5px; color:var(--muted);">選択月の支出</div>
               <div style="font-size:14px; font-weight:bold; color:var(--danger);" id="sum-expense">¥0</div>
             </div>
+          </div>
+
+          <div style="background:var(--bg); padding:5px 8px; border-radius:6px; margin-bottom:6px; display:flex; justify-content:space-between; align-items:center;">
+            <span style="font-size:10px; color:var(--muted);">うちバイト収入のみ（お小遣い・立て替え等を除く）</span>
+            <span style="font-size:13px; font-weight:bold; color:var(--good);" id="sum-job-income">¥0</span>
           </div>
 
           <div id="job-pay-details-list" style="margin-bottom: 6px;"></div>
@@ -2555,7 +2569,7 @@ input[type="checkbox"]:active, input[type="radio"]:active { transform: scale(1.1
 
         <div id="shift-pay-preview"></div>
 
-        <div style="display:flex; gap:6px; flex-wrap: wrap;">
+        <div class="save-bar-sticky" style="display:flex; gap:6px; flex-wrap: wrap;">
           <button type="submit" class="btn-hero-save">💾 保存する</button>
           <button type="button" class="btn btn-outline btn-sm" id="btn-new-shift-same-day" style="display:none; width:100%;" onclick="openNewShiftOnDate(document.getElementById('shift-date').value)">＋ 新規シフトを追加</button>
         </div>
@@ -2608,7 +2622,7 @@ input[type="checkbox"]:active, input[type="radio"]:active { transform: scale(1.1
           <input type="text" id="expense-amount" class="amount-display-btn mode-expense calc-input" placeholder="¥0" readonly required>
           <div class="input-error-text" style="font-size:9.5px; color:var(--danger); display:none; margin-top:2px;">⚠️ 計算式が不完全です</div>
         </div>
-        <div style="display:flex; gap:6px;">
+        <div class="save-bar-sticky" style="display:flex; gap:6px;">
           <button type="submit" class="btn-hero-save mode-expense">💸 支出を記録</button>
         </div>
       </form>
@@ -2643,7 +2657,7 @@ input[type="checkbox"]:active, input[type="radio"]:active { transform: scale(1.1
           <input type="text" id="income-amount" class="amount-display-btn mode-income calc-input" placeholder="¥0" readonly required>
           <div class="input-error-text" style="font-size:9.5px; color:var(--danger); display:none; margin-top:2px;">⚠️ 計算式が不完全です</div>
         </div>
-        <div style="display:flex; gap:6px;">
+        <div class="save-bar-sticky" style="display:flex; gap:6px;">
           <button type="submit" class="btn-hero-save mode-income">💵 収入を記録</button>
         </div>
       </form>
@@ -4477,10 +4491,12 @@ function renderSummaryAndPayroll() {
   if (lbl) lbl.textContent = `${year}年${payrollDate.getMonth() + 1}月`;
 
   let jobPayHtml = "";
+  let jobIncTotal = 0; // お小遣い・立て替え等を除いた、バイト収入のみの合計
 
   DB.jobs.forEach(job => {
     const periods = getJobPeriodIncomeList(job, monthStr);
     periods.forEach(p => {
+      jobIncTotal += p.income;
       const payColorStyle = p.isActual ? "color:var(--good);" : "color:var(--muted);";
 
       jobPayHtml += `
@@ -4509,6 +4525,7 @@ function renderSummaryAndPayroll() {
   const balance = monthIncTotal - expTotal;
 
   document.getElementById("sum-income").textContent = `¥${monthIncTotal.toLocaleString()}`;
+  document.getElementById("sum-job-income").textContent = `¥${jobIncTotal.toLocaleString()}`;
   document.getElementById("sum-expense").textContent = `¥${expTotal.toLocaleString()}`;
   document.getElementById("sum-balance").textContent = `¥${balance.toLocaleString()}`;
 
