@@ -1590,12 +1590,13 @@ header {
 
 /* --- ヒーロー保存ボタン --- */
 .save-bar-sticky {
-  /* モーダル下端(padding 70px の外側)まで密着させる。背景は上端だけ透明→カード色に溶かす */
+  /* モーダル下端(padding 70px の外側)まで密着させる。背景は上端だけ透明→カード色に溶かす
+     ※下マージンは 0 にする（負にすると直後の「この日の登録データ」がバーの下に潜り込む） */
   position: sticky;
   bottom: -70px;
   z-index: 5;
-  margin: 6px -14px -70px -14px;
-  padding: 18px 14px calc(env(safe-area-inset-bottom, 0px) + 30px) 14px;
+  margin: 6px -14px 0 -14px;
+  padding: 18px 14px calc(env(safe-area-inset-bottom, 0px) + 12px) 14px;
   background: linear-gradient(to bottom, transparent 0, var(--card) 16px);
 }
 .btn-hero-save {
